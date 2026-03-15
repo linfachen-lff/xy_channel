@@ -13,7 +13,8 @@ import { modifyNoteTool } from "./tools/modify-note-tool.js";
 import { calendarTool } from "./tools/calendar-tool.js";
 import { searchCalendarTool } from "./tools/search-calendar-tool.js";
 import { searchContactTool } from "./tools/search-contact-tool.js";
-import { searchPhotoTool } from "./tools/search-photo-tool.js";
+import { searchPhotoGalleryTool } from "./tools/search-photo-gallery-tool.js";
+import { uploadPhotoTool } from "./tools/upload-photo-tool.js";
 import { getXYWebSocketManager } from "./client.js";
 import { handleXYMessage } from "./bot.js";
 import { logger } from "./utils/logger.js";
@@ -63,7 +64,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   onboarding: xyOnboardingAdapter,
-  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoTool],
+  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool],
 
   messaging: {
     normalizeTarget: (raw) => {
