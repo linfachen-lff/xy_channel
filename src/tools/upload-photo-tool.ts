@@ -17,7 +17,7 @@ import type { A2ADataEvent } from "../types.js";
 export const uploadPhotoTool: any = {
   name: "upload_photo",
   label: "Upload Photo",
-  description: "将手机本地照片回传并获取可公网访问的 URL。使用前必须先调用 search_photo_gallery 工具获取照片的 mediaUri。参数说明：mediaUris 是照片在手机本地的 URI 数组或 JSON 字符串数组（从 search_photo_gallery 工具获取）。限制：每次最多支持传入 5 条 mediaUri。操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。",
+  description: "将手机本地照片回传并获取可公网访问的 URL。使用前必须先调用 search_photo_gallery 工具获取照片的 mediaUri，必须与search_photo_gallery中的mediaUri完全保持一致，不要修改。参数说明：mediaUris 是照片在手机本地的 URI 数组或 JSON 字符串数组（从 search_photo_gallery 工具获取）。限制：每次最多支持传入 5 条 mediaUri。操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。",
   parameters: {
     type: "object",
     properties: {
