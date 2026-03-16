@@ -121,11 +121,34 @@ export const searchContactTool: any = {
             logger.log(`[SEARCH_CONTACT_TOOL] ✅ Contact search completed successfully`);
             logger.log(`[SEARCH_CONTACT_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
-            // Return the result directly as requested
+            // Check for error code first
+            if (event.outputs.retErrCode && event.outputs.retErrCode !== "0") {
+              logger.error(`[SEARCH_CONTACT_TOOL] ❌ Search failed with error code: ${event.outputs.retErrCode}`);
+              logger.error(`[SEARCH_CONTACT_TOOL]   - errMsg: ${event.outputs.errMsg}`);
+              reject(new Error(`搜索联系人失败: ${event.outputs.errMsg || '未知错误'} (错误码: ${event.outputs.retErrCode})`));
+              return;
+            }
+
+            // Get the result
             const result = event.outputs.result;
+
+            // Check if result exists
+            if (!result) {
+              logger.warn(`[SEARCH_CONTACT_TOOL] ⚠️ No result found for name "${params.name}"`);
+              resolve({
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify({ items: [], message: "未找到匹配的联系人" }),
+                  },
+                ],
+              });
+              return;
+            }
 
             logger.log(`[SEARCH_CONTACT_TOOL] 📊 Contacts found: ${result?.items?.length || 0} results for name "${params.name}"`);
 
+            // Return the result with valid string content
             resolve({
               content: [
                 {
