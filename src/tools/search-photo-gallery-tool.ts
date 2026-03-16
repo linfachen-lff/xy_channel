@@ -16,7 +16,7 @@ import type { A2ADataEvent } from "../types.js";
 export const searchPhotoGalleryTool: any = {
   name: "search_photo_gallery",
   label: "Search Photo Gallery",
-  description: "搜索用户手机图库中的照片。根据图像描述语料检索匹配的照片,返回照片在手机本地的 mediaUri。注意:返回的 mediaUri 是本地路径,无法直接下载或访问。如果需要下载、查看、使用或展示照片,请使用 upload_photo 工具将 mediaUri 转换为可访问的公网 URL。操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。注意只有当用户明确表达从手机相册搜索或者从图库搜索时才执行此工具。",
+  description: "插件功能描述：搜索用户手机图库中的照片，如果用户说从手机图库中或者从相册中查询xx图片时调用此工具。根据图像描述语料检索匹配的照片,返回照片在手机本地的 mediaUri。注意:返回的 mediaUri 是本地路径,无法直接下载或访问。如果需要下载、查看、使用或展示照片,请使用 upload_photo 工具将 mediaUri 转换为可访问的公网 URL。操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。注意事项：只有当用户明确表达从手机相册搜索或者从图库搜索时才执行此工具，如果用户仅表达要搜索xxx图片，并没有说明搜索数据源，则不要贸然调用此插件，可以优先尝试websearch或者询问用户是否要从手机图库中搜索。",
   parameters: {
     type: "object",
     properties: {
