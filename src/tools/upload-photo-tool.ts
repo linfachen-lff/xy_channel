@@ -3,7 +3,6 @@ import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
 import { getLatestSessionContext } from "./session-manager.js";
-import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
 /**
@@ -35,52 +34,52 @@ export const uploadPhotoTool: any = {
   },
 
   async execute(toolCallId: string, params: any) {
-    logger.log(`[UPLOAD_PHOTO_TOOL] 🚀 Starting execution`);
-    logger.log(`[UPLOAD_PHOTO_TOOL]   - toolCallId: ${toolCallId}`);
-    logger.log(`[UPLOAD_PHOTO_TOOL]   - params:`, JSON.stringify(params));
-    logger.log(`[UPLOAD_PHOTO_TOOL]   - timestamp: ${new Date().toISOString()}`);
+    console.log(`[UPLOAD_PHOTO_TOOL] 🚀 Starting execution`);
+    console.log(`[UPLOAD_PHOTO_TOOL]   - toolCallId: ${toolCallId}`);
+    console.log(`[UPLOAD_PHOTO_TOOL]   - params:`, JSON.stringify(params));
+    console.log(`[UPLOAD_PHOTO_TOOL]   - timestamp: ${new Date().toISOString()}`);
 
     // Validate parameters
     if (!params.mediaUris || !Array.isArray(params.mediaUris) || params.mediaUris.length === 0) {
-      logger.error(`[UPLOAD_PHOTO_TOOL] ❌ Missing or invalid parameter: mediaUris`);
+      console.error(`[UPLOAD_PHOTO_TOOL] ❌ Missing or invalid parameter: mediaUris`);
       throw new Error("Missing or invalid parameter: mediaUris must be a non-empty array");
     }
 
     // Validate maximum 5 URIs
     if (params.mediaUris.length > 5) {
-      logger.error(`[UPLOAD_PHOTO_TOOL] ❌ Too many mediaUris: ${params.mediaUris.length}`);
+      console.error(`[UPLOAD_PHOTO_TOOL] ❌ Too many mediaUris: ${params.mediaUris.length}`);
       throw new Error(`最多支持 5 条 mediaUri，当前提供了 ${params.mediaUris.length} 条。请分批处理。`);
     }
 
-    logger.log(`[UPLOAD_PHOTO_TOOL]   - mediaUris count: ${params.mediaUris.length}`);
+    console.log(`[UPLOAD_PHOTO_TOOL]   - mediaUris count: ${params.mediaUris.length}`);
 
     // Get session context
-    logger.log(`[UPLOAD_PHOTO_TOOL] 🔍 Attempting to get session context...`);
+    console.log(`[UPLOAD_PHOTO_TOOL] 🔍 Attempting to get session context...`);
     const sessionContext = getLatestSessionContext();
 
     if (!sessionContext) {
-      logger.error(`[UPLOAD_PHOTO_TOOL] ❌ FAILED: No active session found!`);
-      logger.error(`[UPLOAD_PHOTO_TOOL]   - toolCallId: ${toolCallId}`);
+      console.error(`[UPLOAD_PHOTO_TOOL] ❌ FAILED: No active session found!`);
+      console.error(`[UPLOAD_PHOTO_TOOL]   - toolCallId: ${toolCallId}`);
       throw new Error("No active XY session found. Upload photo tool can only be used during an active conversation.");
     }
 
-    logger.log(`[UPLOAD_PHOTO_TOOL] ✅ Session context found`);
-    logger.log(`[UPLOAD_PHOTO_TOOL]   - sessionId: ${sessionContext.sessionId}`);
-    logger.log(`[UPLOAD_PHOTO_TOOL]   - taskId: ${sessionContext.taskId}`);
-    logger.log(`[UPLOAD_PHOTO_TOOL]   - messageId: ${sessionContext.messageId}`);
+    console.log(`[UPLOAD_PHOTO_TOOL] ✅ Session context found`);
+    console.log(`[UPLOAD_PHOTO_TOOL]   - sessionId: ${sessionContext.sessionId}`);
+    console.log(`[UPLOAD_PHOTO_TOOL]   - taskId: ${sessionContext.taskId}`);
+    console.log(`[UPLOAD_PHOTO_TOOL]   - messageId: ${sessionContext.messageId}`);
 
     const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
-    logger.log(`[UPLOAD_PHOTO_TOOL] 🔌 Getting WebSocket manager...`);
+    console.log(`[UPLOAD_PHOTO_TOOL] 🔌 Getting WebSocket manager...`);
     const wsManager = getXYWebSocketManager(config);
-    logger.log(`[UPLOAD_PHOTO_TOOL] ✅ WebSocket manager obtained`);
+    console.log(`[UPLOAD_PHOTO_TOOL] ✅ WebSocket manager obtained`);
 
     // Get public URLs for the photos
-    logger.log(`[UPLOAD_PHOTO_TOOL] 🌐 Getting public URLs for photos...`);
+    console.log(`[UPLOAD_PHOTO_TOOL] 🌐 Getting public URLs for photos...`);
     const imageUrls = await getPhotoUrls(wsManager, config, sessionId, taskId, messageId, params.mediaUris);
 
-    logger.log(`[UPLOAD_PHOTO_TOOL] 🎉 Successfully retrieved ${imageUrls.length} photo URLs`);
+    console.log(`[UPLOAD_PHOTO_TOOL] 🎉 Successfully retrieved ${imageUrls.length} photo URLs`);
 
     return {
       content: [
@@ -109,7 +108,7 @@ async function getPhotoUrls(
   messageId: string,
   mediaUris: string[]
 ): Promise<string[]> {
-  logger.log(`[UPLOAD_PHOTO_TOOL] 📦 Building ImageUploadForClaw command...`);
+  console.log(`[UPLOAD_PHOTO_TOOL] 📦 Building ImageUploadForClaw command...`);
 
   // Build imageInfos array from mediaUris
   const imageInfos = mediaUris.map(mediaUri => ({ mediaUri }));
@@ -150,23 +149,23 @@ async function getPhotoUrls(
 
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      logger.error(`[UPLOAD_PHOTO_TOOL] ⏰ Timeout: No response for ImageUploadForClaw within 60 seconds`);
+      console.error(`[UPLOAD_PHOTO_TOOL] ⏰ Timeout: No response for ImageUploadForClaw within 60 seconds`);
       wsManager.off("data-event", handler);
       reject(new Error("获取照片URL超时（60秒）"));
     }, 60000);
 
     const handler = (event: A2ADataEvent) => {
-      logger.log(`[UPLOAD_PHOTO_TOOL] 📨 Received data event:`, JSON.stringify(event));
+      console.log(`[UPLOAD_PHOTO_TOOL] 📨 Received data event:`, JSON.stringify(event));
 
       if (event.intentName === "ImageUploadForClaw") {
-        logger.log(`[UPLOAD_PHOTO_TOOL] 🎯 ImageUploadForClaw event received`);
-        logger.log(`[UPLOAD_PHOTO_TOOL]   - status: ${event.status}`);
+        console.log(`[UPLOAD_PHOTO_TOOL] 🎯 ImageUploadForClaw event received`);
+        console.log(`[UPLOAD_PHOTO_TOOL]   - status: ${event.status}`);
 
         clearTimeout(timeout);
         wsManager.off("data-event", handler);
 
         if (event.status === "success" && event.outputs) {
-          logger.log(`[UPLOAD_PHOTO_TOOL] ✅ Image URL retrieval completed successfully`);
+          console.log(`[UPLOAD_PHOTO_TOOL] ✅ Image URL retrieval completed successfully`);
 
           const result = event.outputs.result;
           let imageUrls = result?.imageUrls || [];
@@ -177,24 +176,24 @@ async function getPhotoUrls(
             const decodedUrl = url
               .replace(/\\u003d/g, '=')
               .replace(/\\u0026/g, '&');
-            logger.log(`[UPLOAD_PHOTO_TOOL] 🔄 Decoded URL: ${url} -> ${decodedUrl}`);
+            console.log(`[UPLOAD_PHOTO_TOOL] 🔄 Decoded URL: ${url} -> ${decodedUrl}`);
             return decodedUrl;
           });
 
-          logger.log(`[UPLOAD_PHOTO_TOOL] 📊 Retrieved and decoded ${imageUrls.length} image URLs`);
+          console.log(`[UPLOAD_PHOTO_TOOL] 📊 Retrieved and decoded ${imageUrls.length} image URLs`);
           resolve(imageUrls);
         } else {
-          logger.error(`[UPLOAD_PHOTO_TOOL] ❌ Image URL retrieval failed`);
-          logger.error(`[UPLOAD_PHOTO_TOOL]   - status: ${event.status}`);
+          console.error(`[UPLOAD_PHOTO_TOOL] ❌ Image URL retrieval failed`);
+          console.error(`[UPLOAD_PHOTO_TOOL]   - status: ${event.status}`);
           reject(new Error(`获取照片URL失败: ${event.status}`));
         }
       }
     };
 
-    logger.log(`[UPLOAD_PHOTO_TOOL] 📡 Registering data-event handler for ImageUploadForClaw`);
+    console.log(`[UPLOAD_PHOTO_TOOL] 📡 Registering data-event handler for ImageUploadForClaw`);
     wsManager.on("data-event", handler);
 
-    logger.log(`[UPLOAD_PHOTO_TOOL] 📤 Sending ImageUploadForClaw command...`);
+    console.log(`[UPLOAD_PHOTO_TOOL] 📤 Sending ImageUploadForClaw command...`);
     sendCommand({
       config,
       sessionId,
@@ -203,10 +202,10 @@ async function getPhotoUrls(
       command,
     })
       .then(() => {
-        logger.log(`[UPLOAD_PHOTO_TOOL] ✅ ImageUploadForClaw command sent successfully`);
+        console.log(`[UPLOAD_PHOTO_TOOL] ✅ ImageUploadForClaw command sent successfully`);
       })
       .catch((error) => {
-        logger.error(`[UPLOAD_PHOTO_TOOL] ❌ Failed to send ImageUploadForClaw command:`, error);
+        console.error(`[UPLOAD_PHOTO_TOOL] ❌ Failed to send ImageUploadForClaw command:`, error);
         clearTimeout(timeout);
         wsManager.off("data-event", handler);
         reject(error);
