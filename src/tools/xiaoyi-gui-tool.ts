@@ -22,19 +22,19 @@ export const xiaoyiGuiTool: any = {
 - 需要在APP中发布或发送内容
 - 需要修改APP或手机设置
 
-理论上，所有可以通过人在手机上操作完成的任务，该Agent都可以尝试执行。
-
 注意事项：
-- 操作超时时间为5分钟（300秒）
+- 操作超时时间为3分钟（180秒）
 - 该工具执行时间较长，请勿重复调用
-- 如果超时或失败，最多重试一次`,
+- 该工具执行期间不要执行别的工具调用，必须等到该工具有结果返回或者超时之后才能执行别的操作，无论是新的文本回复还是下一步的工具调用，在此工具执行期间必须严格等待
+- 如果超时或失败，最多重试一次
+`,
 
   parameters: {
     type: "object",
     properties: {
       query: {
         type: "string",
-        description: "操作手机的指令以及期望返回的结果。例如：'打开微信，查看最新一条消息的内容' 或 '在设置中开启蓝牙'",
+        description: "操作手机的指令以及期望返回的结果。",
       },
     },
     required: ["query"],
@@ -100,7 +100,7 @@ export const xiaoyiGuiTool: any = {
         logger.error(`[XIAOYI_GUI_TOOL] ⏰ Timeout: No response received within 300 seconds (5 minutes)`);
         wsManager.off("gui-agent-response", handler);
         reject(new Error("XiaoYi GUI Agent 操作超时（5分钟）"));
-      }, 300000); // 5 minutes timeout
+      }, 180000); // 5 minutes timeout
 
       // Listen for GUI agent response events
       const handler = (event: any) => {
