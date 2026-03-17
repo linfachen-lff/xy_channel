@@ -4,6 +4,7 @@ import { createReplyPrefixContext } from "openclaw/plugin-sdk";
 import { getXYRuntime } from "./runtime.js";
 import { sendA2AResponse, sendStatusUpdate, sendReasoningTextUpdate } from "./formatter.js";
 import { resolveXYConfig } from "./config.js";
+import { getCurrentTaskId, getCurrentMessageId } from "./task-manager.js";
 import type { XYChannelConfig } from "./types.js";
 
 export interface CreateXYReplyDispatcherParams {
@@ -13,6 +14,7 @@ export interface CreateXYReplyDispatcherParams {
   taskId: string;
   messageId: string;
   accountId: string;
+  isSteerFollower?: boolean;  // 🔑 新增：标记是否是steer模式的第二条消息
 }
 
 /**
@@ -21,50 +23,61 @@ export interface CreateXYReplyDispatcherParams {
  * Runtime is expected to be validated before calling this function.
  */
 export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): any {
-  const { cfg, runtime, sessionId, taskId, messageId, accountId } = params;
+  const { cfg, runtime, sessionId, taskId, messageId, accountId, isSteerFollower } = params;
   const log = runtime?.log ?? console.log;
   const error = runtime?.error ?? console.error;
 
-  log(`[DISPATCHER-CREATE] ******* Creating dispatcher for session=${sessionId}, taskId=${taskId}, messageId=${messageId} *******`);
-  log(`[DISPATCHER-CREATE] Stack trace:`, new Error().stack?.split('\n').slice(1, 4).join('\n'));
+  log(`[DISPATCHER-CREATE] ******* Creating dispatcher *******`);
+  log(`[DISPATCHER-CREATE]   - sessionId: ${sessionId}`);
+  log(`[DISPATCHER-CREATE]   - taskId: ${taskId}`);
+  log(`[DISPATCHER-CREATE]   - messageId: ${messageId}`);
+  log(`[DISPATCHER-CREATE]   - isSteerFollower: ${isSteerFollower ?? false}`);
 
-  log(`[DISPATCHER-CREATE] ======== Creating reply dispatcher ========`);
-  log(`[DISPATCHER-CREATE] sessionId: ${sessionId}, taskId: ${taskId}, messageId: ${messageId}`);
-  log(`[DISPATCHER-CREATE] Stack trace:`, new Error().stack?.split('\n').slice(1, 4).join('\n'));
+  // 初始taskId和messageId（作为fallback）
+  const initialTaskId = taskId;
+  const initialMessageId = messageId;
 
-  // Get runtime (already validated in monitor.ts, but get reference for use)
+  /**
+   * 🔑 核心改造：动态获取当前活跃的taskId和messageId
+   * 每次需要taskId时，都从TaskManager获取最新值
+   */
+  const getActiveTaskId = (): string => {
+    return getCurrentTaskId(sessionId) ?? initialTaskId;
+  };
+
+  const getActiveMessageId = (): string => {
+    return getCurrentMessageId(sessionId) ?? initialMessageId;
+  };
+
   const core = getXYRuntime();
-
-  // Resolve configuration
   const config: XYChannelConfig = resolveXYConfig(cfg);
-
-  // Create reply prefix context (for model selection, etc.)
   const prefixContext = createReplyPrefixContext({ cfg, agentId: accountId });
 
-  // Status update interval (every 60 seconds)
   let statusUpdateInterval: NodeJS.Timeout | null = null;
-
-  // Track if we've sent any response
   let hasSentResponse = false;
-  // Track if we've sent the final empty message
   let finalSent = false;
-  // Accumulate all text from deliver calls
   let accumulatedText = "";
 
   /**
    * Start the status update interval
-   * Call this immediately after creating the dispatcher
    */
   const startStatusInterval = () => {
-    log(`[STATUS INTERVAL] Starting interval for session ${sessionId}, taskId=${taskId}`);
+    log(`[STATUS INTERVAL] Starting interval for session ${sessionId}`);
 
     statusUpdateInterval = setInterval(() => {
-      log(`[STATUS INTERVAL] Triggering status update for session ${sessionId}, taskId=${taskId}`);
+      // 🔑 使用动态taskId
+      const currentTaskId = getActiveTaskId();
+      const currentMessageId = getActiveMessageId();
+
+      log(`[STATUS INTERVAL] Triggering status update`);
+      log(`[STATUS INTERVAL]   - sessionId: ${sessionId}`);
+      log(`[STATUS INTERVAL]   - currentTaskId: ${currentTaskId}`);
+
       void sendStatusUpdate({
         config,
         sessionId,
-        taskId,
-        messageId,
+        taskId: currentTaskId,  // 🔑 动态taskId
+        messageId: currentMessageId,  // 🔑 动态messageId
         text: "任务正在处理中，请稍后~",
         state: "working",
       }).catch((err) => {
@@ -73,15 +86,11 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
     }, 30000); // 30 seconds
   };
 
-  /**
-   * Stop the status update interval
-   */
   const stopStatusInterval = () => {
     if (statusUpdateInterval) {
-      log(`[STATUS INTERVAL] Stopping interval for session ${sessionId}, taskId=${taskId}`);
+      log(`[STATUS INTERVAL] Stopping interval for session ${sessionId}`);
       clearInterval(statusUpdateInterval);
       statusUpdateInterval = null;
-      log(`[STATUS INTERVAL] Stopped interval for session ${sessionId}, taskId=${taskId}`);
     }
   };
 
@@ -92,38 +101,33 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
       humanDelay: core.channel.reply.resolveHumanDelayConfig(cfg, accountId),
 
       onReplyStart: () => {
-        log(`[REPLY START] Reply started for session ${sessionId}, taskId=${taskId}`);
-        // Status update interval is now managed externally
+        const currentTaskId = getActiveTaskId();
+        log(`[REPLY START] Reply started for session ${sessionId}, taskId=${currentTaskId}, isSteerFollower=${isSteerFollower}`);
       },
 
       deliver: async (payload: ReplyPayload, info) => {
         const text = payload.text ?? "";
+        const currentTaskId = getActiveTaskId();
+        const currentMessageId = getActiveMessageId();
 
-        // 🔍 Debug logging
-        log(`[DELIVER] sessionId=${sessionId}, info.kind=${info?.kind}, text.length=${text.length}, text="${text.slice(0, 200)}"`);
-        log(`[DELIVER] payload keys: ${Object.keys(payload).join(", ")}`);
-        if (payload.mediaUrls) {
-          log(`[DELIVER] mediaUrls: ${payload.mediaUrls.length} files`);
-        }
+        log(`[DELIVER] sessionId=${sessionId}, taskId=${currentTaskId}, info.kind=${info?.kind}, text.length=${text.length}`);
 
         try {
-          // Skip empty messages
           if (!text.trim()) {
             log(`[DELIVER SKIP] Empty text, skipping`);
             return;
           }
 
-          // Accumulate text instead of sending immediately
           accumulatedText += text;
           hasSentResponse = true;
           log(`[DELIVER ACCUMULATE] Accumulated text, current length=${accumulatedText.length}`);
 
-          // Also stream text as reasoningText for real-time display
+          // 🔑 使用动态taskId发送reasoningText更新
           await sendReasoningTextUpdate({
             config,
             sessionId,
-            taskId,
-            messageId,
+            taskId: currentTaskId,
+            messageId: currentMessageId,
             text,
           });
           log(`[DELIVER] ✅ Sent deliver text as reasoningText update`);
@@ -134,18 +138,24 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
 
       onError: async (err, info) => {
         runtime.error?.(`xy: ${info.kind} reply failed: ${String(err)}`);
-
-        // Stop status updates
         stopStatusInterval();
 
-        // Send error status if we haven't sent any response yet
+        // 🔑 steer follower不发送错误状态（让主dispatcher处理）
+        if (isSteerFollower) {
+          log(`[ON_ERROR] Steer follower - skipping error response`);
+          return;
+        }
+
         if (!hasSentResponse) {
+          const currentTaskId = getActiveTaskId();
+          const currentMessageId = getActiveMessageId();
+
           try {
             await sendStatusUpdate({
               config,
               sessionId,
-              taskId,
-              messageId,
+              taskId: currentTaskId,
+              messageId: currentMessageId,
               text: "处理失败，请稍后重试",
               state: "failed",
             });
@@ -156,47 +166,63 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
       },
 
       onIdle: async () => {
-        log(`[ON_IDLE] Reply idle for session ${sessionId}, hasSentResponse=${hasSentResponse}, finalSent=${finalSent}`);
+        const currentTaskId = getActiveTaskId();
+        const currentMessageId = getActiveMessageId();
 
-        // Send accumulated text with append=false and final=true
+        log(`[ON_IDLE] Reply idle`);
+        log(`[ON_IDLE]   - sessionId: ${sessionId}`);
+        log(`[ON_IDLE]   - taskId: ${currentTaskId}`);
+        log(`[ON_IDLE]   - isSteerFollower: ${isSteerFollower}`);
+        log(`[ON_IDLE]   - hasSentResponse: ${hasSentResponse}`);
+        log(`[ON_IDLE]   - finalSent: ${finalSent}`);
+
+        // 🔑 核心改动：steer follower不发送final响应
+        if (isSteerFollower) {
+          log(`[ON_IDLE] Steer follower - skipping final response`);
+          log(`[ON_IDLE]   - Message queued successfully, waiting for primary dispatcher`);
+          stopStatusInterval();
+          return;  // ← 直接返回，不发送任何东西！
+        }
+
+        // 正常模式（或steer的第一条消息）
         if (hasSentResponse && !finalSent) {
           log(`[ON_IDLE] Sending accumulated text, length=${accumulatedText.length}`);
           try {
-            // Send status update before final message
+            // 🔑 使用动态taskId发送完成状态
             await sendStatusUpdate({
               config,
               sessionId,
-              taskId,
-              messageId,
+              taskId: currentTaskId,
+              messageId: currentMessageId,
               text: "任务处理已完成~",
               state: "completed",
             });
             log(`[ON_IDLE] ✅ Sent completion status update`);
 
+            // 🔑 使用动态taskId发送最终响应
             await sendA2AResponse({
               config,
               sessionId,
-              taskId,
-              messageId,
+              taskId: currentTaskId,
+              messageId: currentMessageId,
               text: accumulatedText,
               append: false,
               final: true,
             });
             finalSent = true;
-            log(`[ON_IDLE] Sent accumulated text`);
+            log(`[ON_IDLE] ✅ Sent final response with taskId=${currentTaskId}`);
           } catch (err) {
-            error(`[ON_IDLE] Failed to send accumulated text:`, err);
+            error(`[ON_IDLE] Failed to send final response:`, err);
           }
         } else {
+          // 正常失败场景（非steer follower）
           log(`[ON_IDLE] Skipping final message: hasSentResponse=${hasSentResponse}, finalSent=${finalSent}`);
-
-          // Task was interrupted - send failure status and error response
           try {
             await sendStatusUpdate({
               config,
               sessionId,
-              taskId,
-              messageId,
+              taskId: currentTaskId,
+              messageId: currentMessageId,
               text: "任务处理中断了~",
               state: "failed",
             });
@@ -205,8 +231,8 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
             await sendA2AResponse({
               config,
               sessionId,
-              taskId,
-              messageId,
+              taskId: currentTaskId,
+              messageId: currentMessageId,
               text: "任务执行异常，请重试~",
               append: false,
               final: true,
@@ -214,16 +240,16 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
             finalSent = true;
             log(`[ON_IDLE] ✅ Sent error response`);
           } catch (err) {
-            error(`[ON_IDLE] Failed to send failure status and error response:`, err);
+            error(`[ON_IDLE] Failed to send error response:`, err);
           }
         }
 
-        // Stop status updates
         stopStatusInterval();
       },
 
       onCleanup: () => {
-        log(`[ON_CLEANUP] Reply cleanup for session ${sessionId}, hasSentResponse=${hasSentResponse}, finalSent=${finalSent}`);
+        const currentTaskId = getActiveTaskId();
+        log(`[ON_CLEANUP] Reply cleanup, taskId=${currentTaskId}, isSteerFollower=${isSteerFollower}`);
       },
     });
 
@@ -233,9 +259,16 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
       ...replyOptions,
       onModelSelected: prefixContext.onModelSelected,
 
-      // 🔧 Tool execution start callback
       onToolStart: async ({ name, phase }) => {
-        log(`[TOOL START] 🔧 Tool execution started/updated: name=${name}, phase=${phase}, session=${sessionId}, taskId=${taskId}`);
+        // 🔑 steer follower不发送tool状态（让主dispatcher处理）
+        if (isSteerFollower) {
+          return;
+        }
+
+        const currentTaskId = getActiveTaskId();
+        const currentMessageId = getActiveMessageId();
+
+        log(`[TOOL START] Tool: ${name}, phase: ${phase}, taskId: ${currentTaskId}`);
 
         if (phase === "start") {
           const toolName = name || "unknown";
@@ -243,8 +276,8 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
             await sendStatusUpdate({
               config,
               sessionId,
-              taskId,
-              messageId,
+              taskId: currentTaskId,
+              messageId: currentMessageId,
               text: `正在使用工具: ${toolName}...`,
               state: "working",
             });
@@ -255,18 +288,18 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
         }
       },
 
-      // 🔧 Tool execution result callback
       onToolResult: async (payload: ReplyPayload) => {
+        // 🔑 steer follower不发送tool结果（让主dispatcher处理）
+        if (isSteerFollower) {
+          return;
+        }
+
+        const currentTaskId = getActiveTaskId();
+        const currentMessageId = getActiveMessageId();
         const text = payload.text ?? "";
         const hasMedia = Boolean(payload.mediaUrl || (payload.mediaUrls?.length ?? 0) > 0);
 
-        log(`[TOOL RESULT] 🔧 Tool execution result received: session=${sessionId}, taskId=${taskId}`);
-        log(`[TOOL RESULT]   - text.length=${text.length}`);
-        log(`[TOOL RESULT]   - hasMedia=${hasMedia}`);
-        log(`[TOOL RESULT]   - isError=${payload.isError}`);
-        if (text.length > 0) {
-          log(`[TOOL RESULT]   - text preview: "${text.slice(0, 200)}"`);
-        }
+        log(`[TOOL RESULT] Tool result, taskId: ${currentTaskId}, text.length: ${text.length}`);
 
         try {
           if (text.length > 0 || hasMedia) {
@@ -275,8 +308,8 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
             await sendStatusUpdate({
               config,
               sessionId,
-              taskId,
-              messageId,
+              taskId: currentTaskId,
+              messageId: currentMessageId,
               text: resultText,
               state: "working",
             });
@@ -287,58 +320,50 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
         }
       },
 
-      // 🧠 Reasoning/thinking process streaming callback
       onReasoningStream: async (payload: ReplyPayload) => {
-        const text = payload.text ?? "";
-
-        log(`[REASONING STREAM] 🧠 Reasoning/thinking chunk received: session=${sessionId}, taskId=${taskId}`);
-        log(`[REASONING STREAM]   - text.length=${text.length}`);
-        if (text.length > 0) {
-          log(`[REASONING STREAM]   - text preview: "${text.slice(0, 200)}"`);
+        // 🔑 steer follower不发送reasoning stream
+        if (isSteerFollower) {
+          return;
         }
 
-        // try {
-        //   if (text.length > 0) {
-        //     await sendReasoningTextUpdate({
-        //       config,
-        //       sessionId,
-        //       taskId,
-        //       messageId,
-        //       text,
-        //     });
-        //     log(`[REASONING STREAM] ✅ Sent reasoning chunk as reasoningText update`);
-        //   }
-        // } catch (err) {
-        //   error(`[REASONING STREAM] ❌ Failed to send reasoning chunk reasoningText:`, err);
-        // }
+        const text = payload.text ?? "";
+        log(`[REASONING STREAM] Reasoning chunk received, text.length: ${text.length}`);
+
+        // Reasoning stream 目前被注释掉
+        // 如果需要可以启用
       },
 
-      // 📝 Partial reply streaming callback (real-time preview)
       onPartialReply: async (payload: ReplyPayload) => {
-        const text = payload.text ?? "";
-        const hasMedia = Boolean(payload.mediaUrl || (payload.mediaUrls?.length ?? 0) > 0);
+        // 🔑 steer follower不发送partial reply（让主dispatcher处理）
+        if (isSteerFollower) {
+          return;
+        }
 
-        log(`[PARTIAL REPLY] 📝 Partial reply chunk received: session=${sessionId}, taskId=${taskId}`);
+        const currentTaskId = getActiveTaskId();
+        const currentMessageId = getActiveMessageId();
+        const text = payload.text ?? "";
+
+        log(`[PARTIAL REPLY] Partial reply chunk received, taskId: ${currentTaskId}`);
 
         try {
           if (text.length > 0) {
             await sendReasoningTextUpdate({
               config,
               sessionId,
-              taskId,
-              messageId,
+              taskId: currentTaskId,
+              messageId: currentMessageId,
               text,
               append: false,
             });
-            log(`[PARTIAL REPLY] ✅ Sent partial reply as reasoningText update (append=false)`);
+            log(`[PARTIAL REPLY] ✅ Sent partial reply as reasoningText update`);
           }
         } catch (err) {
-          error(`[PARTIAL REPLY] ❌ Failed to send partial reply reasoningText:`, err);
+          error(`[PARTIAL REPLY] ❌ Failed to send partial reply:`, err);
         }
       },
     },
     markDispatchIdle,
-    startStatusInterval,  // Expose this to be called immediately
-    stopStatusInterval,   // Expose this for manual control if needed
+    startStatusInterval,
+    stopStatusInterval,
   };
 }
