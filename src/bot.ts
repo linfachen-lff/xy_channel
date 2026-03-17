@@ -8,6 +8,14 @@ import { resolveXYConfig } from "./config.js";
 import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse } from "./formatter.js";
 import { registerSession, unregisterSession } from "./tools/session-manager.js";
 import { configManager } from "./utils/config-manager.js";
+import {
+  registerTaskId,
+  incrementTaskIdRef,
+  decrementTaskIdRef,
+  lockTaskId,
+  unlockTaskId,
+  hasActiveTask,
+} from "./task-manager.js";
 import type { A2AJsonRpcRequest } from "./types.js";
 
 /**
@@ -77,6 +85,30 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     // Parse the A2A message (for regular messages)
     const parsed = parseA2AMessage(message);
 
+    // 🔑 检测steer模式和是否是第二条消息
+    const isSteerMode = cfg.messages?.queue?.mode === "steer";
+    const isSecondMessage = isSteerMode && hasActiveTask(parsed.sessionId);
+
+    if (isSecondMessage) {
+      log(`[BOT] 🔄 STEER MODE - Second message detected (will be follower)`);
+      log(`[BOT]   - Session: ${parsed.sessionId}`);
+      log(`[BOT]   - New taskId: ${parsed.taskId} (will replace current)`);
+    }
+
+    // 🔑 注册taskId（第二条消息会覆盖第一条的taskId）
+    const { isUpdate, refCount } = registerTaskId(
+      parsed.sessionId,
+      parsed.taskId,
+      parsed.messageId,
+      { incrementRef: true }  // 增加引用计数
+    );
+
+    // 🔑 如果是第一条消息，锁定taskId防止被过早清理
+    if (!isUpdate) {
+      lockTaskId(parsed.sessionId);
+      log(`[BOT] 🔒 Locked taskId for first message`);
+    }
+
     // Extract and update push_id if present
     const pushId = extractPushId(parsed.parts);
     if (pushId) {
@@ -107,11 +139,12 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     log(`xy: resolved route accountId=${route.accountId}, sessionKey=${route.sessionKey}`);
 
-    // Register session context for tools
+    // 🔑 注册session（带引用计数）
     log(`[BOT] 📝 About to register session for tools...`);
     log(`[BOT]   - sessionKey: ${route.sessionKey}`);
     log(`[BOT]   - sessionId: ${parsed.sessionId}`);
     log(`[BOT]   - taskId: ${parsed.taskId}`);
+    log(`[BOT]   - isSecondMessage: ${isSecondMessage}`);
 
     registerSession(route.sessionKey, {
       config,
@@ -123,14 +156,14 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     log(`[BOT] ✅ Session registered for tools`);
 
-    // Send initial status update immediately after parsing message
+    // 🔑 发送初始状态更新（第二条消息也要发，用新taskId）
     log(`[STATUS] Sending initial status update for session ${parsed.sessionId}`);
     void sendStatusUpdate({
       config,
       sessionId: parsed.sessionId,
       taskId: parsed.taskId,
       messageId: parsed.messageId,
-      text: "任务正在处理中，请稍后~",
+      text: isSecondMessage ? "新消息已接收，正在处理..." : "任务正在处理中，请稍后~",
       state: "working",
     }).catch((err) => {
       error(`Failed to send initial status update:`, err);
@@ -191,34 +224,31 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       ...mediaPayload,
     });
 
-    // Send initial status update immediately after parsing message
-    log(`[STATUS] Sending initial status update for session ${parsed.sessionId}`);
-    void sendStatusUpdate({
-      config,
-      sessionId: parsed.sessionId,
-      taskId: parsed.taskId,
-      messageId: parsed.messageId,
-      text: "任务正在处理中，请稍后~",
-      state: "working",
-    }).catch((err) => {
-      error(`Failed to send initial status update:`, err);
-    });
+    // 🔑 创建dispatcher（dispatcher会自动使用动态taskId）
+    log(`[BOT-DISPATCHER] 🎯 Creating reply dispatcher`);
+    log(`[BOT-DISPATCHER]   - session: ${parsed.sessionId}`);
+    log(`[BOT-DISPATCHER]   - taskId: ${parsed.taskId}`);
+    log(`[BOT-DISPATCHER]   - isSecondMessage: ${isSecondMessage}`);
 
-    // Create reply dispatcher (following feishu pattern)
-    log(`[BOT-DISPATCHER] 🎯 Creating reply dispatcher for session=${parsed.sessionId}, taskId=${parsed.taskId}, messageId=${parsed.messageId}`);
     const { dispatcher, replyOptions, markDispatchIdle, startStatusInterval } = createXYReplyDispatcher({
       cfg,
       runtime,
       sessionId: parsed.sessionId,
       taskId: parsed.taskId,
       messageId: parsed.messageId,
-      accountId: route.accountId,  // ✅ Use route.accountId
+      accountId: route.accountId,
+      isSteerFollower: isSecondMessage,  // 🔑 标记第二条消息
     });
     log(`[BOT-DISPATCHER] ✅ Reply dispatcher created successfully`);
 
-    // Start status update interval (will send updates every 60 seconds)
-    // Interval will be automatically stopped when onIdle/onCleanup is triggered
-    startStatusInterval();
+    // 🔑 只有第一条消息启动状态定时器
+    // 第二条消息会很快返回，不需要定时器
+    if (!isSecondMessage) {
+      startStatusInterval();
+      log(`[BOT-DISPATCHER] ✅ Status interval started for first message`);
+    } else {
+      log(`[BOT-DISPATCHER] ⏭️  Skipped status interval for steer follower`);
+    }
 
     log(`xy: dispatching to agent (session=${parsed.sessionId})`);
 
@@ -229,13 +259,23 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       dispatcher,
       onSettled: () => {
         log(`[BOT] 🏁 onSettled called for session: ${route.sessionKey}`);
-        log(`[BOT]   - About to unregister session...`);
+        log(`[BOT]   - isSecondMessage: ${isSecondMessage}`);
 
         markDispatchIdle();
-        // Unregister session context when done
+
+        // 🔑 减少引用计数
+        decrementTaskIdRef(parsed.sessionId);
+
+        // 🔑 如果是第一条消息完成，解锁
+        if (!isSecondMessage) {
+          unlockTaskId(parsed.sessionId);
+          log(`[BOT] 🔓 Unlocked taskId (first message completed)`);
+        }
+
+        // 减少session引用计数
         unregisterSession(route.sessionKey);
 
-        log(`[BOT] ✅ Session unregistered in onSettled`);
+        log(`[BOT] ✅ Cleanup completed`);
       },
       run: () =>
         core.channel.reply.dispatchReplyFromConfig({
@@ -255,27 +295,31 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     log(`[BOT] ❌ Error occurred, attempting cleanup...`);
 
-    // Try to unregister session on error (if route was established)
+    // 🔑 错误时也要清理taskId和session
     try {
-      const core = getXYRuntime() as any;
       const params = message.params as any;
       const sessionId = params?.sessionId;
       if (sessionId) {
-        log(`[BOT] 🧹 Cleaning up session after error: ${sessionId}`);
+        log(`[BOT] 🧹 Cleaning up after error: ${sessionId}`);
 
+        // 清理 taskId
+        decrementTaskIdRef(sessionId);
+        unlockTaskId(sessionId);
+
+        // 清理 session
+        const core = getXYRuntime() as any;
         const route = core.channel.routing.resolveAgentRoute({
           cfg,
           channel: "xiaoyi-channel",
           accountId,
           peer: {
             kind: "direct" as const,
-            id: sessionId,  // ✅ Use sessionId for cleanup consistency
+            id: sessionId,
           },
         });
 
-        log(`[BOT]   - Unregistering session: ${route.sessionKey}`);
         unregisterSession(route.sessionKey);
-        log(`[BOT] ✅ Session unregistered after error`);
+        log(`[BOT] ✅ Cleanup completed after error`);
       }
     } catch (cleanupErr) {
       log(`[BOT] ⚠️  Cleanup failed:`, cleanupErr);

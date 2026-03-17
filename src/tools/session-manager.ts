@@ -12,8 +12,12 @@ export interface SessionContext {
   agentId: string;
 }
 
-// Map of sessionKey -> SessionContext
-const activeSessions = new Map<string, SessionContext>();
+interface SessionContextWithRef extends SessionContext {
+  refCount: number;  // 引用计数
+}
+
+// Map of sessionKey -> SessionContextWithRef
+const activeSessions = new Map<string, SessionContextWithRef>();
 
 /**
  * Register a session context for tool access.
@@ -27,7 +31,21 @@ export function registerSession(sessionKey: string, context: SessionContext): vo
   logger.log(`[SESSION_MANAGER]   - agentId: ${context.agentId}`);
   logger.log(`[SESSION_MANAGER]   - Active sessions before: ${activeSessions.size}`);
 
-  activeSessions.set(sessionKey, context);
+  const existing = activeSessions.get(sessionKey);
+  if (existing) {
+    // 更新上下文，增加引用计数
+    existing.taskId = context.taskId;
+    existing.messageId = context.messageId;
+    existing.refCount++;
+    logger.log(`[SESSION_MANAGER]   - Updated existing, refCount=${existing.refCount}`);
+  } else {
+    // 新建
+    activeSessions.set(sessionKey, {
+      ...context,
+      refCount: 1,
+    });
+    logger.log(`[SESSION_MANAGER]   - Created new, refCount=1`);
+  }
 
   logger.log(`[SESSION_MANAGER]   - Active sessions after: ${activeSessions.size}`);
   logger.log(`[SESSION_MANAGER]   - All session keys: [${Array.from(activeSessions.keys()).join(", ")}]`);
@@ -42,16 +60,21 @@ export function unregisterSession(sessionKey: string): void {
   logger.log(`[SESSION_MANAGER]   - Active sessions before: ${activeSessions.size}`);
   logger.log(`[SESSION_MANAGER]   - Session existed: ${activeSessions.has(sessionKey)}`);
 
-  // Get session context before deleting to clear associated pushId
-  const context = activeSessions.get(sessionKey);
-  const existed = activeSessions.delete(sessionKey);
-
-  // Clear cached pushId for this session
-  if (context) {
-    configManager.clearSession(context.sessionId);
+  const existing = activeSessions.get(sessionKey);
+  if (!existing) {
+    logger.log(`[SESSION_MANAGER]   - Session not found`);
+    return;
   }
 
-  logger.log(`[SESSION_MANAGER]   - Deleted: ${existed}`);
+  existing.refCount--;
+  logger.log(`[SESSION_MANAGER]   - Decremented refCount: ${existing.refCount}`);
+
+  if (existing.refCount <= 0) {
+    activeSessions.delete(sessionKey);
+    configManager.clearSession(existing.sessionId);
+    logger.log(`[SESSION_MANAGER]   - Deleted (refCount=0)`);
+  }
+
   logger.log(`[SESSION_MANAGER]   - Active sessions after: ${activeSessions.size}`);
   logger.log(`[SESSION_MANAGER]   - Remaining session keys: [${Array.from(activeSessions.keys()).join(", ")}]`);
 }
@@ -64,14 +87,17 @@ export function getSessionContext(sessionKey: string): SessionContext | null {
   logger.log(`[SESSION_MANAGER] 🔍 Getting session by key: ${sessionKey}`);
   logger.log(`[SESSION_MANAGER]   - Active sessions: ${activeSessions.size}`);
 
-  const context = activeSessions.get(sessionKey) ?? null;
+  const contextWithRef = activeSessions.get(sessionKey) ?? null;
 
-  logger.log(`[SESSION_MANAGER]   - Found: ${context !== null}`);
-  if (context) {
-    logger.log(`[SESSION_MANAGER]   - sessionId: ${context.sessionId}`);
+  logger.log(`[SESSION_MANAGER]   - Found: ${contextWithRef !== null}`);
+  if (contextWithRef) {
+    logger.log(`[SESSION_MANAGER]   - sessionId: ${contextWithRef.sessionId}`);
+    // 返回时去掉refCount字段
+    const { refCount, ...context } = contextWithRef;
+    return context;
   }
 
-  return context;
+  return null;
 }
 
 /**
@@ -91,12 +117,14 @@ export function getLatestSessionContext(): SessionContext | null {
 
   // Return the last added session
   const sessions = Array.from(activeSessions.values());
-  const latestSession = sessions[sessions.length - 1];
+  const latestSessionWithRef = sessions[sessions.length - 1];
 
   logger.log(`[SESSION_MANAGER]   - ✅ Found latest session:`);
-  logger.log(`[SESSION_MANAGER]     - sessionId: ${latestSession.sessionId}`);
-  logger.log(`[SESSION_MANAGER]     - taskId: ${latestSession.taskId}`);
-  logger.log(`[SESSION_MANAGER]     - messageId: ${latestSession.messageId}`);
+  logger.log(`[SESSION_MANAGER]     - sessionId: ${latestSessionWithRef.sessionId}`);
+  logger.log(`[SESSION_MANAGER]     - taskId: ${latestSessionWithRef.taskId}`);
+  logger.log(`[SESSION_MANAGER]     - messageId: ${latestSessionWithRef.messageId}`);
 
+  // 返回时去掉refCount字段
+  const { refCount, ...latestSession } = latestSessionWithRef;
   return latestSession;
 }
