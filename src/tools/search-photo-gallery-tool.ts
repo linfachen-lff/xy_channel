@@ -75,16 +75,16 @@ export const searchPhotoGalleryTool: any = {
 
     // Search for photos
     logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📸 Searching for photos...`);
-    const mediaUris = await searchPhotos(wsManager, config, sessionId, taskId, messageId, params.query);
+    const items = await searchPhotos(wsManager, config, sessionId, taskId, messageId, params.query);
 
-    if (!mediaUris || mediaUris.length === 0) {
+    if (!items || items.length === 0) {
       logger.warn(`[SEARCH_PHOTO_GALLERY_TOOL] ⚠️ No photos found for query: ${params.query}`);
       return {
         content: [
           {
             type: "text",
             text: JSON.stringify({
-              mediaUris: [],
+              items: [],
               count: 0,
               message: "未找到匹配的照片"
             }),
@@ -93,17 +93,17 @@ export const searchPhotoGalleryTool: any = {
       };
     }
 
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] ✅ Found ${mediaUris.length} photos`);
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - mediaUris:`, JSON.stringify(mediaUris));
+    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] ✅ Found ${items.length} photos`);
+    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - items:`, JSON.stringify(items));
 
     return {
       content: [
         {
           type: "text",
           text: JSON.stringify({
-            mediaUris,
-            count: mediaUris.length,
-            message: `找到 ${mediaUris.length} 张照片。注意：这些是本地 URI，无法直接访问。如需下载或查看，请使用 upload_photo 工具。`
+            items,
+            count: items.length,
+            message: `找到 ${items.length} 张照片。注意：mediaUri 和 thumbnailUri 是本地路径，无法直接访问。如需下载或查看，请使用 upload_photo 工具。`
           }),
         },
       ],
@@ -113,7 +113,7 @@ export const searchPhotoGalleryTool: any = {
 
 /**
  * Search for photos using query description
- * Returns array of mediaUri strings
+ * Returns array of photo items with complete information
  */
 async function searchPhotos(
   wsManager: any,
@@ -122,7 +122,7 @@ async function searchPhotos(
   taskId: string,
   messageId: string,
   query: string
-): Promise<string[]> {
+): Promise<any[]> {
   logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📦 Building SearchPhotoVideo command...`);
 
   const command = {
@@ -182,11 +182,8 @@ async function searchPhotos(
           const result = event.outputs.result;
           const items = result?.items || [];
 
-          // Extract mediaUri from each item
-          const mediaUris = items.map((item: any) => item.mediaUri).filter(Boolean);
-
-          logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📊 Extracted ${mediaUris.length} mediaUris`);
-          resolve(mediaUris);
+          logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📊 Found ${items.length} photo items`);
+          resolve(items);
         } else {
           logger.error(`[SEARCH_PHOTO_GALLERY_TOOL] ❌ Photo search failed`);
           logger.error(`[SEARCH_PHOTO_GALLERY_TOOL]   - status: ${event.status}`);
