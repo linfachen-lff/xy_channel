@@ -49,6 +49,7 @@ export interface ManagerDiagnostics {
  * Events:
  * - 'message': (message: A2AJsonRpcRequest, sessionId: string, serverId: ServerIdentifier) => void
  * - 'data-event': (event: A2ADataEvent) => void
+ * - 'gui-agent-response': (event: any) => void
  * - 'connected': (serverId: ServerIdentifier) => void
  * - 'disconnected': (serverId: ServerIdentifier) => void
  * - 'error': (error: Error, serverId: ServerIdentifier) => void
@@ -229,7 +230,8 @@ export class XYWebSocketManager extends EventEmitter {
                                  this.listenerCount('disconnected') +
                                  this.listenerCount('error') +
                                  this.listenerCount('ready') +
-                                 this.listenerCount('data-event');
+                                 this.listenerCount('data-event') +
+                                 this.listenerCount('gui-agent-response');
 
     return {
       cacheKey,
@@ -534,6 +536,11 @@ export class XYWebSocketManager extends EventEmitter {
                 console.log(`[XY-${serverId}] Emitting data-event:`, dataEvent);
                 this.emit("data-event", dataEvent);
               }
+              // Check if it's an InvokeJarvisGUIAgentResponse
+              else if (item.header?.namespace === "ClawAgent" && item.header?.name === "InvokeJarvisGUIAgentResponse") {
+                console.log(`[XY-${serverId}] Emitting gui-agent-response:`, item);
+                this.emit("gui-agent-response", item);
+              }
             }
           }
           return; // Don't emit message event
@@ -585,6 +592,11 @@ export class XYWebSocketManager extends EventEmitter {
                   };
                   console.log(`[XY-${serverId}] Emitting data-event:`, dataEvent);
                   this.emit("data-event", dataEvent);
+                }
+                // Check if it's an InvokeJarvisGUIAgentResponse
+                else if (item.header?.namespace === "ClawAgent" && item.header?.name === "InvokeJarvisGUIAgentResponse") {
+                  console.log(`[XY-${serverId}] Emitting gui-agent-response:`, item);
+                  this.emit("gui-agent-response", item);
                 }
               }
             }
