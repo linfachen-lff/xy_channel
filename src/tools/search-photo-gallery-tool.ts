@@ -16,7 +16,18 @@ import type { A2ADataEvent } from "../types.js";
 export const searchPhotoGalleryTool: any = {
   name: "search_photo_gallery",
   label: "Search Photo Gallery",
-  description: "插件功能描述：搜索用户手机图库中的照片，如果用户说从手机图库中或者从相册中查询xx图片时调用此工具。根据图像描述语料检索匹配的照片,返回照片在手机本地的 mediaUri。注意:返回的 mediaUri 是本地路径,无法直接下载或访问。如果需要下载、查看、使用或展示照片,请使用 upload_photo 工具将 mediaUri 转换为可访问的公网 URL。操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。注意事项：只有当用户明确表达从手机相册搜索或者从图库搜索时才执行此工具，如果用户仅表达要搜索xxx图片，并没有说明搜索数据源，则不要贸然调用此插件，可以优先尝试websearch或者询问用户是否要从手机图库中搜索。",
+  description: `插件功能描述：搜索用户手机图库中的照片
+  工具使用约束：如果用户说从手机图库中或者从相册中查询xx图片时调用此工具。
+  工具输入输出简介：
+  a. 根据图像描述语料检索匹配的照片,返回照片在手机本地的 mediaUri以及thumbnailUri。
+  b. 返回的 mediaUri以及thumbnailUri 是本地路径,无法直接下载或访问。如果需要下载、查看、使用或展示照片,请使用 upload_photo 工具将 mediaUri或者thumbnailUri 转换为可访问的公网 URL。
+  c. mediaUri代表手机相册中的图片原图路径，图片大小比较大，清晰度比较高
+  d. thumbnailUri代表手机相册中的图片缩略图路径，图片大小比较小，清晰度适中，建议在upload_photo 工具的入参中优先使用此路径，不容易引起上传超时等问题
+  
+  注意事项：
+  a. 只有当用户明确表达从手机相册搜索或者从图库搜索时才执行此工具，如果用户仅表达要搜索xxx图片，并没有说明搜索数据源，则不要贸然调用此插件，可以优先尝试websearch或者询问用户是否要从手机图库中搜索。
+  b. 操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。
+  `,
   parameters: {
     type: "object",
     properties: {
