@@ -15,7 +15,7 @@ import { searchCalendarTool } from "./tools/search-calendar-tool.js";
 // import { searchContactTool } from "./tools/search-contact-tool.js"; // 暂时禁用
 import { searchPhotoGalleryTool } from "./tools/search-photo-gallery-tool.js";
 import { uploadPhotoTool } from "./tools/upload-photo-tool.js";
-// import { xiaoyiGuiTool } from "./tools/xiaoyi-gui-tool.js"; // 暂时禁用
+import { xiaoyiGuiTool } from "./tools/xiaoyi-gui-tool.js";
 import { getXYWebSocketManager } from "./client.js";
 import { handleXYMessage } from "./bot.js";
 import { logger } from "./utils/logger.js";
@@ -65,7 +65,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   onboarding: xyOnboardingAdapter,
-  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchPhotoGalleryTool, uploadPhotoTool], // searchContactTool, xiaoyiGuiTool 已暂时禁用
+  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool], // searchContactTool 已暂时禁用
 
   messaging: {
     normalizeTarget: (raw) => {
