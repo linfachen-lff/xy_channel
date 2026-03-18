@@ -33,7 +33,7 @@ export const createAlarmTool: any = {
 - alarmSnoozeTotal: 再响次数，枚举值：0,1,3,5,10，默认0（表示不再响）
 - alarmRingDuration: 响铃时长（分钟），枚举值：1,5,10,15,20,30，默认20
 - daysOfWakeType: 闹钟响铃类型，枚举值：0=单次响铃，1=法定节假日，2=每天，3=自定义时间，4=法定工作日，默认0
-- daysOfWeek: 自定义响铃星期，当daysOfWakeType=3时需要，数组，枚举值：Mon,Tue,Wed,Thu,Fri,Sat,Sun
+- daysOfWeek: 自定义响铃星期，仅当daysOfWakeType=3（自定义时间）时必需且有效，其他情况不要传递此参数。数组或JSON字符串，枚举值：Mon,Tue,Wed,Thu,Fri,Sat,Sun。注意：仅支持长度为1的数组，如果需要一周中不同的几天，需要多次调用此工具
 
 注意事项：操作超时时间为60秒，请勿重复调用此工具，如果超时或失败，最多重试一次。`,
   parameters: {
@@ -57,18 +57,16 @@ export const createAlarmTool: any = {
       },
       alarmRingDuration: {
         type: "number",
-        description: "响铃时长（分钟），枚举值：1,5,10,15,20,30，默认20",
+        description: "响铃时长（分钟），枚举值：1,5,10,15,20,30，默认5",
       },
       daysOfWakeType: {
         type: "number",
         description: "闹钟响铃类型：0=单次，1=法定节假日，2=每天，3=自定义，4=法定工作日，默认0",
       },
       daysOfWeek: {
-        type: "array",
-        items: {
-          type: "string",
-        },
-        description: "自定义响铃星期（当daysOfWakeType=3时需要），枚举值：Mon,Tue,Wed,Thu,Fri,Sat,Sun",
+        // 不指定 type，允许传入数组或 JSON 字符串
+        // 具体的类型验证和转换在 execute 函数内部进行
+        description: "自定义响铃星期（仅当daysOfWakeType=3时需要，其他情况不要传递），数组或JSON字符串，枚举值：Mon,Tue,Wed,Thu,Fri,Sat,Sun。注意：仅支持长度为1的数组，如果需要一周中不同的几天，需要多次调用此工具",
       },
     },
     required: ["alarmTime"],
@@ -168,25 +166,71 @@ export const createAlarmTool: any = {
     // daysOfWeek - only required when daysOfWakeType is 3
     let daysOfWeek: string[] = [];
     if (daysOfWakeType === 3) {
-      if (!params.daysOfWeek || !Array.isArray(params.daysOfWeek)) {
+      if (!params.daysOfWeek) {
         logger.error(`[CREATE_ALARM_TOOL] ❌ Missing daysOfWeek when daysOfWakeType=3`);
         throw new Error("daysOfWeek is required when daysOfWakeType is 3 (custom)");
       }
-      if (!Array.isArray(params.daysOfWeek)) {
-        logger.error(`[CREATE_ALARM_TOOL] ❌ Invalid daysOfWeek type`);
-        throw new Error("daysOfWeek must be an array");
+
+      // ===== 参数规范化：兼容数组和 JSON 字符串 =====
+      let normalizedDaysOfWeek: string[] | null = null;
+
+      // 情况1: 已经是数组
+      if (Array.isArray(params.daysOfWeek)) {
+        logger.log(`[CREATE_ALARM_TOOL] ✅ daysOfWeek is already an array`);
+        normalizedDaysOfWeek = params.daysOfWeek;
       }
+      // 情况2: 是字符串，尝试解析为 JSON 数组
+      else if (typeof params.daysOfWeek === 'string') {
+        logger.log(`[CREATE_ALARM_TOOL] 🔄 daysOfWeek is a string, attempting to parse as JSON...`);
+        try {
+          const parsed = JSON.parse(params.daysOfWeek);
+          if (Array.isArray(parsed)) {
+            logger.log(`[CREATE_ALARM_TOOL] ✅ Successfully parsed JSON string to array`);
+            normalizedDaysOfWeek = parsed;
+          } else {
+            logger.error(`[CREATE_ALARM_TOOL] ❌ Parsed JSON is not an array:`, typeof parsed);
+            throw new Error("daysOfWeek must be an array or a JSON string representing an array");
+          }
+        } catch (parseError) {
+          logger.error(`[CREATE_ALARM_TOOL] ❌ Failed to parse daysOfWeek as JSON:`, parseError);
+          throw new Error(`daysOfWeek must be a valid JSON array string. Parse error: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+        }
+      }
+      // 情况3: 其他类型，报错
+      else {
+        logger.error(`[CREATE_ALARM_TOOL] ❌ Invalid daysOfWeek type:`, typeof params.daysOfWeek);
+        throw new Error(`daysOfWeek must be an array or a JSON string, got ${typeof params.daysOfWeek}`);
+      }
+
+      // 验证数组非空
+      if (!normalizedDaysOfWeek || normalizedDaysOfWeek.length === 0) {
+        logger.error(`[CREATE_ALARM_TOOL] ❌ daysOfWeek array is empty`);
+        throw new Error("daysOfWeek array cannot be empty");
+      }
+
+      // 验证数组长度必须为1
+      if (normalizedDaysOfWeek.length !== 1) {
+        logger.error(`[CREATE_ALARM_TOOL] ❌ daysOfWeek array length must be 1, got ${normalizedDaysOfWeek.length}`);
+        throw new Error("daysOfWeek 仅支持长度为1的数组。如果需要一周中不同的几天，需要多次调用此工具");
+      }
+
       // Validate each day
-      for (const day of params.daysOfWeek) {
+      for (const day of normalizedDaysOfWeek) {
         if (typeof day !== "string" || !DAYS_OF_WEEK_VALUES.includes(day)) {
           logger.error(`[CREATE_ALARM_TOOL] ❌ Invalid day value: ${day}`);
           throw new Error(`daysOfWeek must contain only: ${DAYS_OF_WEEK_VALUES.join(", ")}`);
         }
       }
-      daysOfWeek = params.daysOfWeek;
+
+      daysOfWeek = normalizedDaysOfWeek;
       logger.log(`[CREATE_ALARM_TOOL]   - daysOfWeek: ${daysOfWeek.join(", ")}`);
-    } else if (params.daysOfWeek && params.daysOfWeek.length > 0) {
-      logger.warn(`[CREATE_ALARM_TOOL] ⚠️ daysOfWeek is ignored when daysOfWakeType is not 3`);
+    } else {
+      // daysOfWakeType is not 3, daysOfWeek should not be provided
+      if (params.daysOfWeek) {
+        logger.warn(`[CREATE_ALARM_TOOL] ⚠️ daysOfWeek parameter is ignored when daysOfWakeType is not 3 (current: ${daysOfWakeType}). Please remove daysOfWeek parameter.`);
+      }
+      // Explicitly set to empty array
+      daysOfWeek = [];
     }
 
     // Get session context
@@ -213,6 +257,26 @@ export const createAlarmTool: any = {
 
     // Build CreateAlarm command
     logger.log(`[CREATE_ALARM_TOOL] 📦 Building CreateAlarm command...`);
+
+    // Build intentParam - only include daysOfWeek when daysOfWakeType is 3
+    const intentParam: any = {
+      entityName: "Alarm",
+      alarmTime: alarmTimeMs,
+      alarmTitle: alarmTitle,
+      alarmSnoozeDuration: alarmSnoozeDuration,
+      alarmSnoozeTotal: alarmSnoozeTotal,
+      alarmRingDuration: alarmRingDuration,
+      daysOfWakeType: daysOfWakeType,
+    };
+
+    // Only include daysOfWeek when daysOfWakeType is 3
+    if (daysOfWakeType === 3 && daysOfWeek.length > 0) {
+      intentParam.daysOfWeek = daysOfWeek;
+      logger.log(`[CREATE_ALARM_TOOL]   - Including daysOfWeek in intentParam: ${daysOfWeek.join(", ")}`);
+    } else {
+      logger.log(`[CREATE_ALARM_TOOL]   - Excluding daysOfWeek from intentParam (daysOfWakeType=${daysOfWakeType})`);
+    }
+
     const command = {
       header: {
         namespace: "Common",
@@ -228,16 +292,7 @@ export const createAlarmTool: any = {
           actionResponse: true,
           appType: "OHOS_APP",
           timeOut: 5,
-          intentParam: {
-            entityName: "Alarm",
-            alarmTime: alarmTimeMs,
-            alarmTitle: alarmTitle,
-            alarmSnoozeDuration: alarmSnoozeDuration,
-            alarmSnoozeTotal: alarmSnoozeTotal,
-            alarmRingDuration: alarmRingDuration,
-            daysOfWakeType: daysOfWakeType,
-            daysOfWeek: daysOfWeek,
-          },
+          intentParam: intentParam,
           permissionId: [],
           achieveType: "INTENT",
         },
