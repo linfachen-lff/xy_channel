@@ -4,6 +4,7 @@ import { AsyncLocalStorage } from "async_hooks";
 import type { XYChannelConfig } from "../types.js";
 import { logger } from "../utils/logger.js";
 import { configManager } from "../utils/config-manager.js";
+import { getCurrentTaskId, getCurrentMessageId } from "../task-manager.js";
 
 export interface SessionContext {
   config: XYChannelConfig;
@@ -152,17 +153,45 @@ export function runWithSessionContext<T>(
  * Get the current session context from AsyncLocalStorage.
  * This is the recommended way to access session context in tools.
  * Returns null if not running within a session context.
+ *
+ * Enhanced version: Automatically fetches the latest taskId from task-manager
+ * to support interruption scenarios where a new message updates the taskId.
  */
 export function getCurrentSessionContext(): SessionContext | null {
+  // 1. Get base context from AsyncLocalStorage
   const context = asyncLocalStorage.getStore() ?? null;
 
-  if (context) {
-    logger.log(`[SESSION_MANAGER] ✅ Got current session context from AsyncLocalStorage`);
-    logger.log(`[SESSION_MANAGER]   - sessionId: ${context.sessionId}`);
-    logger.log(`[SESSION_MANAGER]   - taskId: ${context.taskId}`);
-  } else {
+  if (!context) {
     logger.warn(`[SESSION_MANAGER] ⚠️  No session context in AsyncLocalStorage`);
+    return null;
   }
+
+  // 2. Get latest taskId and messageId from task-manager
+  const latestTaskId = getCurrentTaskId(context.sessionId);
+  const latestMessageId = getCurrentMessageId(context.sessionId);
+
+  // 3. If task-manager has a newer taskId, use the latest value
+  if (latestTaskId && latestTaskId !== context.taskId) {
+    logger.log(`[SESSION_MANAGER] 🔄 TaskId updated (interruption detected)`);
+    logger.log(`[SESSION_MANAGER]   - sessionId: ${context.sessionId}`);
+    logger.log(`[SESSION_MANAGER]   - Old taskId: ${context.taskId}`);
+    logger.log(`[SESSION_MANAGER]   - New taskId: ${latestTaskId}`);
+    logger.log(`[SESSION_MANAGER]   - Old messageId: ${context.messageId}`);
+    logger.log(`[SESSION_MANAGER]   - New messageId: ${latestMessageId ?? context.messageId}`);
+
+    // Return updated context (create new object, don't modify original)
+    return {
+      ...context,
+      taskId: latestTaskId,
+      messageId: latestMessageId ?? context.messageId,
+    };
+  }
+
+  // 4. No update needed, return original context
+  logger.log(`[SESSION_MANAGER] ✅ Got current session context from AsyncLocalStorage`);
+  logger.log(`[SESSION_MANAGER]   - sessionId: ${context.sessionId}`);
+  logger.log(`[SESSION_MANAGER]   - taskId: ${context.taskId}`);
+  logger.log(`[SESSION_MANAGER]   - messageId: ${context.messageId}`);
 
   return context;
 }
