@@ -28,7 +28,7 @@ export const locationTool: any = {
 
     // Get session context
     logger.log(`[LOCATION_TOOL] 🔍 Attempting to get session context...`);
-    const sessionContext = getLatestSessionContext();
+    const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
       logger.error(`[LOCATION_TOOL] ❌ FAILED: No active session found!`);
