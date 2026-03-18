@@ -6,7 +6,7 @@ import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId,
 import { downloadFilesFromParts } from "./file-download.js";
 import { resolveXYConfig } from "./config.js";
 import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse } from "./formatter.js";
-import { registerSession, unregisterSession } from "./tools/session-manager.js";
+import { registerSession, unregisterSession, runWithSessionContext } from "./tools/session-manager.js";
 import { configManager } from "./utils/config-manager.js";
 import {
   registerTaskId,
@@ -255,6 +255,15 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     // Dispatch to OpenClaw core using correct API (following feishu pattern)
     log(`[BOT] 🚀 Starting dispatcher with session: ${route.sessionKey}`);
 
+    // Build session context for AsyncLocalStorage
+    const sessionContext = {
+      config,
+      sessionId: parsed.sessionId,
+      taskId: parsed.taskId,
+      messageId: parsed.messageId,
+      agentId: route.accountId,
+    };
+
     await core.channel.reply.withReplyDispatcher({
       dispatcher,
       onSettled: () => {
@@ -278,12 +287,15 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
         log(`[BOT] ✅ Cleanup completed`);
       },
       run: () =>
-        core.channel.reply.dispatchReplyFromConfig({
-          ctx: ctxPayload,
-          cfg,
-          dispatcher,
-          replyOptions,
-        }),
+        // 🔐 Use AsyncLocalStorage to provide session context to tools
+        runWithSessionContext(sessionContext, () =>
+          core.channel.reply.dispatchReplyFromConfig({
+            ctx: ctxPayload,
+            cfg,
+            dispatcher,
+            replyOptions,
+          })
+        ),
     });
 
     log(`[BOT] ✅ Dispatcher completed for session: ${parsed.sessionId}`);

@@ -1,7 +1,7 @@
 // XiaoYi GUI tool implementation - simulates phone screen interactions
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getLatestSessionContext } from "./session-manager.js";
+import { getCurrentSessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -54,7 +54,7 @@ export const xiaoyiGuiTool: any = {
 
     // Get session context
     logger.log(`[XIAOYI_GUI_TOOL] 🔍 Attempting to get session context...`);
-    const sessionContext = getLatestSessionContext();
+    const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
       logger.error(`[XIAOYI_GUI_TOOL] ❌ FAILED: No active session found!`);

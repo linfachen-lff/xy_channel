@@ -16,6 +16,15 @@ import { searchCalendarTool } from "./tools/search-calendar-tool.js";
 import { searchPhotoGalleryTool } from "./tools/search-photo-gallery-tool.js";
 import { uploadPhotoTool } from "./tools/upload-photo-tool.js";
 import { xiaoyiGuiTool } from "./tools/xiaoyi-gui-tool.js";
+import { callPhoneTool } from "./tools/call-phone-tool.js";
+import { searchMessageTool } from "./tools/search-message-tool.js";
+import { searchFileTool } from "./tools/search-file-tool.js";
+import { uploadFileTool } from "./tools/upload-file-tool.js";
+import { createAlarmTool } from "./tools/create-alarm-tool.js";
+import { searchAlarmTool } from "./tools/search-alarm-tool.js";
+import { modifyAlarmTool } from "./tools/modify-alarm-tool.js";
+import { deleteAlarmTool } from "./tools/delete-alarm-tool.js";
+import { sendMessageTool } from "./tools/send-message-tool.js";
 import { getXYWebSocketManager } from "./client.js";
 import { handleXYMessage } from "./bot.js";
 import { logger } from "./utils/logger.js";
@@ -65,7 +74,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   onboarding: xyOnboardingAdapter,
-  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool], // searchContactTool 已暂时禁用
+  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendMessageTool], // searchContactTool 已暂时禁用
 
   messaging: {
     normalizeTarget: (raw) => {

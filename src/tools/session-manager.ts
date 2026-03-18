@@ -1,5 +1,6 @@
 // Session manager for XY tool context
 // Stores active session contexts that tools can access
+import { AsyncLocalStorage } from "async_hooks";
 import type { XYChannelConfig } from "../types.js";
 import { logger } from "../utils/logger.js";
 import { configManager } from "../utils/config-manager.js";
@@ -18,6 +19,9 @@ interface SessionContextWithRef extends SessionContext {
 
 // Map of sessionKey -> SessionContextWithRef
 const activeSessions = new Map<string, SessionContextWithRef>();
+
+// AsyncLocalStorage for thread-safe session context isolation
+const asyncLocalStorage = new AsyncLocalStorage<SessionContext>();
 
 /**
  * Register a session context for tool access.
@@ -102,6 +106,7 @@ export function getSessionContext(sessionKey: string): SessionContext | null {
 
 /**
  * Get the most recent session context.
+ * @deprecated Use getCurrentSessionContext() instead for thread-safe access.
  * This is a fallback for tools that don't have access to sessionKey.
  * Returns null if no sessions are active.
  */
@@ -127,4 +132,37 @@ export function getLatestSessionContext(): SessionContext | null {
   // 返回时去掉refCount字段
   const { refCount, ...latestSession } = latestSessionWithRef;
   return latestSession;
+}
+
+/**
+ * Run a callback with a session context stored in AsyncLocalStorage.
+ * This ensures thread-safe context isolation for concurrent requests.
+ */
+export function runWithSessionContext<T>(
+  context: SessionContext,
+  callback: () => Promise<T>
+): Promise<T> {
+  logger.log(`[SESSION_MANAGER] 🔐 Running with AsyncLocalStorage context`);
+  logger.log(`[SESSION_MANAGER]   - sessionId: ${context.sessionId}`);
+  logger.log(`[SESSION_MANAGER]   - taskId: ${context.taskId}`);
+  return asyncLocalStorage.run(context, callback);
+}
+
+/**
+ * Get the current session context from AsyncLocalStorage.
+ * This is the recommended way to access session context in tools.
+ * Returns null if not running within a session context.
+ */
+export function getCurrentSessionContext(): SessionContext | null {
+  const context = asyncLocalStorage.getStore() ?? null;
+
+  if (context) {
+    logger.log(`[SESSION_MANAGER] ✅ Got current session context from AsyncLocalStorage`);
+    logger.log(`[SESSION_MANAGER]   - sessionId: ${context.sessionId}`);
+    logger.log(`[SESSION_MANAGER]   - taskId: ${context.taskId}`);
+  } else {
+    logger.warn(`[SESSION_MANAGER] ⚠️  No session context in AsyncLocalStorage`);
+  }
+
+  return context;
 }

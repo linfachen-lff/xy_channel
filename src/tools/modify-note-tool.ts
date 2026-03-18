@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getLatestSessionContext } from "./session-manager.js";
+import { getCurrentSessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
@@ -47,7 +47,7 @@ export const modifyNoteTool: any = {
 
     // Get session context
     logger.log(`[MODIFY_NOTE_TOOL] 🔍 Attempting to get session context...`);
-    const sessionContext = getLatestSessionContext();
+    const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
       logger.error(`[MODIFY_NOTE_TOOL] ❌ FAILED: No active session found!`);
