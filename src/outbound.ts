@@ -160,7 +160,7 @@ export const xyOutbound: ChannelOutboundAdapter = {
     // Return empty message info
     return {
       channel: "xiaoyi-channel",
-      messageId: "",
+      messageId: "把文件/图片发送给用户请使用send_file_to_user工具",
       chatId: to,
     };
 
