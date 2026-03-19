@@ -26,17 +26,22 @@ class ToolInputError extends Error {
 export const noteTool: any = {
   name: "create_note",
   label: "Create Note",
-  description: "在用户设备上创建备忘录。需要提供备忘录标题和内容。注意:操作超时时间为60秒,请勿重复调用此工具,如果遇到各类调用失败场景,最多只能重试一次，不可以重复调用多次。",
+  description: `在用户设备上创建备忘录。需要提供备忘录标题和内容。
+  注意:
+  a. 操作超时时间为60秒,请勿重复调用此工具
+  b. 如果遇到各类调用失败场景,最多只能重试一次，不可以重复调用多次。
+  c. 调用工具前需认真检查调用参数是否满足工具要求
+  `,
   parameters: {
     type: "object",
     properties: {
       title: {
         type: "string",
-        description: "备忘录标题",
+        description: "备忘录标题，必填",
       },
       content: {
         type: "string",
-        description: "备忘录内容",
+        description: "备忘录内容，必填",
       },
     },
     required: ["title", "content"],
