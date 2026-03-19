@@ -12,7 +12,7 @@ import { searchNoteTool } from "./tools/search-note-tool.js";
 import { modifyNoteTool } from "./tools/modify-note-tool.js";
 import { calendarTool } from "./tools/calendar-tool.js";
 import { searchCalendarTool } from "./tools/search-calendar-tool.js";
-// import { searchContactTool } from "./tools/search-contact-tool.js"; // 暂时禁用
+import { searchContactTool } from "./tools/search-contact-tool.js";
 import { searchPhotoGalleryTool } from "./tools/search-photo-gallery-tool.js";
 import { uploadPhotoTool } from "./tools/upload-photo-tool.js";
 import { xiaoyiGuiTool } from "./tools/xiaoyi-gui-tool.js";
@@ -75,7 +75,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   onboarding: xyOnboardingAdapter,
-  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendMessageTool, sendFileToUserTool], // searchContactTool 已暂时禁用
+  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendMessageTool, sendFileToUserTool],
 
   messaging: {
     normalizeTarget: (raw) => {
