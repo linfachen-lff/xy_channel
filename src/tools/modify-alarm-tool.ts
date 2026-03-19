@@ -40,8 +40,9 @@ export const modifyAlarmTool: any = {
 - daysOfWeek: 自定义响铃星期，仅当daysOfWakeType=3（自定义时间）时必需且有效，其他情况不要传递此参数。数组或JSON字符串，枚举值：Mon,Tue,Wed,Thu,Fri,Sat,Sun。注意：仅支持长度为1的数组，如果需要一周中不同的几天，需要多次调用此工具
 
 使用流程：
-1. 先调用 search_alarm 工具查询闹钟，获取 entityId
+1. 先调用 search_alarm 工具查询闹钟，获取 entityId，
 2. 调用此工具修改闹钟，传入 entityId 和需要修改的参数
+3. 其余不涉及需改的参数，如果search_alarm 或 create_alarm的结果中有相应的值，需要一并填上，需要与原有的保持一致，防止不填采用默认值
 
 注意事项：操作超时时间为60秒，请勿重复调用此工具，如果超时或失败，最多重试一次。`,
   parameters: {
