@@ -27,7 +27,7 @@ export const createAlarmTool: any = {
 必需参数：
 - alarmTime: 闹钟时间，格式必须为：YYYYMMDD hhmmss（例如：20240315 143000，表示2024年3月15日14:30:00）
 
-可选参数：
+可选参数（针对用户没有提及的参数，如果有默认参数，则发送请求时使用默认参数）：
 - alarmTitle: 闹钟名称/标题，默认为"闹钟"
 - alarmSnoozeDuration: 小睡间隔（分钟），枚举值：5,10,15,20,25,30，默认10
 - alarmSnoozeTotal: 再响次数，枚举值：0,1,3,5,10，默认0（表示不再响）
