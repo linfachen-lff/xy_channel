@@ -202,7 +202,7 @@ export class XYWebSocketManager extends EventEmitter {
     }
 
     const messageStr = JSON.stringify(message);
-    console.log(`[WS-${server}-SEND] Sending message frame:`, JSON.stringify(message, null, 2));
+    // console.log(`[WS-${server}-SEND] Sending message frame:`, JSON.stringify(message, null, 2));
     ws.send(messageStr);
     console.log(`[WS-${server}-SEND] Message sent successfully, size: ${messageStr.length} bytes`);
   }
