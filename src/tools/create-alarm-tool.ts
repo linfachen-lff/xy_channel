@@ -35,7 +35,9 @@ export const createAlarmTool: any = {
 - daysOfWakeType: 闹钟响铃类型，枚举值：0=单次响铃，1=法定节假日，2=每天，3=自定义时间，4=法定工作日，默认0
 - daysOfWeek: 自定义响铃星期，仅当daysOfWakeType=3（自定义时间）时必需且有效，其他情况不要传递此参数。数组或JSON字符串，枚举值：Mon,Tue,Wed,Thu,Fri,Sat,Sun。注意：仅支持长度为1的数组，如果需要一周中不同的几天，需要多次调用此工具
 
-注意事项：操作超时时间为60秒，请勿重复调用此工具，如果超时或失败，最多重试一次。`,
+注意事项：
+a. 操作超时时间为60秒，请勿重复调用此工具，如果超时或失败，最多重试一次。
+b. 使用该工具之前需获取当前真实时间`,
   parameters: {
     type: "object",
     properties: {

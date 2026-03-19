@@ -36,7 +36,9 @@ export const searchAlarmTool: any = {
 - 查询每天响铃的闹钟：{"daysOfWakeType": 2}
 - 查询某个时间段的闹钟：{"startTime": "20240315 000000", "endTime": "20240315 235959"}
 
-注意：操作超时时间为60秒，请勿重复调用此工具，如果超时或失败，最多重试一次。`,
+注意：
+a. 操作超时时间为60秒，请勿重复调用此工具，如果超时或失败，最多重试一次。
+b. 使用该工具之前需获取当前真实时间`,
   parameters: {
     type: "object",
     properties: {

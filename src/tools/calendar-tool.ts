@@ -14,7 +14,9 @@ import type { A2ADataEvent } from "../types.js";
 export const calendarTool: any = {
   name: "create_calendar_event",
   label: "Create Calendar Event",
-  description: "在用户设备上创建日程。需要提供日程标题、开始时间和结束时间。时间格式必须为：yyyy-mm-dd hh:mm:ss（例如：2024-01-15 14:30:00）。注意：该工具执行时间较长（最多60秒），请勿重复调用，超时或失败时最多重试一次。",
+  description: `在用户设备上创建日程。需要提供日程标题、开始时间和结束时间。时间格式必须为：yyyy-mm-dd hh:mm:ss（例如：2024-01-15 14:30:00）。注意：该工具执行时间较长（最多60秒），请勿重复调用，超时或失败时最多重试一次。
+  注意事项：使用该工具之前需获取当前真实时间
+  `,
   parameters: {
     type: "object",
     properties: {
