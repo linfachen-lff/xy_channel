@@ -7,6 +7,19 @@ import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
 /**
+ * Duck-typed ToolInputError: openclaw 按 .name 字段匹配，不用 instanceof。
+ * 抛出此错误会让 openclaw 返回 HTTP 400 而非 500，
+ * LLM 会将其识别为参数错误而非瞬时故障，不会触发重试。
+ */
+class ToolInputError extends Error {
+  readonly status = 400;
+  constructor(message: string) {
+    super(message);
+    this.name = "ToolInputError";
+  }
+}
+
+/**
  * XY note tool - creates a note on user's device.
  * Requires title and content parameters.
  */
@@ -32,9 +45,13 @@ export const noteTool: any = {
   async execute(toolCallId: string, params: any) {
     logger.debug("Executing note tool, toolCallId:", toolCallId);
 
-    // Validate parameters
-    if (!params.title || !params.content) {
-      throw new Error("Missing required parameters: title and content are required");
+    // Validate parameters — 抛 ToolInputError 而非普通 Error，
+    // 让 openclaw 返回 400 而非 500，明确告知 LLM 这是参数错误，不应重试。
+    if (typeof params.title !== "string" || !params.title) {
+      throw new ToolInputError("缺少必填参数 title（备忘录标题）");
+    }
+    if (typeof params.content !== "string" || !params.content) {
+      throw new ToolInputError("缺少必填参数 content（备忘录内容）");
     }
 
     // Get session context
