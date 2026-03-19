@@ -31,7 +31,7 @@ export const createAlarmTool: any = {
 - alarmTitle: 闹钟名称/标题，默认为"闹钟"
 - alarmSnoozeDuration: 小睡间隔（分钟），枚举值：5,10,15,20,25,30，默认10
 - alarmSnoozeTotal: 再响次数，枚举值：0,1,3,5,10，默认0（表示不再响）
-- alarmRingDuration: 响铃时长（分钟），枚举值：1,5,10,15,20,30，默认20
+- alarmRingDuration: 响铃时长（分钟），枚举值：1,5,10,15,20,30，默认5
 - daysOfWakeType: 闹钟响铃类型，枚举值：0=单次响铃，1=法定节假日，2=每天，3=自定义时间，4=法定工作日，默认0
 - daysOfWeek: 自定义响铃星期，仅当daysOfWakeType=3（自定义时间）时必需且有效，其他情况不要传递此参数。数组或JSON字符串，枚举值：Mon,Tue,Wed,Thu,Fri,Sat,Sun。注意：仅支持长度为1的数组，如果需要一周中不同的几天，需要多次调用此工具
 
