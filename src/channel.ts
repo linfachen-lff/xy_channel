@@ -104,11 +104,10 @@ export const xyPlugin: ChannelPlugin = {
       const account = resolveXYConfig(context.cfg);
       context.setStatus?.({
         accountId: context.accountId,
-        wsUrl1: account.wsUrl1,
-        wsUrl2: account.wsUrl2,
+        wsUrl: account.wsUrl,
       });
       context.log?.info(
-        `[${context.accountId}] starting xiaoyi channel (wsUrl1: ${account.wsUrl1}, wsUrl2: ${account.wsUrl2})`,
+        `[${context.accountId}] starting xiaoyi channel (wsUrl: ${account.wsUrl})`,
       );
       return monitorXYProvider({
         config: context.cfg,
