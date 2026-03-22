@@ -173,11 +173,9 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     const text = extractTextFromParts(parsed.parts);
     const fileParts = extractFileParts(parsed.parts);
 
-    // Download files if present (using core's media download)
-    const mediaList = await downloadFilesFromParts(fileParts);
-
-    // Build media payload for inbound context (following feishu pattern)
-    const mediaPayload = buildXYMediaPayload(mediaList);
+    // Build media payload directly from file URIs (openclaw can download them)
+    // No need to download files locally - pass URIs directly to openclaw
+    const mediaPayload = buildXYMediaPayload(fileParts);
 
     // Resolve envelope format options (following feishu pattern)
     const envelopeOptions = core.channel.reply.resolveEnvelopeFormatOptions(cfg);
@@ -345,9 +343,10 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 /**
  * Build media payload for inbound context.
  * Following feishu pattern: buildFeishuMediaPayload().
+ * Uses remote URIs directly - openclaw will download them.
  */
 function buildXYMediaPayload(
-  mediaList: Array<{ path: string; name: string; mimeType: string }>,
+  fileParts: Array<{ name: string; mimeType: string; uri: string }>,
 ): {
   MediaPath?: string;
   MediaType?: string;
@@ -356,15 +355,15 @@ function buildXYMediaPayload(
   MediaUrls?: string[];
   MediaTypes?: string[];
 } {
-  const first = mediaList[0];
-  const mediaPaths = mediaList.map((media) => media.path);
-  const mediaTypes = mediaList.map((media) => media.mimeType).filter(Boolean);
+  const first = fileParts[0];
+  const uris = fileParts.map((file) => file.uri);
+  const mediaTypes = fileParts.map((file) => file.mimeType).filter(Boolean);
   return {
-    MediaPath: first?.path,
+    MediaPath: first?.uri,
     MediaType: first?.mimeType,
-    MediaUrl: first?.path,
-    MediaPaths: mediaPaths.length > 0 ? mediaPaths : undefined,
-    MediaUrls: mediaPaths.length > 0 ? mediaPaths : undefined,
+    MediaUrl: first?.uri,
+    MediaPaths: uris.length > 0 ? uris : undefined,
+    MediaUrls: uris.length > 0 ? uris : undefined,
     MediaTypes: mediaTypes.length > 0 ? mediaTypes : undefined,
   };
 }
