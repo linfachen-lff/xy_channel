@@ -108,30 +108,16 @@ export function diagnoseAllManagers(): void {
     console.log(`   Shutting down: ${diag.isShuttingDown}`);
     console.log(`   Total event listeners on manager: ${diag.totalEventListeners}`);
 
-    // Server 1
-    console.log(`   🔌 Server1:`);
-    console.log(`      - Exists: ${diag.server1.exists}`);
-    console.log(`      - ReadyState: ${diag.server1.readyState}`);
-    console.log(`      - State connected/ready: ${diag.server1.stateConnected}/${diag.server1.stateReady}`);
-    console.log(`      - Reconnect attempts: ${diag.server1.reconnectAttempts}`);
-    console.log(`      - Listeners on WebSocket: ${diag.server1.listenerCount}`);
-    console.log(`      - Heartbeat active: ${diag.server1.heartbeatActive}`);
-    console.log(`      - Has reconnect timer: ${diag.server1.hasReconnectTimer}`);
-    if (diag.server1.isOrphan) {
-      console.log(`      ⚠️  ORPHAN CONNECTION DETECTED!`);
-      orphanCount++;
-    }
-
-    // Server 2
-    console.log(`   🔌 Server2:`);
-    console.log(`      - Exists: ${diag.server2.exists}`);
-    console.log(`      - ReadyState: ${diag.server2.readyState}`);
-    console.log(`      - State connected/ready: ${diag.server2.stateConnected}/${diag.server2.stateReady}`);
-    console.log(`      - Reconnect attempts: ${diag.server2.reconnectAttempts}`);
-    console.log(`      - Listeners on WebSocket: ${diag.server2.listenerCount}`);
-    console.log(`      - Heartbeat active: ${diag.server2.heartbeatActive}`);
-    console.log(`      - Has reconnect timer: ${diag.server2.hasReconnectTimer}`);
-    if (diag.server2.isOrphan) {
+    // Connection
+    console.log(`   🔌 Connection:`);
+    console.log(`      - Exists: ${diag.connection.exists}`);
+    console.log(`      - ReadyState: ${diag.connection.readyState}`);
+    console.log(`      - State connected/ready: ${diag.connection.stateConnected}/${diag.connection.stateReady}`);
+    console.log(`      - Reconnect attempts: ${diag.connection.reconnectAttempts}`);
+    console.log(`      - Listeners on WebSocket: ${diag.connection.listenerCount}`);
+    console.log(`      - Heartbeat active: ${diag.connection.heartbeatActive}`);
+    console.log(`      - Has reconnect timer: ${diag.connection.hasReconnectTimer}`);
+    if (diag.connection.isOrphan) {
       console.log(`      ⚠️  ORPHAN CONNECTION DETECTED!`);
       orphanCount++;
     }
@@ -159,7 +145,7 @@ export function cleanupOrphanConnections(): number {
   wsManagerCache.forEach((manager, key) => {
     const diag = manager.getConnectionDiagnostics();
 
-    if (diag.server1.isOrphan || diag.server2.isOrphan) {
+    if (diag.connection.isOrphan) {
       console.log(`🧹 Cleaning up orphan connections in manager: ${key}`);
       manager.disconnect();
       cleanedCount++;

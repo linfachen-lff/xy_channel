@@ -1,14 +1,11 @@
-// Dual WebSocket connection manager
-// References xiaoyi_v2/websocket.ts for dual connection pattern
+// WebSocket connection manager (Single connection)
 import WebSocket from "ws";
 import { EventEmitter } from "events";
 import type { RuntimeEnv } from "openclaw/plugin-sdk";
 import { HeartbeatManager } from "./heartbeat.js";
-import { sessionManager } from "./utils/session.js";
 import type {
   XYChannelConfig,
   ServerConnectionState,
-  ServerIdentifier,
   InboundWebSocketMessage,
   OutboundWebSocketMessage,
   A2AJsonRpcRequest,
@@ -16,7 +13,7 @@ import type {
 } from "./types.js";
 
 /**
- * Diagnostics for a single WebSocket connection
+ * Diagnostics for WebSocket connection
  */
 export interface ConnectionDiagnostic {
   exists: boolean;
@@ -27,8 +24,8 @@ export interface ConnectionDiagnostic {
   lastHeartbeat: number;
   heartbeatActive: boolean;
   hasReconnectTimer: boolean;
-  listenerCount: number; // Event listener count
-  isOrphan: boolean; // Connection exists but has no listeners = orphan
+  listenerCount: number;
+  isOrphan: boolean;
 }
 
 /**
@@ -36,47 +33,36 @@ export interface ConnectionDiagnostic {
  */
 export interface ManagerDiagnostics {
   cacheKey: string;
-  server1: ConnectionDiagnostic;
-  server2: ConnectionDiagnostic;
+  connection: ConnectionDiagnostic;
   isShuttingDown: boolean;
   totalEventListeners: number;
 }
 
 /**
- * Manages dual WebSocket connections to XY servers.
- * Implements session-to-server binding for message routing.
+ * Manages single WebSocket connection to XY server.
  *
  * Events:
- * - 'message': (message: A2AJsonRpcRequest, sessionId: string, serverId: ServerIdentifier) => void
+ * - 'message': (message: A2AJsonRpcRequest, sessionId: string) => void
  * - 'data-event': (event: A2ADataEvent) => void
  * - 'gui-agent-response': (event: any) => void
- * - 'connected': (serverId: ServerIdentifier) => void
- * - 'disconnected': (serverId: ServerIdentifier) => void
- * - 'error': (error: Error, serverId: ServerIdentifier) => void
- * - 'ready': (serverId: ServerIdentifier) => void
+ * - 'connected': () => void
+ * - 'disconnected': () => void
+ * - 'error': (error: Error) => void
+ * - 'ready': () => void
  */
 export class XYWebSocketManager extends EventEmitter {
-  private ws1: WebSocket | null = null;
-  private ws2: WebSocket | null = null;
-  private state1: ServerConnectionState = {
+  private ws: WebSocket | null = null;
+  private state: ServerConnectionState = {
     connected: false,
     ready: false,
     lastHeartbeat: 0,
     reconnectAttempts: 0,
   };
-  private state2: ServerConnectionState = {
-    connected: false,
-    ready: false,
-    lastHeartbeat: 0,
-    reconnectAttempts: 0,
-  };
-  private heartbeat1: HeartbeatManager | null = null;
-  private heartbeat2: HeartbeatManager | null = null;
-  private reconnectTimer1: NodeJS.Timeout | null = null;
-  private reconnectTimer2: NodeJS.Timeout | null = null;
+  private heartbeat: HeartbeatManager | null = null;
+  private reconnectTimer: NodeJS.Timeout | null = null;
   private isShuttingDown = false;
 
-  // Logging functions following feishu pattern
+  // Logging functions
   private log: (msg: string, ...args: any[]) => void;
   private error: (msg: string, ...args: any[]) => void;
 
@@ -106,123 +92,79 @@ export class XYWebSocketManager extends EventEmitter {
     return (
       this.config.apiKey === config.apiKey &&
       this.config.agentId === config.agentId &&
-      this.config.wsUrl1 === config.wsUrl1 &&
-      this.config.wsUrl2 === config.wsUrl2
+      this.config.wsUrl === config.wsUrl
     );
   }
 
   /**
-   * Connect to both WebSocket servers.
+   * Connect to WebSocket server.
    * Does not throw error if connection fails - logs warning instead.
    */
   async connect(): Promise<void> {
-    this.log("Connecting to XY WebSocket servers...");
+    this.log("Connecting to XY WebSocket server...");
     this.isShuttingDown = false;
 
-    // Try to connect to both servers, but don't fail if both fail
-    const results = await Promise.allSettled([
-      this.connectServer("server1", this.config.wsUrl1),
-      this.connectServer("server2", this.config.wsUrl2),
-    ]);
+    // ✅ Prevent re-entry: check if already connected or connecting
+    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
+      this.log("Already connected or connecting, skipping duplicate connect()");
+      return;
+    }
 
-    const successCount = results.filter((r) => r.status === "fulfilled").length;
-    const failCount = results.filter((r) => r.status === "rejected").length;
-
-    if (successCount > 0) {
-      this.log(`Connected to ${successCount}/2 XY WebSocket servers`);
-    } else {
-      this.error(
-        `Failed to connect to any WebSocket server (${failCount} failures). Plugin will continue but cannot receive messages.`
-      );
-      // Log individual failures
-      results.forEach((result, index) => {
-        if (result.status === "rejected") {
-          this.error(
-            `  - Server ${index + 1} failed: ${result.reason.message}`
-          );
-        }
-      });
+    try {
+      await this.connectServer(this.config.wsUrl);
+      this.log("Connected to XY WebSocket server");
+    } catch (error: any) {
+      this.error(`Failed to connect to WebSocket server: ${error.message}`);
+      this.error("Plugin will continue but cannot receive messages.");
     }
   }
 
   /**
-   * Disconnect from both WebSocket servers.
+   * Disconnect from WebSocket server.
    */
   disconnect(): void {
-    this.log("Disconnecting from XY WebSocket servers...");
+    this.log("Disconnecting from XY WebSocket server...");
     this.isShuttingDown = true;
 
-    if (this.reconnectTimer1) {
-      clearTimeout(this.reconnectTimer1);
-      this.reconnectTimer1 = null;
-    }
-    if (this.reconnectTimer2) {
-      clearTimeout(this.reconnectTimer2);
-      this.reconnectTimer2 = null;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
 
-    this.disconnectServer("server1");
-    this.disconnectServer("server2");
+    this.cleanupConnection();
 
-    // Clear session bindings
-    sessionManager.clear();
-
-    this.log("Disconnected from XY WebSocket servers");
+    this.log("Disconnected from XY WebSocket server");
   }
 
   /**
-   * Send a message to the appropriate server based on session binding.
+   * Send a message to the server.
    */
   async sendMessage(sessionId: string, message: OutboundWebSocketMessage): Promise<void> {
     console.log(`[WEBSOCKET-SEND] <<<<<<< Preparing to send message for session: ${sessionId} <<<<<<<`);
 
-    // Determine which server to use
-    let server: ServerIdentifier | null = sessionManager.getBinding(sessionId);
-
-    // If no binding, choose the first ready server
-    if (!server) {
-      if (this.state1.ready) {
-        server = "server1";
-      } else if (this.state2.ready) {
-        server = "server2";
-      } else {
-        throw new Error("No ready WebSocket servers available");
-      }
-      console.log(`[WEBSOCKET-SEND] No binding found, selected: ${server}`);
-    } else {
-      console.log(`[WEBSOCKET-SEND] Using bound server: ${server}`);
-    }
-
-    // Send to the selected server
-    const ws = server === "server1" ? this.ws1 : this.ws2;
-    const state = server === "server1" ? this.state1 : this.state2;
-
-    if (!ws || !state.ready || ws.readyState !== WebSocket.OPEN) {
-      throw new Error(`WebSocket ${server} not ready`);
+    if (!this.ws || !this.state.ready || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error("WebSocket not ready");
     }
 
     const messageStr = JSON.stringify(message);
-    // console.log(`[WS-${server}-SEND] Sending message frame:`, JSON.stringify(message, null, 2));
-    ws.send(messageStr);
-    console.log(`[WS-${server}-SEND] Message sent successfully, size: ${messageStr.length} bytes`);
+    this.ws.send(messageStr);
+    console.log(`[WS-SEND] Message sent successfully, size: ${messageStr.length} bytes`);
   }
 
   /**
-   * Check if at least one server is ready.
+   * Check if server is ready.
    */
   isReady(): boolean {
-    return this.state1.ready || this.state2.ready;
+    return this.state.ready;
   }
 
   /**
    * Get detailed connection diagnostics for monitoring and debugging.
-   * Helps identify orphan connections and connection leaks.
    */
   getConnectionDiagnostics(): ManagerDiagnostics {
     const cacheKey = `${this.config.apiKey}-${this.config.agentId}`;
 
-    const server1Diag = this.getServerDiagnostic("server1", this.ws1, this.state1, this.heartbeat1, this.reconnectTimer1);
-    const server2Diag = this.getServerDiagnostic("server2", this.ws2, this.state2, this.heartbeat2, this.reconnectTimer2);
+    const connectionDiag = this.getConnectionDiagnostic();
 
     // Count total event listeners on the manager
     const totalEventListeners = this.listenerCount('message') +
@@ -235,29 +177,22 @@ export class XYWebSocketManager extends EventEmitter {
 
     return {
       cacheKey,
-      server1: server1Diag,
-      server2: server2Diag,
+      connection: connectionDiag,
       isShuttingDown: this.isShuttingDown,
       totalEventListeners,
     };
   }
 
   /**
-   * Get diagnostic info for a single server connection.
+   * Get diagnostic info for the connection.
    */
-  private getServerDiagnostic(
-    serverId: ServerIdentifier,
-    ws: WebSocket | null,
-    state: ServerConnectionState,
-    heartbeat: HeartbeatManager | null,
-    reconnectTimer: NodeJS.Timeout | null
-  ): ConnectionDiagnostic {
-    const exists = ws !== null;
+  private getConnectionDiagnostic(): ConnectionDiagnostic {
+    const exists = this.ws !== null;
     let readyState = 'NULL';
     let listenerCount = 0;
 
-    if (ws) {
-      switch (ws.readyState) {
+    if (this.ws) {
+      switch (this.ws.readyState) {
         case WebSocket.CONNECTING:
           readyState = 'CONNECTING';
           break;
@@ -273,37 +208,79 @@ export class XYWebSocketManager extends EventEmitter {
       }
 
       // Count event listeners on the WebSocket
-      listenerCount = ws.listenerCount('message') +
-                      ws.listenerCount('close') +
-                      ws.listenerCount('error') +
-                      ws.listenerCount('open') +
-                      ws.listenerCount('pong');
+      listenerCount = this.ws.listenerCount('message') +
+                      this.ws.listenerCount('close') +
+                      this.ws.listenerCount('error') +
+                      this.ws.listenerCount('open') +
+                      this.ws.listenerCount('pong');
     }
 
     // Orphan detection: connection is OPEN but has no message listeners
     const isOrphan = exists &&
-                     ws!.readyState === WebSocket.OPEN &&
-                     ws!.listenerCount('message') === 0;
+                     this.ws!.readyState === WebSocket.OPEN &&
+                     this.ws!.listenerCount('message') === 0;
 
     return {
       exists,
       readyState,
-      stateConnected: state.connected,
-      stateReady: state.ready,
-      reconnectAttempts: state.reconnectAttempts,
-      lastHeartbeat: state.lastHeartbeat,
-      heartbeatActive: heartbeat !== null,
-      hasReconnectTimer: reconnectTimer !== null,
+      stateConnected: this.state.connected,
+      stateReady: this.state.ready,
+      reconnectAttempts: this.state.reconnectAttempts,
+      lastHeartbeat: this.state.lastHeartbeat,
+      heartbeatActive: this.heartbeat !== null,
+      hasReconnectTimer: this.reconnectTimer !== null,
       listenerCount,
       isOrphan,
     };
   }
 
   /**
-   * Connect to a specific server.
+   * Clean up connection without triggering reconnection.
    */
-  private async connectServer(serverId: ServerIdentifier, url: string): Promise<void> {
+  private cleanupConnection(): void {
+    // Stop heartbeat
+    if (this.heartbeat) {
+      this.heartbeat.stop();
+      this.heartbeat = null;
+    }
+
+    // Clear reconnect timer
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    // Clean up WebSocket
+    if (this.ws) {
+      // Remove all event listeners
+      this.ws.removeAllListeners();
+
+      // Close the connection if still open
+      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
+        try {
+          this.ws.close();
+        } catch (err) {
+          this.error("Error closing WebSocket:", err);
+        }
+      }
+
+      // Clear reference
+      this.ws = null;
+    }
+
+    // Reset state
+    this.state.connected = false;
+    this.state.ready = false;
+  }
+
+  /**
+   * Connect to server.
+   */
+  private async connectServer(url: string): Promise<void> {
     return new Promise((resolve, reject) => {
+      // ✅ Clean up old connection first
+      this.cleanupConnection();
+
       // Check if URL is wss with IP address to bypass certificate validation
       const urlObj = new URL(url);
       const isWssWithIP = urlObj.protocol === 'wss:' && /^(\d{1,3}\.){3}\d{1,3}$/.test(urlObj.hostname);
@@ -319,51 +296,44 @@ export class XYWebSocketManager extends EventEmitter {
 
       // Bypass certificate validation for wss with IP address
       if (isWssWithIP) {
-        this.log(`${serverId}: Bypassing certificate validation for IP address: ${urlObj.hostname}`);
+        this.log(`Bypassing certificate validation for IP address: ${urlObj.hostname}`);
         wsOptions.rejectUnauthorized = false;
       }
 
       const ws = new WebSocket(url, wsOptions);
-      const state = serverId === "server1" ? this.state1 : this.state2;
-
-      // Set the WebSocket instance
-      if (serverId === "server1") {
-        this.ws1 = ws;
-      } else {
-        this.ws2 = ws;
-      }
+      this.ws = ws;
 
       // Connection timeout
       const connectTimeout = setTimeout(() => {
-        if (!state.connected) {
-          reject(new Error(`Connection timeout for ${serverId}`));
+        if (!this.state.connected) {
+          reject(new Error("Connection timeout"));
           ws.close();
         }
       }, 30000); // 30 seconds
 
       ws.on("open", () => {
         clearTimeout(connectTimeout);
-        state.connected = true;
-        state.reconnectAttempts = 0;
-        this.log(`${serverId} connected`);
-        this.emit("connected", serverId);
+        this.state.connected = true;
+        this.state.reconnectAttempts = 0;
+        this.log("WebSocket connected");
+        this.emit("connected");
 
         // Send init message
-        this.sendInitMessage(serverId);
+        this.sendInitMessage();
         resolve();
       });
 
       ws.on("message", (data: WebSocket.Data) => {
-        this.handleMessage(serverId, data);
+        this.handleMessage(data);
       });
 
       ws.on("close", (code: number, reason: Buffer) => {
-        this.handleClose(serverId, code, reason.toString());
+        this.handleClose(code, reason.toString());
       });
 
       ws.on("error", (error: Error) => {
-        this.handleError(serverId, error);
-        if (!state.connected) {
+        this.handleError(error);
+        if (!this.state.connected) {
           clearTimeout(connectTimeout);
           reject(error);
         }
@@ -372,45 +342,11 @@ export class XYWebSocketManager extends EventEmitter {
   }
 
   /**
-   * Disconnect from a specific server.
-   */
-  private disconnectServer(serverId: ServerIdentifier): void {
-    const ws = serverId === "server1" ? this.ws1 : this.ws2;
-    const heartbeat = serverId === "server1" ? this.heartbeat1 : this.heartbeat2;
-    const state = serverId === "server1" ? this.state1 : this.state2;
-
-    if (heartbeat) {
-      heartbeat.stop();
-      if (serverId === "server1") {
-        this.heartbeat1 = null;
-      } else {
-        this.heartbeat2 = null;
-      }
-    }
-
-    if (ws) {
-      ws.removeAllListeners();
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-      if (serverId === "server1") {
-        this.ws1 = null;
-      } else {
-        this.ws2 = null;
-      }
-    }
-
-    state.connected = false;
-    state.ready = false;
-  }
-
-  /**
    * Send init message to server.
    */
-  private sendInitMessage(serverId: ServerIdentifier): void {
-    const ws = serverId === "server1" ? this.ws1 : this.ws2;
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      this.error(`Cannot send init message: ${serverId} not open`);
+  private sendInitMessage(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.error("Cannot send init message: WebSocket not open");
       return;
     }
 
@@ -421,28 +357,26 @@ export class XYWebSocketManager extends EventEmitter {
     };
 
     const initMessageStr = JSON.stringify(initMessage);
-    console.log(`[WS-${serverId}-SEND] Sending init message frame:`, JSON.stringify(initMessage, null, 2));
-    ws.send(initMessageStr);
-    console.log(`[WS-${serverId}-SEND] Init message sent successfully, size: ${initMessageStr.length} bytes`);
+    console.log("[WS-SEND] Sending init message frame:", JSON.stringify(initMessage, null, 2));
+    this.ws.send(initMessageStr);
+    console.log(`[WS-SEND] Init message sent successfully, size: ${initMessageStr.length} bytes`);
 
     // Mark as ready after init
-    const state = serverId === "server1" ? this.state1 : this.state2;
-    state.ready = true;
-    this.emit("ready", serverId);
+    this.state.ready = true;
+    this.emit("ready");
 
     // Start heartbeat
-    this.startHeartbeat(serverId);
+    this.startHeartbeat();
   }
 
   /**
-   * Start heartbeat for a server.
+   * Start heartbeat.
    */
-  private startHeartbeat(serverId: ServerIdentifier): void {
-    const ws = serverId === "server1" ? this.ws1 : this.ws2;
-    if (!ws) return;
+  private startHeartbeat(): void {
+    if (!this.ws) return;
 
     const heartbeat = new HeartbeatManager(
-      ws,
+      this.ws,
       {
         interval: 30000, // 30 seconds
         timeout: 10000, // 10 seconds
@@ -453,59 +387,52 @@ export class XYWebSocketManager extends EventEmitter {
         }),
       },
       () => {
-        this.error(`Heartbeat timeout for ${serverId}, reconnecting...`);
-        this.reconnectServer(serverId);
+        this.error("Heartbeat timeout, reconnecting...");
+        // ✅ Close connection first before reconnecting
+        if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+          this.log("Closing connection due to heartbeat timeout");
+          this.ws.close(); // This will trigger handleClose which will call reconnectServer
+        } else {
+          // Connection already closed, just reconnect
+          this.reconnectServer();
+        }
       },
-      serverId,
+      "websocket",
       this.log,
       this.error,
-      this.onHealthEvent  // ✅ Pass health event callback
+      this.onHealthEvent
     );
 
     heartbeat.start();
-
-    if (serverId === "server1") {
-      this.heartbeat1 = heartbeat;
-    } else {
-      this.heartbeat2 = heartbeat;
-    }
+    this.heartbeat = heartbeat;
   }
 
   /**
    * Handle incoming message from server.
    */
-  private handleMessage(serverId: ServerIdentifier, data: WebSocket.Data): void {
-    console.log(`[WEBSOCKET-HANDLE] >>>>>>> serverId: ${serverId}, receiving message... <<<<<<<`);
+  private handleMessage(data: WebSocket.Data): void {
+    console.log("[WEBSOCKET-HANDLE] >>>>>>> Receiving message... <<<<<<<");
 
     try {
       const messageStr = data.toString();
-      console.log(`[WS-${serverId}-RECV] Raw message frame, size: ${messageStr.length} bytes`);
+      console.log(`[WS-RECV] Raw message frame, size: ${messageStr.length} bytes`);
 
       const parsed = JSON.parse(messageStr);
-
-      // Log raw message
-      console.log(`[WS-${serverId}-RECV] Parsed message:`, JSON.stringify(parsed, null, 2));
+      console.log("[WS-RECV] Parsed message:", JSON.stringify(parsed, null, 2));
 
       // Check if message is in direct A2A JSON-RPC format (server push)
       if (parsed.jsonrpc === "2.0") {
-        // Direct A2A format
         const a2aRequest: A2AJsonRpcRequest = parsed;
-        console.log(`[XY-${serverId}] Message type: Direct A2A JSON-RPC, method: ${a2aRequest.method}`);
+        console.log(`[XY] Message type: Direct A2A JSON-RPC, method: ${a2aRequest.method}`);
 
         // Extract sessionId from params
         const sessionId = a2aRequest.params?.sessionId;
         if (!sessionId) {
-          console.error(`[XY-${serverId}] Message missing sessionId`);
+          console.error("[XY] Message missing sessionId");
           return;
         }
 
-        console.log(`[XY-${serverId}] Session ID: ${sessionId}`);
-
-        // Bind session to this server if not already bound
-        if (!sessionManager.isBound(sessionId)) {
-          sessionManager.bind(sessionId, serverId);
-          console.log(`[XY-${serverId}] Bound session ${sessionId} to ${serverId}`);
-        }
+        console.log(`[XY] Session ID: ${sessionId}`);
 
         // Check if message contains only data parts (tool results)
         const dataParts = a2aRequest.params?.message?.parts?.filter((p): p is { kind: "data"; data: any } => p.kind === "data");
@@ -513,175 +440,168 @@ export class XYWebSocketManager extends EventEmitter {
                                  dataParts.length === a2aRequest.params?.message?.parts?.length;
 
         if (hasOnlyDataParts) {
-          // This is a data-only message (e.g., intent execution result)
-          // Only emit data-event, don't send to openclaw
-          console.log(`[XY-${serverId}] Message contains only data parts, processing as tool result`);
+          console.log("[XY] Message contains only data parts, processing as tool result");
           for (const dataPart of dataParts) {
-            // Data format: {events: [{header, payload}, ...]}
             const events = dataPart.data?.events;
             if (!Array.isArray(events)) {
-              console.warn(`[XY-${serverId}] dataPart.data.events is not an array, skipping`);
+              console.warn("[XY] dataPart.data.events is not an array, skipping");
               continue;
             }
 
-            console.log(`[XY-${serverId}] Processing ${events.length} events from data.events`);
+            console.log(`[XY] Processing ${events.length} events from data.events`);
             for (const item of events) {
-              // Check if it's an UploadExeResult (intent execution result)
               if (item.header?.name === "UploadExeResult" && item.payload?.intentName) {
                 const dataEvent = {
                   intentName: item.payload.intentName,
                   outputs: item.payload.outputs || {},
                   status: "success" as const,
                 };
-                console.log(`[XY-${serverId}] Emitting data-event:`, dataEvent);
+                console.log("[XY] Emitting data-event:", dataEvent);
                 this.emit("data-event", dataEvent);
-              }
-              // Check if it's an InvokeJarvisGUIAgentResponse
-              else if (item.header?.namespace === "ClawAgent" && item.header?.name === "InvokeJarvisGUIAgentResponse") {
-                console.log(`[XY-${serverId}] Emitting gui-agent-response:`, item);
+              } else if (item.header?.namespace === "ClawAgent" && item.header?.name === "InvokeJarvisGUIAgentResponse") {
+                console.log("[XY] Emitting gui-agent-response:", item);
                 this.emit("gui-agent-response", item);
               }
             }
           }
-          return; // Don't emit message event
+          return;
         }
 
         // Emit message event for non-data-only messages
-        console.log(`[XY-${serverId}] *** EMITTING message event (Direct A2A path) ***`);
-        this.emit("message", a2aRequest, sessionId, serverId);
+        console.log("[XY] *** EMITTING message event (Direct A2A path) ***");
+        this.emit("message", a2aRequest, sessionId);
         return;
       }
 
       // Wrapped format (InboundWebSocketMessage)
       const inboundMsg: InboundWebSocketMessage = parsed;
-      console.log(`[XY-${serverId}] Message type: Wrapped, msgType: ${inboundMsg.msgType}`);
+      console.log(`[XY] Message type: Wrapped, msgType: ${inboundMsg.msgType}`);
 
       // Handle heartbeat responses
       if (inboundMsg.msgType === "heartbeat") {
-        console.log(`[XY-${serverId}] Received heartbeat response`);
-        // ✅ Report health: application-level heartbeat received
-        // This prevents openclaw health-monitor from marking connection as stale
+        console.log("[XY] Received heartbeat response");
         this.onHealthEvent?.();
         return;
       }
 
-      // Handle data messages (e.g., intent execution results)
+      // Handle data messages
       if (inboundMsg.msgType === "data") {
-        console.log(`[XY-${serverId}] Processing data message`);
+        console.log("[XY] Processing data message");
         try {
           const a2aRequest: A2AJsonRpcRequest = JSON.parse(inboundMsg.msgDetail);
           const dataParts = a2aRequest.params?.message?.parts?.filter((p): p is { kind: "data"; data: any } => p.kind === "data");
 
           if (dataParts && dataParts.length > 0) {
             for (const dataPart of dataParts) {
-              // Data format: {events: [{header, payload}, ...]}
               const events = dataPart.data?.events;
               if (!Array.isArray(events)) {
-                console.warn(`[XY-${serverId}] dataPart.data.events is not an array, skipping`);
+                console.warn("[XY] dataPart.data.events is not an array, skipping");
                 continue;
               }
 
-              console.log(`[XY-${serverId}] Processing ${events.length} events from data.events`);
+              console.log(`[XY] Processing ${events.length} events from data.events`);
               for (const item of events) {
-                // Check if it's an UploadExeResult (intent execution result)
                 if (item.header?.name === "UploadExeResult" && item.payload?.intentName) {
                   const dataEvent = {
                     intentName: item.payload.intentName,
                     outputs: item.payload.outputs || {},
                     status: "success" as const,
                   };
-                  console.log(`[XY-${serverId}] Emitting data-event:`, dataEvent);
+                  console.log("[XY] Emitting data-event:", dataEvent);
                   this.emit("data-event", dataEvent);
-                }
-                // Check if it's an InvokeJarvisGUIAgentResponse
-                else if (item.header?.namespace === "ClawAgent" && item.header?.name === "InvokeJarvisGUIAgentResponse") {
-                  console.log(`[XY-${serverId}] Emitting gui-agent-response:`, item);
+                } else if (item.header?.namespace === "ClawAgent" && item.header?.name === "InvokeJarvisGUIAgentResponse") {
+                  console.log("[XY] Emitting gui-agent-response:", item);
                   this.emit("gui-agent-response", item);
                 }
               }
             }
           }
         } catch (error) {
-          console.error(`[XY-${serverId}] Failed to process data message:`, error);
+          console.error("[XY] Failed to process data message:", error);
         }
         return;
       }
 
       // Parse msgDetail as A2AJsonRpcRequest
       const a2aRequest: A2AJsonRpcRequest = JSON.parse(inboundMsg.msgDetail);
-      console.log(`[XY-${serverId}] Parsed A2A request, method: ${a2aRequest.method}`);
+      console.log(`[XY] Parsed A2A request, method: ${a2aRequest.method}`);
 
-      // Bind session to this server if not already bound
       const sessionId = inboundMsg.sessionId;
-      if (!sessionManager.isBound(sessionId)) {
-        sessionManager.bind(sessionId, serverId);
-        console.log(`[XY-${serverId}] Bound session ${sessionId} to ${serverId}`);
-      }
-
-      console.log(`[XY-${serverId}] Session ID: ${sessionId}`);
+      console.log(`[XY] Session ID: ${sessionId}`);
 
       // Emit message event
-      console.log(`[XY-${serverId}] *** EMITTING message event (Wrapped path) ***`);
-      this.emit("message", a2aRequest, sessionId, serverId);
+      console.log("[XY] *** EMITTING message event (Wrapped path) ***");
+      this.emit("message", a2aRequest, sessionId);
     } catch (error) {
-      console.error(`[XY-${serverId}] Failed to parse message:`, error);
+      console.error("[XY] Failed to parse message:", error);
     }
   }
 
   /**
    * Handle connection close.
    */
-  private handleClose(serverId: ServerIdentifier, code: number, reason: string): void {
-    console.warn(`${serverId} disconnected: code=${code}, reason=${reason}`);
-    const state = serverId === "server1" ? this.state1 : this.state2;
-    state.connected = false;
-    state.ready = false;
+  private handleClose(code: number, reason: string): void {
+    console.warn(`WebSocket disconnected: code=${code}, reason=${reason}`);
 
-    this.emit("disconnected", serverId);
-
-    // Stop heartbeat
-    const heartbeat = serverId === "server1" ? this.heartbeat1 : this.heartbeat2;
-    if (heartbeat) {
-      heartbeat.stop();
+    // Only process if this is the current connection
+    if (!this.ws) {
+      this.log("Ignoring close event for already cleaned connection");
+      return;
     }
+
+    this.state.connected = false;
+    this.state.ready = false;
+
+    this.emit("disconnected");
+
+    // Clean up
+    if (this.heartbeat) {
+      this.heartbeat.stop();
+      this.heartbeat = null;
+    }
+
+    this.ws.removeAllListeners();
+    this.ws = null;
 
     // Attempt reconnection if not shutting down
     if (!this.isShuttingDown) {
-      this.reconnectServer(serverId);
+      this.reconnectServer();
     }
   }
 
   /**
    * Handle connection error.
    */
-  private handleError(serverId: ServerIdentifier, error: Error): void {
-    this.error(`${serverId} error:`, error);
-    this.emit("error", error, serverId);
+  private handleError(error: Error): void {
+    this.error("WebSocket error:", error);
+    this.emit("error", error);
   }
 
   /**
-   * Reconnect to a server with exponential backoff.
+   * Reconnect with exponential backoff.
    */
-  private reconnectServer(serverId: ServerIdentifier): void {
+  private reconnectServer(): void {
     if (this.isShuttingDown) return;
 
-    const state = serverId === "server1" ? this.state1 : this.state2;
-    state.reconnectAttempts++;
+    // Clear existing reconnect timer
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.log("Cleared existing reconnect timer to prevent concurrent reconnection");
+    }
 
-    const delay = Math.min(1000 * Math.pow(2, state.reconnectAttempts - 1), 30000);
-    this.log(`Reconnecting to ${serverId} in ${delay}ms (attempt ${state.reconnectAttempts})...`);
+    this.state.reconnectAttempts++;
+
+    const delay = Math.min(1000 * Math.pow(2, this.state.reconnectAttempts - 1), 30000);
+    this.log(`Reconnecting in ${delay}ms (attempt ${this.state.reconnectAttempts})...`);
 
     const timer = setTimeout(() => {
-      const url = serverId === "server1" ? this.config.wsUrl1 : this.config.wsUrl2;
-      this.connectServer(serverId, url).catch((error) => {
-        this.error(`Reconnection failed for ${serverId}:`, error);
+      this.reconnectTimer = null;
+
+      this.connectServer(this.config.wsUrl).catch((error) => {
+        this.error("Reconnection failed:", error);
       });
     }, delay);
 
-    if (serverId === "server1") {
-      this.reconnectTimer1 = timer;
-    } else {
-      this.reconnectTimer2 = timer;
-    }
+    this.reconnectTimer = timer;
   }
 }

@@ -24,8 +24,8 @@ export function resolveXYConfig(cfg: ClawdbotConfig): XYChannelConfig {
   // Return configuration with defaults
   return {
     enabled: xyConfig.enabled ?? false,
-    wsUrl1: xyConfig.wsUrl1 ?? "ws://localhost:8765/ws/link",
-    wsUrl2: xyConfig.wsUrl2 ?? "ws://localhost:8768/ws/link",
+    // ✅ 兼容旧配置：优先使用 wsUrl，然后 wsUrl2（wsUrl1 被忽略）
+    wsUrl: xyConfig.wsUrl ?? xyConfig.wsUrl2 ?? "ws://localhost:8768/ws/link",
     apiKey: xyConfig.apiKey,
     uid: xyConfig.uid,
     agentId: xyConfig.agentId,

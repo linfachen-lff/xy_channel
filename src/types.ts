@@ -6,8 +6,7 @@
 
 export interface XYChannelConfig {
   enabled: boolean;
-  wsUrl1: string;
-  wsUrl2: string;
+  wsUrl: string;  // ✅ 只保留一个 WebSocket URL
   apiKey: string;
   uid: string;
   agentId: string;
@@ -218,10 +217,4 @@ export interface FileUploadCompleteResponse {
 // Session Management
 // ============================================================================
 
-export type ServerIdentifier = "server1" | "server2";
-
-export interface SessionBinding {
-  sessionId: string;
-  server: ServerIdentifier;
-  boundAt: number;
-}
+// ✅ Removed ServerIdentifier and SessionBinding - no longer needed with single connection
