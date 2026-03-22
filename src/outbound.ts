@@ -153,107 +153,96 @@ export const xyOutbound: ChannelOutboundAdapter = {
       mediaLocalRoots,
     });
 
-    // All sendMedia processing logic has been disabled
-    // Use send_file_to_user tool instead for file transfers to user device
-    console.log(`[xyOutbound.sendMedia] Processing disabled, use send_file_to_user tool`);
+    // Parse to: "sessionId::taskId"
+    const parts = to.split("::");
+    if (parts.length !== 2) {
+      throw new Error(`Invalid to format: "${to}". Expected "sessionId::taskId"`);
+    }
+    const [sessionId, taskId] = parts;
 
-    // Return empty message info
-    return {
-      channel: "xiaoyi-channel",
-      messageId: "把文件/图片发送给用户请使用send_file_to_user工具",
-      chatId: to,
+    // Resolve configuration
+    const config = resolveXYConfig(cfg);
+
+    // Create upload service
+    const uploadService = new XYFileUploadService(
+      config.fileUploadUrl,
+      config.apiKey,
+      config.uid
+    );
+
+    // Validate mediaUrl
+    if (!mediaUrl) {
+      throw new Error("mediaUrl is required for sendMedia");
+    }
+
+    // Upload file
+    const fileId = await uploadService.uploadFile(mediaUrl);
+
+    // Check if fileId is empty
+    if (!fileId) {
+      console.log(`[xyOutbound.sendMedia] ⚠️ File upload failed: fileId is empty, aborting sendMedia`);
+      return {
+        channel: "xiaoyi-channel",
+        messageId: "",
+        chatId: to,
+      };
+    }
+
+    console.log(`[xyOutbound.sendMedia] File uploaded:`, {
+      fileId,
+      sessionId,
+      taskId,
+    });
+
+    // Get filename and mime type from mediaUrl
+    // mediaUrl may be a local file path or URL
+    const fileName = mediaUrl.split("/").pop() || "unknown";
+    const mimeType = getMimeTypeFromFilename(fileName);
+
+    // Build agent_response message
+    const agentResponse: OutboundWebSocketMessage = {
+      msgType: "agent_response",
+      agentId: config.agentId,
+      sessionId: sessionId,
+      taskId: taskId,
+      msgDetail: JSON.stringify({
+        jsonrpc: "2.0",
+        id: taskId,
+        result: {
+          kind: "artifact-update",
+          append: true,
+          lastChunk: false,
+          final: false,
+          artifact: {
+            artifactId: taskId,
+            parts: [
+              {
+                kind: "file",
+                file: {
+                  name: fileName,
+                  mimeType: mimeType,
+                  fileId: fileId,
+                },
+              },
+            ],
+          },
+        },
+        error: { code: 0 },
+      }),
     };
 
-    // // Parse to: "sessionId::taskId"
-    // const parts = to.split("::");
-    // if (parts.length !== 2) {
-    //   throw new Error(`Invalid to format: "${to}". Expected "sessionId::taskId"`);
-    // }
-    // const [sessionId, taskId] = parts;
+    // Get WebSocket manager and send message
+    const { getXYWebSocketManager } = await import("./client.js");
+    const wsManager = getXYWebSocketManager(config);
+    await wsManager.sendMessage(sessionId, agentResponse);
 
-    // // Resolve configuration
-    // const config = resolveXYConfig(cfg);
+    console.log(`[xyOutbound.sendMedia] WebSocket message sent successfully`);
 
-    // // Create upload service
-    // const uploadService = new XYFileUploadService(
-    //   config.fileUploadUrl,
-    //   config.apiKey,
-    //   config.uid
-    // );
-
-    // // Validate mediaUrl
-    // if (!mediaUrl) {
-    //   throw new Error("mediaUrl is required for sendMedia");
-    // }
-
-    // // Upload file
-    // const fileId = await uploadService.uploadFile(mediaUrl);
-
-    // // Check if fileId is empty
-    // if (!fileId) {
-    //   console.log(`[xyOutbound.sendMedia] ⚠️ File upload failed: fileId is empty, aborting sendMedia`);
-    //   return {
-    //     channel: "xiaoyi-channel",
-    //     messageId: "",
-    //     chatId: to,
-    //   };
-    // }
-
-    // console.log(`[xyOutbound.sendMedia] File uploaded:`, {
-    //   fileId,
-    //   sessionId,
-    //   taskId,
-    // });
-
-    // // Get filename and mime type from mediaUrl
-    // // mediaUrl may be a local file path or URL
-    // const fileName = mediaUrl.split("/").pop() || "unknown";
-    // const mimeType = getMimeTypeFromFilename(fileName);
-
-    // // Build agent_response message
-    // const agentResponse: OutboundWebSocketMessage = {
-    //   msgType: "agent_response",
-    //   agentId: config.agentId,
-    //   sessionId: sessionId,
-    //   taskId: taskId,
-    //   msgDetail: JSON.stringify({
-    //     jsonrpc: "2.0",
-    //     id: taskId,
-    //     result: {
-    //       kind: "artifact-update",
-    //       append: true,
-    //       lastChunk: false,
-    //       final: false,
-    //       artifact: {
-    //         artifactId: taskId,
-    //         parts: [
-    //           {
-    //             kind: "file",
-    //             file: {
-    //               name: fileName,
-    //               mimeType: mimeType,
-    //               fileId: fileId,
-    //             },
-    //           },
-    //         ],
-    //       },
-    //     },
-    //     error: { code: 0 },
-    //   }),
-    // };
-
-    // // Get WebSocket manager and send message
-    // const { getXYWebSocketManager } = await import("./client.js");
-    // const wsManager = getXYWebSocketManager(config);
-    // await wsManager.sendMessage(sessionId, agentResponse);
-
-    // console.log(`[xyOutbound.sendMedia] WebSocket message sent successfully`);
-
-    // // Return message info
-    // return {
-    //   channel: "xiaoyi-channel",
-    //   messageId: fileId,
-    //   chatId: to,
-    // };
+    // Return message info
+    return {
+      channel: "xiaoyi-channel",
+      messageId: fileId,
+      chatId: to,
+    };
   },
 };
