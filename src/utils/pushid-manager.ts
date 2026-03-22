@@ -3,7 +3,7 @@ import { promises as fs } from "fs";
 import * as path from "path";
 import { logger } from "./logger.js";
 
-const PUSHID_LIST_FILE = "/home/snadbox/.openclaw/pushIdList.json";
+const PUSHID_LIST_FILE = "/home/sandbox/.openclaw/pushIdList.json";
 
 /**
  * 确保目录存在

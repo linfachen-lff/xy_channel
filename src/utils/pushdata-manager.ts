@@ -4,7 +4,7 @@ import * as path from "path";
 import { randomUUID } from "crypto";
 import { logger } from "./logger.js";
 
-const PUSHDATA_FILE = "/home/snadbox/.openclaw/pushData.json";
+const PUSHDATA_FILE = "/home/sandbox/.openclaw/pushData.json";
 const MAX_PUSHDATA_ITEMS = 1000; // 最多保留 1000 条记录
 
 /**
