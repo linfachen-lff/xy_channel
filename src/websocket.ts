@@ -45,6 +45,7 @@ export interface ManagerDiagnostics {
  * - 'message': (message: A2AJsonRpcRequest, sessionId: string) => void
  * - 'data-event': (event: A2ADataEvent) => void
  * - 'gui-agent-response': (event: any) => void
+ * - 'trigger-event': (event: any) => void
  * - 'connected': () => void
  * - 'disconnected': () => void
  * - 'error': (error: Error) => void
@@ -461,6 +462,14 @@ export class XYWebSocketManager extends EventEmitter {
               } else if (item.header?.namespace === "ClawAgent" && item.header?.name === "InvokeJarvisGUIAgentResponse") {
                 console.log("[XY] Emitting gui-agent-response:", item);
                 this.emit("gui-agent-response", item);
+              } else if (item.header?.namespace === "Common" && item.header?.name === "Trigger") {
+                console.log("[XY] Trigger event detected, emitting trigger-event with context");
+                // 传递完整上下文：event、sessionId、taskId
+                this.emit("trigger-event", {
+                  event: item,
+                  sessionId: sessionId,
+                  taskId: a2aRequest.params?.id, // 新的 taskId（点击推送时生成）
+                });
               }
             }
           }
@@ -512,6 +521,14 @@ export class XYWebSocketManager extends EventEmitter {
                 } else if (item.header?.namespace === "ClawAgent" && item.header?.name === "InvokeJarvisGUIAgentResponse") {
                   console.log("[XY] Emitting gui-agent-response:", item);
                   this.emit("gui-agent-response", item);
+                } else if (item.header?.namespace === "Common" && item.header?.name === "Trigger") {
+                  console.log("[XY] Trigger event detected (wrapped format), emitting trigger-event with context");
+                  // 传递完整上下文：event、sessionId、taskId
+                  this.emit("trigger-event", {
+                    event: item,
+                    sessionId: inboundMsg.sessionId || a2aRequest.params?.sessionId,
+                    taskId: inboundMsg.taskId || a2aRequest.params?.id,
+                  });
                 }
               }
             }

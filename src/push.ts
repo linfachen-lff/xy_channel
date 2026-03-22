@@ -19,10 +19,18 @@ interface PushRequest {
     kind: "task";
     artifacts: Array<{
       artifactId: string;
-      parts: Array<{
-        kind: "text";
-        text: string;
-      }>;
+      parts: Array<
+        | {
+            kind: "text";
+            text: string;
+          }
+        | {
+            kind: "data";
+            data: {
+              pushDataId: string;
+            };
+          }
+      >;
     }>;
   };
 }
@@ -46,12 +54,19 @@ export class XYPushService {
 
   /**
    * Send a push message to a user session.
+   *
+   * @param content - Push message content
+   * @param title - Push message title
+   * @param data - Optional additional data
+   * @param sessionId - Optional session ID
+   * @param pushDataId - Optional pushDataId for kind="data" format
    */
   async sendPush(
     content: string,
     title: string,
     data?: Record<string, any>,
-    sessionId?: string
+    sessionId?: string,
+    pushDataId?: string
   ): Promise<void> {
     const pushUrl = this.config.pushUrl || this.DEFAULT_PUSH_URL;
     const traceId = this.generateTraceId();
@@ -91,12 +106,21 @@ export class XYPushService {
           artifacts: [
             {
               artifactId: randomUUID(),
-              parts: [
-                {
-                  kind: "text",
-                  text: content,
-                },
-              ],
+              parts: pushDataId
+                ? [
+                    {
+                      kind: "data",
+                      data: {
+                        pushDataId: pushDataId,
+                      },
+                    },
+                  ]
+                : [
+                    {
+                      kind: "text",
+                      text: content,
+                    },
+                  ],
             },
           ],
         },

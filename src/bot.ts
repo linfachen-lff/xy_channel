@@ -8,6 +8,7 @@ import { resolveXYConfig } from "./config.js";
 import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse } from "./formatter.js";
 import { registerSession, unregisterSession, runWithSessionContext } from "./tools/session-manager.js";
 import { configManager } from "./utils/config-manager.js";
+import { addPushId } from "./utils/pushid-manager.js";
 import {
   registerTaskId,
   incrementTaskIdRef,
@@ -117,6 +118,11 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       log(`[BOT]   - Push ID preview: ${pushId.substring(0, 20)}...`);
       log(`[BOT]   - Full push_id: ${pushId}`);
       configManager.updatePushId(parsed.sessionId, pushId);
+
+      // 持久化 pushId 到本地文件（异步，不阻塞主流程）
+      addPushId(pushId).catch((err) => {
+        error(`[BOT] Failed to persist pushId:`, err);
+      });
     } else {
       log(`[BOT] ℹ️  No push_id found in message, will use config default`);
     }

@@ -26,6 +26,7 @@ import { modifyAlarmTool } from "./tools/modify-alarm-tool.js";
 import { deleteAlarmTool } from "./tools/delete-alarm-tool.js";
 import { sendFileToUserTool } from "./tools/send-file-to-user-tool.js";
 import { xiaoyiCollectionTool } from "./tools/xiaoyi-collection-tool.js";
+import { viewPushResultTool } from "./tools/view-push-result-tool.js";
 import { getXYWebSocketManager } from "./client.js";
 import { handleXYMessage } from "./bot.js";
 import { logger } from "./utils/logger.js";
@@ -75,7 +76,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   onboarding: xyOnboardingAdapter,
-  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendFileToUserTool, xiaoyiCollectionTool],
+  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendFileToUserTool, xiaoyiCollectionTool, viewPushResultTool],
 
   messaging: {
     normalizeTarget: (raw) => {

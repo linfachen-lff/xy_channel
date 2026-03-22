@@ -6,6 +6,8 @@ import { resolveXYConfig } from "./config.js";
 import { XYFileUploadService } from "./file-upload.js";
 import { XYPushService } from "./push.js";
 import { getCurrentSessionContext } from "./tools/session-manager.js";
+import { savePushData } from "./utils/pushdata-manager.js";
+import { getAllPushIds } from "./utils/pushid-manager.js";
 
 // Special marker for default push delivery when no target is specified
 const DEFAULT_PUSH_MARKER = "default";
@@ -121,6 +123,34 @@ export const xyOutbound: ChannelOutboundAdapter = {
       actualTo = config.defaultSessionId || "";
     }
 
+    // 1. 持久化推送消息内容，获取 pushDataId
+    console.log(`[xyOutbound.sendText] Saving push data to local storage...`);
+    let pushDataId: string;
+    try {
+      pushDataId = await savePushData(text);
+      console.log(`[xyOutbound.sendText] ✅ Push data saved with ID: ${pushDataId}`);
+    } catch (error) {
+      console.error(`[xyOutbound.sendText] ❌ Failed to save push data:`, error);
+      // 如果持久化失败，仍然继续发送（不阻塞主流程）
+      pushDataId = "";
+    }
+
+    // 2. 读取所有 pushId
+    console.log(`[xyOutbound.sendText] Loading all pushIds...`);
+    let pushIdList: string[] = [];
+    try {
+      pushIdList = await getAllPushIds();
+      console.log(`[xyOutbound.sendText] ✅ Loaded ${pushIdList.length} pushIds`);
+    } catch (error) {
+      console.error(`[xyOutbound.sendText] ❌ Failed to load pushIds:`, error);
+    }
+
+    // 3. 如果 pushIdList 为空，回退到原有逻辑（使用 config pushId）
+    if (pushIdList.length === 0) {
+      console.log(`[xyOutbound.sendText] ⚠️ No pushIds found, falling back to config pushId`);
+      pushIdList = [config.pushId];
+    }
+
     // Create push service
     const pushService = new XYPushService(config);
 
@@ -130,15 +160,32 @@ export const xyOutbound: ChannelOutboundAdapter = {
     // Truncate push content to max length 1000
     const pushText = text.length > 1000 ? text.slice(0, 1000) : text;
 
-    // Send push message (content, title, data, sessionId)
-    await pushService.sendPush(pushText, title, undefined, actualTo);
+    // 4. 遍历所有 pushId，依次发送推送通知
+    console.log(`[xyOutbound.sendText] 📤 Broadcasting to ${pushIdList.length} pushId(s)...`);
+    let successCount = 0;
+    let failureCount = 0;
 
+    for (const pushId of pushIdList) {
+      try {
+        console.log(`[xyOutbound.sendText] Sending to pushId: ${pushId.substring(0, 20)}...`);
+        // 传入 pushDataId，使用 kind="data" 格式
+        await pushService.sendPush(pushText, title, undefined, actualTo, pushDataId);
+        successCount++;
+        console.log(`[xyOutbound.sendText] ✅ Sent successfully to pushId: ${pushId.substring(0, 20)}...`);
+      } catch (error) {
+        failureCount++;
+        console.error(`[xyOutbound.sendText] ❌ Failed to send to pushId: ${pushId.substring(0, 20)}...`, error);
+        // 单个 pushId 发送失败不影响其他，继续处理下一个
+      }
+    }
+
+    console.log(`[xyOutbound.sendText] 📊 Broadcast summary: ${successCount} success, ${failureCount} failures`);
     console.log(`[xyOutbound.sendText] Completed successfully`);
 
     // Return message info
     return {
       channel: "xiaoyi-channel",
-      messageId: Date.now().toString(),
+      messageId: pushDataId || Date.now().toString(),
       chatId: actualTo,
     };
   },

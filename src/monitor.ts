@@ -6,6 +6,7 @@ import { getXYWebSocketManager, diagnoseAllManagers, cleanupOrphanConnections, r
 import { handleXYMessage } from "./bot.js";
 import { parseA2AMessage } from "./parser.js";
 import { hasActiveTask } from "./task-manager.js";
+import { handleTriggerEvent } from "./trigger-handler.js";
 
 export type MonitorXYOpts = {
   config?: any;
@@ -182,6 +183,16 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       error(`XY gateway: ${serverId} error: ${String(err)}`);
     };
 
+    const triggerEventHandler = (context: any) => {
+      log(`[MONITOR] 📌 Received trigger-event, dispatching to handler...`);
+      log(`[MONITOR]   - sessionId: ${context.sessionId}`);
+      log(`[MONITOR]   - taskId: ${context.taskId}`);
+      // 异步处理 Trigger 事件，不阻塞主流程
+      handleTriggerEvent(context, cfg, runtime, accountId).catch((err) => {
+        error(`[MONITOR] Failed to handle trigger-event:`, err);
+      });
+    };
+
     const cleanup = () => {
       log("XY gateway: cleaning up...");
 
@@ -201,6 +212,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       wsManager.off("connected", connectedHandler);
       wsManager.off("disconnected", disconnectedHandler);
       wsManager.off("error", errorHandler);
+      wsManager.off("trigger-event", triggerEventHandler);
 
       // ✅ Disconnect the wsManager to prevent connection leaks
       // This is safe because each gateway lifecycle should have clean connections
@@ -238,6 +250,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
     wsManager.on("connected", connectedHandler);
     wsManager.on("disconnected", disconnectedHandler);
     wsManager.on("error", errorHandler);
+    wsManager.on("trigger-event", triggerEventHandler);
 
     // Start periodic health check (every 5 minutes)
     console.log("🏥 Starting periodic health check (every 5 minutes)...");
