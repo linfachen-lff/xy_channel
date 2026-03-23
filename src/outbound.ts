@@ -168,8 +168,8 @@ export const xyOutbound: ChannelOutboundAdapter = {
     for (const pushId of pushIdList) {
       try {
         console.log(`[xyOutbound.sendText] Sending to pushId: ${pushId.substring(0, 20)}...`);
-        // 传入 pushDataId，使用 kind="data" 格式
-        await pushService.sendPush(pushText, title, undefined, actualTo, pushDataId);
+        // 传入 pushId 和 pushDataId，使用 kind="data" 格式
+        await pushService.sendPush(pushText, title, undefined, actualTo, pushDataId, pushId);
         successCount++;
         console.log(`[xyOutbound.sendText] ✅ Sent successfully to pushId: ${pushId.substring(0, 20)}...`);
       } catch (error) {

@@ -60,20 +60,21 @@ export class XYPushService {
    * @param data - Optional additional data
    * @param sessionId - Optional session ID
    * @param pushDataId - Optional pushDataId for kind="data" format
+   * @param pushId - Push ID to use (required)
    */
   async sendPush(
     content: string,
     title: string,
     data?: Record<string, any>,
     sessionId?: string,
-    pushDataId?: string
+    pushDataId?: string,
+    pushId?: string
   ): Promise<void> {
     const pushUrl = this.config.pushUrl || this.DEFAULT_PUSH_URL;
     const traceId = this.generateTraceId();
 
-    // Get dynamic pushId for the session (falls back to config pushId)
-    const dynamicPushId = configManager.getPushId(sessionId);
-    const pushId = dynamicPushId || this.config.pushId;
+    // Use provided pushId or fall back to config pushId
+    const actualPushId = pushId || this.config.pushId;
 
     console.log(`[PUSH] 📤 Preparing to send push message`);
     console.log(`[PUSH]   - Title: "${title}"`);
@@ -81,14 +82,8 @@ export class XYPushService {
     console.log(`[PUSH]   - Session ID: ${sessionId || 'none'}`);
     console.log(`[PUSH]   - Trace ID: ${traceId}`);
     console.log(`[PUSH]   - Push URL: ${pushUrl}`);
-
-    if (dynamicPushId) {
-      console.log(`[PUSH]   - Using dynamic pushId (from session): ${pushId.substring(0, 20)}...`);
-      console.log(`[PUSH]   - Full dynamic pushId: ${pushId}`);
-    } else {
-      console.log(`[PUSH]   - Using config pushId (fallback): ${pushId.substring(0, 20)}...`);
-      console.log(`[PUSH]   - Full config pushId: ${pushId}`);
-    }
+    console.log(`[PUSH]   - Using pushId: ${actualPushId.substring(0, 20)}...`);
+    console.log(`[PUSH]   - Full pushId: ${actualPushId}`);
 
     console.log(`[PUSH]   - API ID: ${this.config.apiId}`);
     console.log(`[PUSH]   - UID: ${this.config.uid}`);
@@ -100,7 +95,7 @@ export class XYPushService {
         result: {
           id: randomUUID(),
           apiId: this.config.apiId,
-          pushId: pushId, // Use dynamic pushId
+          pushId: actualPushId,
           pushText: title,
           kind: "task",
           artifacts: [
@@ -177,13 +172,13 @@ export class XYPushService {
       console.log(`[PUSH] ✅ Push message sent successfully`);
       console.log(`[PUSH]   - Title: "${title}"`);
       console.log(`[PUSH]   - Trace ID: ${traceId}`);
-      console.log(`[PUSH]   - Used pushId: ${pushId.substring(0, 20)}...`);
+      console.log(`[PUSH]   - Used pushId: ${actualPushId.substring(0, 20)}...`);
       console.log(`[PUSH]   - Response:`, result);
     } catch (error) {
       console.log(`[PUSH] ❌ Failed to send push message`);
       console.log(`[PUSH]   - Trace ID: ${traceId}`);
       console.log(`[PUSH]   - Target URL: ${pushUrl}`);
-      console.log(`[PUSH]   - Push ID: ${pushId.substring(0, 20)}...`);
+      console.log(`[PUSH]   - Push ID: ${actualPushId.substring(0, 20)}...`);
 
       if (error instanceof Error) {
         console.log(`[PUSH]   - Error name: ${error.name}`);
