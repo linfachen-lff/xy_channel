@@ -410,3 +410,65 @@ export async function sendTasksCancelResponse(params: SendTasksCancelResponsePar
   await wsManager.sendMessage(sessionId, outboundMessage);
   log(`Sent tasks/cancel response: sessionId=${sessionId}, taskId=${taskId}`);
 }
+
+/**
+ * Parameters for sending a Trigger response.
+ */
+export interface SendTriggerResponseParams {
+  config: XYChannelConfig;
+  sessionId: string;
+  taskId: string;
+  messageId: string;
+  content: string;
+}
+
+/**
+ * Send a Trigger response with pushData content.
+ */
+export async function sendTriggerResponse(params: SendTriggerResponseParams): Promise<void> {
+  const { config, sessionId, taskId, messageId, content } = params;
+
+  const runtime = getXYRuntime() as any;
+  const log = runtime?.log ?? console.log;
+  const error = runtime?.error ?? console.error;
+
+  // Build JSON-RPC response for Trigger
+  const jsonRpcResponse = {
+    jsonrpc: "2.0",
+    id: messageId,
+    result: {
+      taskId: taskId,
+      kind: "artifact-update",
+      append: false,
+      lastChunk: true,
+      final: true,
+      artifact: {
+        artifactId: uuidv4(),
+        parts: [
+          {
+            kind: "text",
+            text: content,
+          },
+        ],
+      },
+    },
+    error: {
+      code: 0,
+      message: "",
+    },
+  };
+
+  // Send via WebSocket
+  const wsManager = getXYWebSocketManager(config);
+  const outboundMessage: OutboundWebSocketMessage = {
+    msgType: "agent_response",
+    agentId: config.agentId,
+    sessionId,
+    taskId,
+    msgDetail: JSON.stringify(jsonRpcResponse),
+  };
+
+  log(`[TRIGGER_RESPONSE] Sending Trigger response: sessionId=${sessionId}, taskId=${taskId}`);
+  await wsManager.sendMessage(sessionId, outboundMessage);
+  log(`[TRIGGER_RESPONSE] Trigger response sent successfully`);
+}
