@@ -102,6 +102,29 @@ export function extractPushId(parts: A2AMessagePart[]): string | null {
 }
 
 /**
+ * Extract Trigger event data from message parts.
+ * Looks for Trigger events with pushDataId in data parts.
+ */
+export function extractTriggerData(parts: A2AMessagePart[]): { pushDataId: string } | null {
+  for (const part of parts) {
+    if (part.kind === "data" && part.data) {
+      const events = part.data.events;
+      if (Array.isArray(events)) {
+        for (const event of events) {
+          if (event.header?.namespace === "Common" && event.header?.name === "Trigger") {
+            const pushDataId = event.payload?.dataMap?.pushDataId;
+            if (pushDataId && typeof pushDataId === "string") {
+              return { pushDataId };
+            }
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Validate A2A request structure.
  */
 export function validateA2ARequest(request: any): request is A2AJsonRpcRequest {

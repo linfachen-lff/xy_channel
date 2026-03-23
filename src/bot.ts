@@ -2,13 +2,14 @@
 import type { ClawdbotConfig, RuntimeEnv, ReplyPayload } from "openclaw/plugin-sdk";
 import { getXYRuntime } from "./runtime.js";
 import { createXYReplyDispatcher } from "./reply-dispatcher.js";
-import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
+import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractTriggerData, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
 import { downloadFilesFromParts } from "./file-download.js";
 import { resolveXYConfig } from "./config.js";
-import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse } from "./formatter.js";
+import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse, sendA2AResponse } from "./formatter.js";
 import { registerSession, unregisterSession, runWithSessionContext } from "./tools/session-manager.js";
 import { configManager } from "./utils/config-manager.js";
 import { addPushId } from "./utils/pushid-manager.js";
+import { getPushDataById } from "./utils/pushdata-manager.js";
 import {
   registerTaskId,
   incrementTaskIdRef,
@@ -85,6 +86,50 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     // Parse the A2A message (for regular messages)
     const parsed = parseA2AMessage(message);
+
+    // ========== 检测 Trigger 消息 ==========
+    // 如果消息中包含 Trigger 事件数据，直接返回 pushData 内容，不走正常流程
+    const triggerData = extractTriggerData(parsed.parts);
+    if (triggerData) {
+      log(`[BOT] 📌 Detected Trigger message with pushDataId: ${triggerData.pushDataId}`);
+      log(`[BOT]   - Session ID: ${parsed.sessionId}`);
+      log(`[BOT]   - Task ID: ${parsed.taskId}`);
+
+      try {
+        // 读取 pushData
+        const pushDataItem = await getPushDataById(triggerData.pushDataId);
+
+        if (!pushDataItem) {
+          error(`[BOT] ❌ pushData not found for ID: ${triggerData.pushDataId}`);
+          return;
+        }
+
+        log(`[BOT] ✅ Found pushData, sending direct response`);
+        log(`[BOT]   - pushDataId: ${pushDataItem.pushDataId}`);
+        log(`[BOT]   - time: ${pushDataItem.time}`);
+        log(`[BOT]   - content length: ${pushDataItem.dataDetail.length} chars`);
+
+        const config = resolveXYConfig(cfg);
+
+        // 直接发送响应（final=true，不走 openclaw 流程）
+        await sendA2AResponse({
+          config,
+          sessionId: parsed.sessionId,
+          taskId: parsed.taskId,
+          messageId: parsed.messageId,
+          text: pushDataItem.dataDetail,
+          append: false,
+          final: true,
+        });
+
+        log(`[BOT] ✅ Trigger response sent successfully, exiting early`);
+        return;  // 提前返回，不继续处理
+      } catch (err) {
+        error(`[BOT] ❌ Failed to handle Trigger message:`, err);
+        return;
+      }
+    }
+    // ========================================
 
     // 🔑 检测steer模式和是否是第二条消息
     const isSteerMode = cfg.messages?.queue?.mode === "steer";
