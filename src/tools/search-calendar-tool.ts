@@ -97,19 +97,6 @@ b. 使用该工具之前需获取当前真实时间
       return date.getTime();
     };
 
-    // Helper function to convert timestamp to YYYYMMDD hhmmss format
-    const formatTimestamp = (timestamp: number): string => {
-      const date = new Date(timestamp);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-
-      return `${year}${month}${day} ${hours}${minutes}${seconds}`;
-    };
-
     let startTimeMs: number;
     let endTimeMs: number;
 
@@ -221,48 +208,15 @@ b. 使用该工具之前需获取当前真实时间
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            logger.log(`[SEARCH_CALENDAR_TOOL] ✅ Calendar events response received`);
+            logger.log(`[SEARCH_CALENDAR_TOOL] ✅ Calendar events retrieved successfully`);
             logger.log(`[SEARCH_CALENDAR_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
-            // Check for error code in outputs
-            if (event.outputs.retErrCode && event.outputs.retErrCode !== "0") {
-              logger.error(`[SEARCH_CALENDAR_TOOL] ❌ Device returned error`);
-              logger.error(`[SEARCH_CALENDAR_TOOL]   - retErrCode: ${event.outputs.retErrCode}`);
-              logger.error(`[SEARCH_CALENDAR_TOOL]   - errMsg: ${event.outputs.errMsg || "Unknown error"}`);
-              reject(new Error(`检索日程失败: ${event.outputs.errMsg || "未知错误"} (错误代码: ${event.outputs.retErrCode})`));
-              return;
-            }
-
-            // Return the result directly as requested
-            const result = event.outputs.result;
-
-            // Ensure result is not undefined
-            if (result === undefined) {
-              logger.warn(`[SEARCH_CALENDAR_TOOL] ⚠️ Result is undefined, returning empty result`);
-            }
-
-            // Convert dtStart and dtEnd from timestamps to YYYYMMDD hhmmss format
-            if (result && result.items && Array.isArray(result.items)) {
-              logger.log(`[SEARCH_CALENDAR_TOOL] 🔄 Converting timestamps to formatted dates...`);
-              result.items = result.items.map((item: any) => {
-                const formattedItem = { ...item };
-                if (item.dtStart) {
-                  formattedItem.dtStart = formatTimestamp(item.dtStart);
-                  logger.log(`[SEARCH_CALENDAR_TOOL]   - dtStart: ${item.dtStart} -> ${formattedItem.dtStart}`);
-                }
-                if (item.dtEnd) {
-                  formattedItem.dtEnd = formatTimestamp(item.dtEnd);
-                  logger.log(`[SEARCH_CALENDAR_TOOL]   - dtEnd: ${item.dtEnd} -> ${formattedItem.dtEnd}`);
-                }
-                return formattedItem;
-              });
-            }
-
+            // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [
                 {
                   type: "text",
-                  text: result !== undefined ? JSON.stringify(result) : "[]",
+                  text: JSON.stringify(event.outputs),
                 },
               ],
             });
