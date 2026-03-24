@@ -38,20 +38,16 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
 
 /**
  * Download files from A2A file parts.
- * Returns array of local file paths with metadata.
- *
- * @param fileParts - Array of file info from A2A message
- * @param tempDir - Temporary directory for downloaded files
- * @returns Array of downloaded file info (includes local path, name, mime type, and original URI)
+ * Returns array of local file paths.
  */
 export async function downloadFilesFromParts(
   fileParts: Array<{ name: string; mimeType: string; uri: string }>,
   tempDir: string = "/tmp/xy_channel"
-): Promise<Array<{ path: string; name: string; mimeType: string; uri: string }>> {
+): Promise<Array<{ path: string; name: string; mimeType: string }>> {
   // Create temp directory if it doesn't exist
   await fs.mkdir(tempDir, { recursive: true });
 
-  const downloadedFiles: Array<{ path: string; name: string; mimeType: string; uri: string }> = [];
+  const downloadedFiles: Array<{ path: string; name: string; mimeType: string }> = [];
 
   for (const filePart of fileParts) {
     const { name, mimeType, uri } = filePart;
@@ -63,20 +59,14 @@ export async function downloadFilesFromParts(
     try {
       await downloadFile(uri, destPath);
       downloadedFiles.push({
-        path: destPath,    // ⭐ Local path
+        path: destPath,
         name,
         mimeType,
-        uri,              // ⭐ Original remote URL
       });
-      logger.log(`✅ Downloaded: ${name} -> ${destPath}`);
     } catch (error) {
-      logger.error(`❌ Failed to download file ${name}:`, error);
+      logger.error(`Failed to download file ${name}:`, error);
       // Continue with other files
     }
-  }
-
-  if (downloadedFiles.length > 0) {
-    logger.log(`📦 Downloaded ${downloadedFiles.length}/${fileParts.length} files successfully`);
   }
 
   return downloadedFiles;

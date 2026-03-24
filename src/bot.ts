@@ -225,10 +225,8 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     const fileParts = extractFileParts(parsed.parts);
 
     // Download files to local disk
-    // MediaPath will be local path (faster for openclaw to read)
-    // MediaUrl will be remote URL (fallback if needed)
     const downloadedFiles = await downloadFilesFromParts(fileParts);
-    const mediaPayload = buildXYMediaPayload(fileParts, downloadedFiles);
+    const mediaPayload = buildXYMediaPayload(downloadedFiles);
 
     // Resolve envelope format options (following feishu pattern)
     const envelopeOptions = core.channel.reply.resolveEnvelopeFormatOptions(cfg);
@@ -397,19 +395,10 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
  * Build media payload for inbound context.
  * Following feishu pattern: buildFeishuMediaPayload().
  *
- * @param fileParts - Original file parts with remote URLs
- * @param downloadedFiles - Downloaded files with local paths (optional)
- *
- * If downloadedFiles provided:
- *   MediaPath will be local path (faster for openclaw to read)
- *   MediaUrl will be remote URL (fallback if local read fails)
- *
- * If not provided:
- *   Both will be remote URL (openclaw will download)
+ * @param mediaList - Downloaded files with local paths
  */
 function buildXYMediaPayload(
-  fileParts: Array<{ name: string; mimeType: string; uri: string }>,
-  downloadedFiles?: Array<{ path: string; name: string; mimeType: string; uri: string }>,
+  mediaList: Array<{ path: string; name: string; mimeType: string }>,
 ): {
   MediaPath?: string;
   MediaType?: string;
@@ -418,33 +407,15 @@ function buildXYMediaPayload(
   MediaUrls?: string[];
   MediaTypes?: string[];
 } {
-  const first = fileParts[0];
-  const uris = fileParts.map((file) => file.uri);
-  const mediaTypes = fileParts.map((file) => file.mimeType).filter(Boolean);
-
-  // If files were downloaded locally, use local paths for MediaPath
-  // and remote URLs for MediaUrl (best of both worlds)
-  if (downloadedFiles && downloadedFiles.length > 0) {
-    const localPaths = downloadedFiles.map((f) => f.path);
-    const firstLocal = downloadedFiles[0];
-
-    return {
-      MediaPath: firstLocal?.path,          // ⭐ Local path (/tmp/xy_channel/...)
-      MediaType: first?.mimeType,
-      MediaUrl: firstLocal?.uri,            // ⭐ Remote URL (https://cdn...)
-      MediaPaths: localPaths.length > 0 ? localPaths : undefined,
-      MediaUrls: uris.length > 0 ? uris : undefined,
-      MediaTypes: mediaTypes.length > 0 ? mediaTypes : undefined,
-    };
-  }
-
-  // Fallback: use remote URLs for both (original behavior)
+  const first = mediaList[0];
+  const mediaPaths = mediaList.map((media) => media.path);
+  const mediaTypes = mediaList.map((media) => media.mimeType).filter(Boolean);
   return {
-    MediaPath: first?.uri,
+    MediaPath: first?.path,
     MediaType: first?.mimeType,
-    MediaUrl: first?.uri,
-    MediaPaths: uris.length > 0 ? uris : undefined,
-    MediaUrls: uris.length > 0 ? uris : undefined,
+    MediaUrl: first?.path,
+    MediaPaths: mediaPaths.length > 0 ? mediaPaths : undefined,
+    MediaUrls: mediaPaths.length > 0 ? mediaPaths : undefined,
     MediaTypes: mediaTypes.length > 0 ? mediaTypes : undefined,
   };
 }
