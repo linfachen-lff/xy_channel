@@ -258,68 +258,15 @@ b. 使用该工具之前需获取当前真实时间`,
             logger.log(`[SEARCH_ALARM_TOOL] ✅ Alarm search completed successfully`);
             logger.log(`[SEARCH_ALARM_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
-            // Check for error code in outputs
-            const code = event.outputs.code !== undefined ? event.outputs.code : null;
-
-            if (code !== null && code !== 0) {
-              logger.error(`[SEARCH_ALARM_TOOL] ❌ Device returned error`);
-              logger.error(`[SEARCH_ALARM_TOOL]   - code: ${code}`);
-              const errorMsg = event.outputs.errorMsg || event.outputs.errMsg || "未知错误";
-              logger.error(`[SEARCH_ALARM_TOOL]   - errorMsg: ${errorMsg}`);
-              reject(new Error(`检索闹钟失败: ${errorMsg} (错误代码: ${code})`));
-              return;
-            }
-
-            // Extract result.items with safe checks
-            const result = event.outputs.result;
-            let items: any[] = [];
-
-            if (result && typeof result === "object" && Array.isArray(result.items)) {
-              items = result.items;
-              logger.log(`[SEARCH_ALARM_TOOL] 📋 Found ${items.length} alarm(s)`);
-
-              // Parse JSON strings in items array
-              // Items are returned as JSON strings that need to be parsed
-              const parsedItems = items.map((itemStr, index) => {
-                if (typeof itemStr !== "string") {
-                  logger.warn(`[SEARCH_ALARM_TOOL] ⚠️ Item at index ${index} is not a string:`, typeof itemStr);
-                  return null;
-                }
-                try {
-                  const parsed = JSON.parse(itemStr);
-                  logger.log(`[SEARCH_ALARM_TOOL] 📋 Parsed alarm [${index}]:`, JSON.stringify(parsed));
-                  return parsed;
-                } catch (parseError) {
-                  logger.error(`[SEARCH_ALARM_TOOL] ❌ Failed to parse item at index ${index}:`, parseError);
-                  logger.error(`[SEARCH_ALARM_TOOL]   - itemStr: ${itemStr}`);
-                  return null;
-                }
-              }).filter((item) => item !== null);
-
-              logger.log(`[SEARCH_ALARM_TOOL] 🎉 Successfully parsed ${parsedItems.length} alarm(s)`);
-
-              resolve({
-                content: [
-                  {
-                    type: "text",
-                    text: JSON.stringify(parsedItems),
-                  },
-                ],
-              });
-            } else {
-              logger.warn(`[SEARCH_ALARM_TOOL] ⚠️ No items found in result or result is invalid`);
-              logger.warn(`[SEARCH_ALARM_TOOL]   - result:`, JSON.stringify(result || {}));
-
-              // Return empty array
-              resolve({
-                content: [
-                  {
-                    type: "text",
-                    text: "[]",
-                  },
-                ],
-              });
-            }
+            // 成功，直接返回完整的 event.outputs JSON 字符串
+            resolve({
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(event.outputs),
+                },
+              ],
+            });
           } else {
             logger.error(`[SEARCH_ALARM_TOOL] ❌ Alarm search failed`);
             logger.error(`[SEARCH_ALARM_TOOL]   - status: ${event.status}`);
