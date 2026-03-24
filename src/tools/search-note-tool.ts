@@ -26,23 +26,32 @@ export const searchNoteTool: any = {
   },
 
   async execute(toolCallId: string, params: any) {
-    logger.debug("Executing search note tool, toolCallId:", toolCallId);
+    logger.log(`[SEARCH_NOTE_TOOL] 🚀 Starting execution`);
+    logger.log(`[SEARCH_NOTE_TOOL]   - toolCallId: ${toolCallId}`);
+    logger.log(`[SEARCH_NOTE_TOOL]   - params:`, JSON.stringify(params));
+    logger.log(`[SEARCH_NOTE_TOOL]   - timestamp: ${new Date().toISOString()}`);
 
     // Validate parameters
     if (!params.query) {
+      logger.error(`[SEARCH_NOTE_TOOL] ❌ Missing required parameter: query`);
       throw new Error("Missing required parameter: query is required");
     }
 
     // Get session context
+    logger.log(`[SEARCH_NOTE_TOOL] 🔍 Attempting to get session context...`);
     const sessionContext = getCurrentSessionContext();
     if (!sessionContext) {
+      logger.error(`[SEARCH_NOTE_TOOL] ❌ FAILED: No active session found!`);
       throw new Error("No active XY session found. Search note tool can only be used during an active conversation.");
     }
 
+    logger.log(`[SEARCH_NOTE_TOOL] ✅ Session context found`);
     const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
+    logger.log(`[SEARCH_NOTE_TOOL] 🔌 Getting WebSocket manager...`);
     const wsManager = getXYWebSocketManager(config);
+    logger.log(`[SEARCH_NOTE_TOOL] ✅ WebSocket manager obtained`);
 
     // Build SearchNote command
     const command = {
@@ -79,65 +88,64 @@ export const searchNoteTool: any = {
     };
 
     // Send command and wait for response (60 second timeout)
+    logger.log(`[SEARCH_NOTE_TOOL] ⏳ Setting up promise to wait for note search response...`);
+    logger.log(`[SEARCH_NOTE_TOOL]   - Timeout: 60 seconds`);
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
+        logger.error(`[SEARCH_NOTE_TOOL] ⏰ Timeout: No response received within 60 seconds`);
         wsManager.off("data-event", handler);
         reject(new Error("搜索备忘录超时（60秒）"));
       }, 60000);
 
       // Listen for data events from WebSocket
       const handler = (event: A2ADataEvent) => {
-        logger.debug("Received data event:", event);
+        logger.log(`[SEARCH_NOTE_TOOL] 📨 Received data event:`, JSON.stringify(event));
 
         if (event.intentName === "SearchNote") {
+          logger.log(`[SEARCH_NOTE_TOOL] 🎯 SearchNote event received`);
+          logger.log(`[SEARCH_NOTE_TOOL]   - status: ${event.status}`);
+
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            const { result, code } = event.outputs;
-            const items = result?.items || [];
+            logger.log(`[SEARCH_NOTE_TOOL] ✅ Note search completed successfully`);
+            logger.log(`[SEARCH_NOTE_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
-            logger.log(`Notes found: ${items.length} results for query "${params.query}"`);
-
+            // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    success: true,
-                    query: params.query,
-                    totalResults: items.length,
-                    notes: items.map((item: any) => ({
-                      entityId: item.entityId,
-                      entityName: item.entityName,
-                      title: item.title?.replace(/<\/?em>/g, ''), // Remove <em> tags
-                      content: item.content,
-                      createdDate: item.createdDate,
-                      modifiedDate: item.modifiedDate,
-                    })),
-                    indexName: result?.indexName,
-                    code,
-                  }),
+                  text: JSON.stringify(event.outputs),
                 },
               ],
             });
           } else {
+            logger.error(`[SEARCH_NOTE_TOOL] ❌ Note search failed`);
+            logger.error(`[SEARCH_NOTE_TOOL]   - status: ${event.status}`);
             reject(new Error(`搜索备忘录失败: ${event.status}`));
           }
         }
       };
 
       // Register event handler
+      logger.log(`[SEARCH_NOTE_TOOL] 📡 Registering data-event handler on WebSocket manager`);
       wsManager.on("data-event", handler);
 
       // Send the command
+      logger.log(`[SEARCH_NOTE_TOOL] 📤 Sending SearchNote command...`);
       sendCommand({
         config,
         sessionId,
         taskId,
         messageId,
         command,
+      }).then(() => {
+        logger.log(`[SEARCH_NOTE_TOOL] ✅ Command sent successfully, waiting for response...`);
       }).catch((error) => {
+        logger.error(`[SEARCH_NOTE_TOOL] ❌ Failed to send command:`, error);
         clearTimeout(timeout);
         wsManager.off("data-event", handler);
         reject(error);
