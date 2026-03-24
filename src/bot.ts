@@ -224,9 +224,11 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     const text = extractTextFromParts(parsed.parts);
     const fileParts = extractFileParts(parsed.parts);
 
-    // Build media payload directly from file URIs (openclaw can download them)
-    // No need to download files locally - pass URIs directly to openclaw
-    const mediaPayload = buildXYMediaPayload(fileParts);
+    // Download files to local disk
+    // MediaPath will be local path (faster for openclaw to read)
+    // MediaUrl will be remote URL (fallback if needed)
+    const downloadedFiles = await downloadFilesFromParts(fileParts);
+    const mediaPayload = buildXYMediaPayload(fileParts, downloadedFiles);
 
     // Resolve envelope format options (following feishu pattern)
     const envelopeOptions = core.channel.reply.resolveEnvelopeFormatOptions(cfg);
@@ -394,10 +396,20 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 /**
  * Build media payload for inbound context.
  * Following feishu pattern: buildFeishuMediaPayload().
- * Uses remote URIs directly - openclaw will download them.
+ *
+ * @param fileParts - Original file parts with remote URLs
+ * @param downloadedFiles - Downloaded files with local paths (optional)
+ *
+ * If downloadedFiles provided:
+ *   MediaPath will be local path (faster for openclaw to read)
+ *   MediaUrl will be remote URL (fallback if local read fails)
+ *
+ * If not provided:
+ *   Both will be remote URL (openclaw will download)
  */
 function buildXYMediaPayload(
   fileParts: Array<{ name: string; mimeType: string; uri: string }>,
+  downloadedFiles?: Array<{ path: string; name: string; mimeType: string; uri: string }>,
 ): {
   MediaPath?: string;
   MediaType?: string;
@@ -409,6 +421,24 @@ function buildXYMediaPayload(
   const first = fileParts[0];
   const uris = fileParts.map((file) => file.uri);
   const mediaTypes = fileParts.map((file) => file.mimeType).filter(Boolean);
+
+  // If files were downloaded locally, use local paths for MediaPath
+  // and remote URLs for MediaUrl (best of both worlds)
+  if (downloadedFiles && downloadedFiles.length > 0) {
+    const localPaths = downloadedFiles.map((f) => f.path);
+    const firstLocal = downloadedFiles[0];
+
+    return {
+      MediaPath: firstLocal?.path,          // ⭐ Local path (/tmp/xy_channel/...)
+      MediaType: first?.mimeType,
+      MediaUrl: firstLocal?.uri,            // ⭐ Remote URL (https://cdn...)
+      MediaPaths: localPaths.length > 0 ? localPaths : undefined,
+      MediaUrls: uris.length > 0 ? uris : undefined,
+      MediaTypes: mediaTypes.length > 0 ? mediaTypes : undefined,
+    };
+  }
+
+  // Fallback: use remote URLs for both (original behavior)
   return {
     MediaPath: first?.uri,
     MediaType: first?.mimeType,
