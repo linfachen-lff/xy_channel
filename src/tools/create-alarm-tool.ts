@@ -349,29 +349,12 @@ b. 使用该工具之前需获取当前真实时间`,
               return;
             }
 
-            // Extract result with safe navigation
-            const result = event.outputs.result || {};
-            logger.log(`[CREATE_ALARM_TOOL] 📋 Alarm result:`, JSON.stringify(result));
-
+            // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    success: true,
-                    alarm: {
-                      entityId: result.entityId,
-                      entityName: result.entityName,
-                      alarmTitle: result.alarmTitle,
-                      alarmTime: result.alarmTime,
-                      alarmState: result.alarmState,
-                      alarmRingDuration: result.alarmRingDuration,
-                      alarmSnoozeDuration: result.alarmSnoozeDuration,
-                      alarmSnoozeTotal: result.alarmSnoozeTotal,
-                      daysOfWakeType: result.daysOfWakeType,
-                    },
-                    code,
-                  }),
+                  text: JSON.stringify(event.outputs),
                 },
               ],
             });

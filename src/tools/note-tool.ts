@@ -121,23 +121,14 @@ export const noteTool: any = {
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            const { result, code } = event.outputs;
-            logger.log(`Note created: title=${result?.title}, id=${result?.entityId}`);
+            logger.log(`Note created successfully, outputs:`, JSON.stringify(event.outputs));
+
+            // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    success: true,
-                    note: {
-                      entityId: result?.entityId,
-                      title: result?.title,
-                      content: result?.content,
-                      entityName: result?.entityName,
-                      modifiedDate: result?.modifiedDate,
-                    },
-                    code,
-                  }),
+                  text: JSON.stringify(event.outputs),
                 },
               ],
             });

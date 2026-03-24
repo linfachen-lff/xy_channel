@@ -135,19 +135,12 @@ export const modifyNoteTool: any = {
             logger.log(`[MODIFY_NOTE_TOOL] ✅ Note modified successfully`);
             logger.log(`[MODIFY_NOTE_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
-            // Return the result directly as requested
-            const result = event.outputs.result;
-
-            logger.log(`[MODIFY_NOTE_TOOL] 📝 Note updated:`);
-            logger.log(`[MODIFY_NOTE_TOOL]   - entityId: ${result?.entityId}`);
-            logger.log(`[MODIFY_NOTE_TOOL]   - title: ${result?.title}`);
-            logger.log(`[MODIFY_NOTE_TOOL]   - modifiedDate: ${result?.modifiedDate}`);
-
+            // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(result),
+                  text: JSON.stringify(event.outputs),
                 },
               ],
             });

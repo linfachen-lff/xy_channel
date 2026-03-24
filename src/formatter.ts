@@ -155,11 +155,7 @@ export async function sendReasoningTextUpdate(params: SendReasoningTextUpdatePar
     taskId,
     msgDetail: JSON.stringify(jsonRpcResponse),
   };
-
-  log(`[REASONING_TEXT] 📤 Sending reasoningText update: sessionId=${sessionId}, taskId=${taskId}, text.length=${text.length}`);
-
   await wsManager.sendMessage(sessionId, outboundMessage);
-  log(`[REASONING_TEXT] ✅ Sent successfully`);
 }
 
 /**

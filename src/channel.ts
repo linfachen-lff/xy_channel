@@ -18,6 +18,7 @@ import { uploadPhotoTool } from "./tools/upload-photo-tool.js";
 import { xiaoyiGuiTool } from "./tools/xiaoyi-gui-tool.js";
 import { callPhoneTool } from "./tools/call-phone-tool.js";
 import { searchMessageTool } from "./tools/search-message-tool.js";
+import { sendMessageTool } from "./tools/send-message-tool.js";
 import { searchFileTool } from "./tools/search-file-tool.js";
 import { uploadFileTool } from "./tools/upload-file-tool.js";
 import { createAlarmTool } from "./tools/create-alarm-tool.js";
@@ -76,7 +77,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   onboarding: xyOnboardingAdapter,
-  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendFileToUserTool, xiaoyiCollectionTool, viewPushResultTool],
+  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, sendMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendFileToUserTool, xiaoyiCollectionTool, viewPushResultTool],
 
   messaging: {
     normalizeTarget: (raw) => {

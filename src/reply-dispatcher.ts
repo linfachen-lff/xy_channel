@@ -343,8 +343,6 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
         const currentMessageId = getActiveMessageId();
         const text = payload.text ?? "";
 
-        log(`[PARTIAL REPLY] Partial reply chunk received, taskId: ${currentTaskId}`);
-
         try {
           if (text.length > 0) {
             await sendReasoningTextUpdate({
@@ -355,7 +353,6 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
               text,
               append: false,
             });
-            log(`[PARTIAL REPLY] ✅ Sent partial reply as reasoningText update`);
           }
         } catch (err) {
           error(`[PARTIAL REPLY] ❌ Failed to send partial reply:`, err);

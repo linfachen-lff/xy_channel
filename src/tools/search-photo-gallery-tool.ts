@@ -18,7 +18,7 @@ export const searchPhotoGalleryTool: any = {
   label: "Search Photo Gallery",
   description: `插件功能描述：搜索用户手机图库中的照片
 
-  工具使用约束：如果用户说从手机图库中或者从相册中查询xx图片时调用此工具。
+  工具使用约束：如果用户说从手机图库中或者从相册中查询xx图片时调用此工具,注意此工具仅支持从本地图库检索，不支持云空间相册检索。
 
   工具输入输出简介：
   a. 根据图像描述语料检索匹配的照片,返回照片在手机本地的 mediaUri以及thumbnailUri。

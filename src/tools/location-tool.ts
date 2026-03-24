@@ -66,7 +66,9 @@ export const locationTool: any = {
           dimension: "",
           executeMode: "background",
           intentName: "GetCurrentLocation",
-          intentParam: {},
+          intentParam: {
+            isNeedGeoAddress: true,
+          },
           needUnlock: true,
           permissionId: [],
           timeOut: 5,
@@ -104,20 +106,15 @@ export const locationTool: any = {
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            const { latitude, longitude } = event.outputs;
             logger.log(`[LOCATION_TOOL] ✅ Location retrieved successfully`);
-            logger.log(`[LOCATION_TOOL]   - latitude: ${latitude}`);
-            logger.log(`[LOCATION_TOOL]   - longitude: ${longitude}`);
+            logger.log(`[LOCATION_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
+            // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    latitude,
-                    longitude,
-                    coordinateSystem: "WGS84",
-                  })
+                  text: JSON.stringify(event.outputs),
                 }
               ]
             });

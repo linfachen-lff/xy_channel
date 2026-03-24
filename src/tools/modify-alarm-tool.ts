@@ -367,32 +367,12 @@ export const modifyAlarmTool: any = {
               return;
             }
 
-            // Extract result with safe navigation
-            const result = event.outputs.result || {};
-            logger.log(`[MODIFY_ALARM_TOOL] 📋 Alarm result:`, JSON.stringify(result));
-
-            // Build response with safe navigation
-            const response: any = {
-              success: true,
-              alarm: {
-                entityId: result.entityId || params.entityId,
-                entityType: result.entityType || result.entityName,
-                alarmTitle: result.alarmTitle,
-                alarmTime: result.alarmTime,
-                alarmState: result.alarmState,
-                alarmRingDuration: result.alarmRingDuration,
-                alarmSnoozeDuration: result.alarmSnoozeDuration,
-                alarmSnoozeTotal: result.alarmSnoozeTotal,
-                daysOfWakeType: result.daysOfWakeType,
-              },
-              code,
-            };
-
+            // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response),
+                  text: JSON.stringify(event.outputs),
                 },
               ],
             });
