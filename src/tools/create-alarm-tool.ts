@@ -337,18 +337,6 @@ b. 使用该工具之前需获取当前真实时间`,
             logger.log(`[CREATE_ALARM_TOOL] ✅ Alarm creation completed successfully`);
             logger.log(`[CREATE_ALARM_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
-            // Check for error code in outputs
-            const code = event.outputs.code !== undefined ? event.outputs.code : null;
-
-            if (code !== null && code !== 0) {
-              logger.error(`[CREATE_ALARM_TOOL] ❌ Device returned error`);
-              logger.error(`[CREATE_ALARM_TOOL]   - code: ${code}`);
-              const errorMsg = event.outputs.errorMsg || event.outputs.errMsg || "未知错误";
-              logger.error(`[CREATE_ALARM_TOOL]   - errorMsg: ${errorMsg}`);
-              reject(new Error(`创建闹钟失败: ${errorMsg} (错误代码: ${code})`));
-              return;
-            }
-
             // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [

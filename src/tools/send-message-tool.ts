@@ -150,35 +150,18 @@ export const sendMessageTool: any = {
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            logger.log(`[SEND_MESSAGE_TOOL] ✅ Send message response received`);
+            logger.log(`[SEND_MESSAGE_TOOL] ✅ Message sent successfully`);
+            logger.log(`[SEND_MESSAGE_TOOL]   - phoneNumber: ${phoneNumber}`);
             logger.log(`[SEND_MESSAGE_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
-            // Check for error code in outputs
-            const code = event.outputs.code !== undefined ? event.outputs.code : null;
-
-            if (code !== null && code !== 0) {
-              logger.error(`[SEND_MESSAGE_TOOL] ❌ Device returned error`);
-              logger.error(`[SEND_MESSAGE_TOOL]   - code: ${code}`);
-              const errorMsg = event.outputs.errorMsg || event.outputs.errMsg || "未知错误";
-              logger.error(`[SEND_MESSAGE_TOOL]   - errorMsg: ${errorMsg}`);
-              reject(new Error(`发送短信失败: ${errorMsg} (错误代码: ${code})`));
-              return;
-            }
-
-            // Extract result with safe checks
-            const result = event.outputs.result || {};
-
-            logger.log(`[SEND_MESSAGE_TOOL] 🎉 Message sent successfully`);
-            logger.log(`[SEND_MESSAGE_TOOL]   - phoneNumber: ${phoneNumber}`);
-            logger.log(`[SEND_MESSAGE_TOOL]   - result:`, JSON.stringify(result));
-
+            // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(result),
-                },
-              ],
+                  text: JSON.stringify(event.outputs),
+                }
+              ]
             });
           } else {
             logger.error(`[SEND_MESSAGE_TOOL] ❌ Send message failed`);
