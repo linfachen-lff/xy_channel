@@ -264,12 +264,28 @@ async function callImageUnderstandingAPI(
 export const imageReadingTool: any = {
   name: "image_reading",
   label: "Image Reading",
-  description: `针对用户发送的图片，优先使用此工具，工具能力描述：对图片进行理解和分析，返回图片的描述内容。
+  description: `
+工具使用场景：
+【必须调用此工具的情况】
+1. 用户消息中包含 mediaPath 字段且不为空（表示用户发送了图片）
+2. 用户希望理解图片内容，询问图片是什么，例如：
+   - "这是什么？"
+   - "图片里有什么？"
+   - "帮我看看这张图"
+   - "描述一下这张图片"
+   - "分析一下这张照片"
+   - "这个图片是什么意思"
+   - "识别一下图片内容"
+   - 或任何关于图片内容的理解、识别、分析类询问
+
+当同时满足以上两个条件时，必须优先调用此工具进行图像理解。
+
+工具能力描述：对图片进行理解和分析，返回图片的描述内容。
 
 工具参数说明：
-a. localUrl：本地图片文件路径（可选）
+a. localUrl：本地图片文件路径（可选，通常从用户消息的 mediaPath 字段获取）
 b. remoteUrl：公网图片地址（可选）
-c. prompt：对图片的提示问题，默认为"描述这张图片内容"
+c. prompt：对图片的提示问题，默认为"描述这张图片内容"，可根据用户的具体问题自定义
 d. localUrl 与 remoteUrl 任意一个不为空即可，优先使用 localUrl
 
 注意事项：
