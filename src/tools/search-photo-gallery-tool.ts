@@ -103,36 +103,16 @@ export const searchPhotoGalleryTool: any = {
 
     // Search for photos
     logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📸 Searching for photos...`);
-    const items = await searchPhotos(wsManager, config, sessionId, taskId, messageId, params.query);
+    const outputs = await searchPhotos(wsManager, config, sessionId, taskId, messageId, params.query);
 
-    if (!items || items.length === 0) {
-      logger.warn(`[SEARCH_PHOTO_GALLERY_TOOL] ⚠️ No photos found for query: ${params.query}`);
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              items: [],
-              count: 0,
-              message: "未找到匹配的照片"
-            }),
-          },
-        ],
-      };
-    }
-
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] ✅ Found ${items.length} photos`);
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - items:`, JSON.stringify(items));
+    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] ✅ Photo search completed successfully`);
+    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - outputs:`, JSON.stringify(outputs));
 
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            items,
-            count: items.length,
-            message: `找到 ${items.length} 张照片。注意：mediaUri 和 thumbnailUri 是本地路径，无法直接访问。如需下载或查看，请使用 upload_photo 工具。`
-          }),
+          text: JSON.stringify(outputs),
         },
       ],
     };
@@ -141,7 +121,7 @@ export const searchPhotoGalleryTool: any = {
 
 /**
  * Search for photos using query description
- * Returns array of photo items with complete information
+ * Returns complete event.outputs object
  */
 async function searchPhotos(
   wsManager: any,
@@ -150,7 +130,7 @@ async function searchPhotos(
   taskId: string,
   messageId: string,
   query: string
-): Promise<any[]> {
+): Promise<any> {
   logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📦 Building SearchPhotoVideo command...`);
 
   const command = {
@@ -206,12 +186,10 @@ async function searchPhotos(
 
         if (event.status === "success" && event.outputs) {
           logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] ✅ Photo search completed successfully`);
+          logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
-          const result = event.outputs.result;
-          const items = result?.items || [];
-
-          logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📊 Found ${items.length} photo items`);
-          resolve(items);
+          // 成功，直接返回完整的 event.outputs
+          resolve(event.outputs);
         } else {
           logger.error(`[SEARCH_PHOTO_GALLERY_TOOL] ❌ Photo search failed`);
           logger.error(`[SEARCH_PHOTO_GALLERY_TOOL]   - status: ${event.status}`);
