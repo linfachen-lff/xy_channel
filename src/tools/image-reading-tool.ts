@@ -88,6 +88,11 @@ async function processImageInput(
     logger.log(`[IMAGE_READING_TOOL] 📤 Uploading downloaded file to OBS...`);
     const imageUrl = await uploadService.uploadFileAndGetUrl(localPath, "TEMPORARY_MATERIAL_DOC");
 
+    if (!imageUrl) {
+      logger.error(`[IMAGE_READING_TOOL] ❌ Failed to get URL after upload`);
+      throw new Error("图片上传失败：无法获取图片访问地址");
+    }
+
     logger.log(`[IMAGE_READING_TOOL] ✅ Uploaded to OBS: ${imageUrl}`);
 
     return { imageUrl, localPath };
@@ -98,6 +103,11 @@ async function processImageInput(
   if (isLocal) {
     logger.log(`[IMAGE_READING_TOOL] 📁 Input is local file, uploading...`);
     const imageUrl = await uploadService.uploadFileAndGetUrl(imageInput, "TEMPORARY_MATERIAL_DOC");
+
+    if (!imageUrl) {
+      logger.error(`[IMAGE_READING_TOOL] ❌ Failed to get URL after upload`);
+      throw new Error("图片上传失败：无法获取图片访问地址");
+    }
 
     logger.log(`[IMAGE_READING_TOOL] ✅ Uploaded to OBS: ${imageUrl}`);
 
@@ -411,7 +421,22 @@ d. 返回图像理解的文本描述内容`,
       }
 
       logger.error(`[IMAGE_READING_TOOL] ❌ Execution failed:`, error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : "图片分析失败";
+
+      // Return error result instead of throwing
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              error: errorMessage,
+              prompt,
+              imageSource: params.localUrl ? "local" : "remote",
+              success: false,
+            }),
+          },
+        ],
+      };
     }
   },
 };
