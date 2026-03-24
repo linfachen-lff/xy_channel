@@ -402,9 +402,7 @@ function buildXYMediaPayload(
 ): {
   MediaPath?: string;
   MediaType?: string;
-  MediaUrl?: string;
   MediaPaths?: string[];
-  MediaUrls?: string[];
   MediaTypes?: string[];
 } {
   const first = mediaList[0];
@@ -413,9 +411,7 @@ function buildXYMediaPayload(
   return {
     MediaPath: first?.path,
     MediaType: first?.mimeType,
-    MediaUrl: first?.path,
     MediaPaths: mediaPaths.length > 0 ? mediaPaths : undefined,
-    MediaUrls: mediaPaths.length > 0 ? mediaPaths : undefined,
     MediaTypes: mediaTypes.length > 0 ? mediaTypes : undefined,
   };
 }
