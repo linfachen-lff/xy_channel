@@ -134,45 +134,17 @@ export const searchFileTool: any = {
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            logger.log(`[SEARCH_FILE_TOOL] ✅ File search response received`);
+            logger.log(`[SEARCH_FILE_TOOL] ✅ File search completed successfully`);
             logger.log(`[SEARCH_FILE_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
-            // Check for error code in outputs
-            const code = event.outputs.code !== undefined ? event.outputs.code : null;
-
-            if (code !== null && code !== 0) {
-              logger.error(`[SEARCH_FILE_TOOL] ❌ Device returned error`);
-              logger.error(`[SEARCH_FILE_TOOL]   - code: ${code}`);
-              const errorMsg = event.outputs.errorMsg || event.outputs.errMsg || "未知错误";
-              logger.error(`[SEARCH_FILE_TOOL]   - errorMsg: ${errorMsg}`);
-              reject(new Error(`搜索文件失败: ${errorMsg} (错误代码: ${code})`));
-              return;
-            }
-
-            // Extract result.items with safe checks
-            const result = event.outputs.result;
-            let items = [];
-
-            if (result && typeof result === "object" && Array.isArray(result.items)) {
-              items = result.items;
-              logger.log(`[SEARCH_FILE_TOOL] 📋 Found ${items.length} file(s)`);
-            } else {
-              logger.warn(`[SEARCH_FILE_TOOL] ⚠️ No items found in result or result is invalid`);
-              logger.warn(`[SEARCH_FILE_TOOL]   - result:`, JSON.stringify(result || {}));
-            }
-
-            // Return items array as JSON string
-            logger.log(`[SEARCH_FILE_TOOL] 🎉 File search completed successfully`);
-            logger.log(`[SEARCH_FILE_TOOL]   - keyword: ${params.query}`);
-            logger.log(`[SEARCH_FILE_TOOL]   - result count: ${items.length}`);
-
+            // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(items),
-                },
-              ],
+                  text: JSON.stringify(event.outputs),
+                }
+              ]
             });
           } else {
             logger.error(`[SEARCH_FILE_TOOL] ❌ File search failed`);
