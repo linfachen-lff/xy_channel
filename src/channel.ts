@@ -26,7 +26,7 @@ import { searchAlarmTool } from "./tools/search-alarm-tool.js";
 import { modifyAlarmTool } from "./tools/modify-alarm-tool.js";
 import { deleteAlarmTool } from "./tools/delete-alarm-tool.js";
 import { sendFileToUserTool } from "./tools/send-file-to-user-tool.js";
-// import { xiaoyiCollectionTool } from "./tools/xiaoyi-collection-tool.js"; // 暂时取消注册
+import { xiaoyiCollectionTool } from "./tools/xiaoyi-collection-tool.js";
 import { viewPushResultTool } from "./tools/view-push-result-tool.js";
 import { imageReadingTool } from "./tools/image-reading-tool.js";
 import { getXYWebSocketManager } from "./client.js";
@@ -78,7 +78,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   onboarding: xyOnboardingAdapter,
-  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, sendMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendFileToUserTool, viewPushResultTool, imageReadingTool],
+  agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, xiaoyiCollectionTool, callPhoneTool, searchMessageTool, sendMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendFileToUserTool, viewPushResultTool, imageReadingTool],
 
   messaging: {
     normalizeTarget: (raw) => {
