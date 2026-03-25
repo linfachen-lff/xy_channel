@@ -1,6 +1,7 @@
 // Message dispatch engine - following feishu/bot.ts pattern (simplified)
 import type { ClawdbotConfig, RuntimeEnv, ReplyPayload } from "openclaw/plugin-sdk";
 import { getXYRuntime } from "./runtime.js";
+import { setCachedContext } from "./steer-injector.js";
 import { createXYReplyDispatcher } from "./reply-dispatcher.js";
 import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractTriggerData, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
 import { downloadFilesFromParts } from "./file-download.js";
@@ -39,6 +40,9 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
   const { cfg, runtime, message, accountId } = params;
   const log = runtime?.log ?? console.log;
   const error = runtime?.error ?? console.error;
+
+  // 每次收到消息时更新缓存，供 steer 注入使用
+  setCachedContext(cfg, runtime, accountId);
 
   // Get runtime (already validated in monitor.ts, but get reference for use)
   const core = getXYRuntime() as any;
