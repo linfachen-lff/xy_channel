@@ -5,13 +5,13 @@ import { xyPlugin } from "./src/channel.js";
 import { setXYRuntime } from "./src/runtime.js";
 import { tryInjectSteer } from "./src/steer-injector.js";
 import { callCsplApi } from "./src/cspl/call-api.js";
-import { extractResultText, processText } from "./src/cspl/utils.js";
+import { extractResultText, processText, parseSecurityResult, validateAndTruncateText } from "./src/cspl/utils.js";
 import {
   ALLOWED_TOOLS,
   MIN_TEXT_LENGTH,
   MAX_TOTAL_LENGTH,
+  MAX_TEXT_LENGTH,
   STEER_ABORT_MESSAGE,
-  CSPL_ABORT_ANSWER,
 } from "./src/cspl/constants.js";
 
 /**
@@ -29,55 +29,40 @@ const plugin = {
     api.registerChannel({ plugin: xyPlugin });
 
     // CSPL after_tool_call hook: 监听工具结果，发送至 CSPL API 进行安全检测
-    // 如果响应为 abort，注入 steer 消息中止当前对话
+    // 如果响应为 REJECT，注入 steer 消息中止当前对话
     api.on("after_tool_call", async (event, ctx) => {
-      // 只处理白名单内的工具
       if (!ALLOWED_TOOLS.includes(event.toolName)) {
         return;
       }
 
-      api.logger.info(
-        `[CSPL] after_tool_call triggered: toolName=${event.toolName}, sessionKey=${ctx.sessionKey ?? "none"}`,
-      );
-
       try {
-        // 提取并处理工具结果文本
         const resultText = extractResultText(event, event.toolName);
         const resultLength = resultText.length;
 
-        if (resultLength <= MIN_TEXT_LENGTH) {
-          api.logger.info("[CSPL] No valid text in tool result, skipping");
+        if (resultLength <= MIN_TEXT_LENGTH || resultLength > MAX_TOTAL_LENGTH) {
           return;
         }
 
-        if (resultLength > MAX_TOTAL_LENGTH) {
-          api.logger.warn(
-            `[CSPL] Tool result exceeds ${MAX_TOTAL_LENGTH} char limit (actual: ${resultLength}), skipping`,
-          );
-          return;
+        // 构造 sentinel_hook 格式的 payload: { tool, output: [{ content }] }
+        const questionText = {
+          tool: event.toolName,
+          output: [{ content: "" }],
+        };
+        const originText = processText(resultText);
+        questionText.output[0].content = originText;
+        let finalJson = JSON.stringify(questionText);
+        if (finalJson.length > MAX_TEXT_LENGTH) {
+          const diff = finalJson.length - MAX_TEXT_LENGTH;
+          const { text: trimmed } = validateAndTruncateText(originText, MAX_TEXT_LENGTH - diff);
+          questionText.output[0].content = trimmed;
+          finalJson = JSON.stringify(questionText);
         }
 
-        const finalText = processText(resultText);
-        api.logger.info(
-          `[CSPL] Sending to CSPL API, text length: ${finalText.length}`,
-        );
+        const response = await callCsplApi(finalJson, api.config);
+        const result = parseSecurityResult(response);
 
-        // 调用 CSPL API 进行安全检测
-        const response = await callCsplApi(finalText, api.config);
-        api.logger.info(
-          `[CSPL] API response: answer=${response?.answer ?? "none"}`,
-        );
-
-        // 检查是否需要触发 steer 中止
-        if (response?.answer === CSPL_ABORT_ANSWER) {
-          api.logger.info(
-            `[CSPL] 🚨 Abort signal received, injecting steer message`,
-          );
-          const injected = await tryInjectSteer(
-            ctx.sessionKey,
-            STEER_ABORT_MESSAGE,
-          );
-          api.logger.info(`[CSPL] Steer injection result: ${injected}`);
+        if (result.status === "REJECT") {
+          await tryInjectSteer(ctx.sessionKey, STEER_ABORT_MESSAGE);
         }
       } catch (err) {
         api.logger.error(`[CSPL] after_tool_call error: ${err}`);

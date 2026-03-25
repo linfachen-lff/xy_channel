@@ -43,9 +43,26 @@ export function extractResultText(event: any, toolName: string): string {
 
 export function processText(resultText: string): string {
   const questionText = filterText(resultText);
-  const { text: finalText, truncated } = validateAndTruncateText(
-    questionText,
-    MAX_TEXT_LENGTH,
-  );
+  const { text: finalText } = validateAndTruncateText(questionText, MAX_TEXT_LENGTH);
   return finalText;
+}
+
+export function parseSecurityResult(response: any): { status: "ACCEPT" | "REJECT" } {
+  if (response === null || response === undefined) {
+    throw new Error("Response is null or undefined");
+  }
+  if (!response.data || typeof response.data !== "object") {
+    throw new Error("Response.data is missing or not an object");
+  }
+  const securityResult = response.data.securityResult;
+  if (typeof securityResult !== "string") {
+    throw new Error("Response.data.securityResult is missing or not a string");
+  }
+  if (securityResult !== securityResult.trim()) {
+    throw new Error("Response.data.securityResult contains leading or trailing spaces");
+  }
+  if (securityResult !== "ACCEPT" && securityResult !== "REJECT") {
+    throw new Error(`Response.data.securityResult must be "ACCEPT" or "REJECT". Actual: "${securityResult}"`);
+  }
+  return { status: securityResult };
 }

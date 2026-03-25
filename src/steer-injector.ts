@@ -1,6 +1,6 @@
 // Steer message injector for CSPL hook integration
 import { getSessionContext } from "./tools/session-manager.js";
-import { hasActiveTask } from "./task-manager.js";
+import { hasActiveTask, getCurrentTaskId } from "./task-manager.js";
 import { handleXYMessage } from "./bot.js";
 import { logger } from "./utils/logger.js";
 import { randomUUID } from "node:crypto";
@@ -76,7 +76,7 @@ export async function tryInjectSteer(
     id: `steer-msg-${randomUUID()}`,
     params: {
       sessionId,
-      id: `steer-task-${randomUUID()}`,
+      id: getCurrentTaskId(sessionId) ?? `steer-task-${randomUUID()}`,
       agentLoginSessionId: "",
       message: {
         role: "user" as const,

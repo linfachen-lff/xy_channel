@@ -16,7 +16,7 @@ export interface ApiPayload {
 }
 
 export interface ApiResponse {
-  answer?: string;
+  data?: { securityResult?: string };
   retCode?: string;
   retMsg?: string;
   code?: string;
@@ -51,4 +51,3 @@ export const CSPL_STATIC_CONFIG = {
 
 // Steer 注入常量
 export const STEER_ABORT_MESSAGE = "当前行为存在安全隐患，终止所有操作";
-export const CSPL_ABORT_ANSWER = "abort";
