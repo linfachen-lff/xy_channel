@@ -38,36 +38,36 @@ export async function tryInjectSteer(
   message: string,
 ): Promise<boolean> {
   if (!sessionKey) {
-    logger.log("[STEER] No sessionKey provided, skipping");
+    console.log("[STEER] No sessionKey provided, skipping");
     return false;
   }
+
+  console.log(`[STEER] Looking up sessionKey=${sessionKey}`);
 
   // 1. 通过 sessionKey 查找活跃 session（per-peer 模式下 1:1 对应）
   const sessionCtx = getSessionContext(sessionKey);
   if (!sessionCtx) {
-    logger.log(
-      `[STEER] sessionKey=${sessionKey} not in activeSessions, skipping`,
-    );
+    console.log(`[STEER] sessionKey=${sessionKey} not in activeSessions, skipping`);
     return false;
   }
 
   const { sessionId } = sessionCtx;
+  console.log(`[STEER] Found sessionId=${sessionId}`);
 
   // 2. 确认任务仍在运行
+  const activeTaskId = getCurrentTaskId(sessionId);
+  console.log(`[STEER] hasActiveTask=${hasActiveTask(sessionId)}, activeTaskId=${activeTaskId ?? "none"}`);
+
   if (!hasActiveTask(sessionId)) {
-    logger.log(
-      `[STEER] Task already ended for sessionId=${sessionId}, skipping`,
-    );
+    console.log(`[STEER] Task already ended for sessionId=${sessionId}, skipping`);
     return false;
   }
 
   if (!cachedCfg || !cachedRuntime) {
+    console.log("[STEER] No cached cfg/runtime available, cannot inject");
     logger.error("[STEER] No cached cfg/runtime available, cannot inject");
     return false;
   }
-
-  logger.log(`[STEER] ⚡ Injecting steer for sessionId=${sessionId}`);
-  logger.log(`[STEER]   - message: "${message}"`);
 
   // 3. 构造合成 A2A 消息（伪装成用户在当前会话中发送的新消息）
   const syntheticMessage = {
@@ -76,7 +76,7 @@ export async function tryInjectSteer(
     id: `steer-msg-${randomUUID()}`,
     params: {
       sessionId,
-      id: getCurrentTaskId(sessionId) ?? `steer-task-${randomUUID()}`,
+      id: activeTaskId ?? `steer-task-${randomUUID()}`,
       agentLoginSessionId: "",
       message: {
         role: "user" as const,
@@ -84,6 +84,9 @@ export async function tryInjectSteer(
       },
     },
   };
+
+  console.log(`[STEER] Injecting steer for sessionId=${sessionId}, taskId=${syntheticMessage.params.id}`);
+  console.log(`[STEER] Synthetic message: ${JSON.stringify(syntheticMessage)}`);
 
   try {
     // 4. 走完整 handleXYMessage 流程
@@ -95,9 +98,10 @@ export async function tryInjectSteer(
       accountId: cachedAccountId,
     });
 
-    logger.log(`[STEER] ✅ Steer injected successfully for sessionId=${sessionId}`);
+    console.log(`[STEER] Steer injected successfully for sessionId=${sessionId}`);
     return true;
   } catch (err) {
+    console.log(`[STEER] Failed to inject steer: ${err}`);
     logger.error(`[STEER] ❌ Failed to inject steer: ${err}`);
     return false;
   }
