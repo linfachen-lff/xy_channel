@@ -78,7 +78,7 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
         sessionId,
         taskId: currentTaskId,  // 🔑 动态taskId
         messageId: currentMessageId,  // 🔑 动态messageId
-        text: "任务正在处理中，请稍后~",
+        text: "任务正在处理中，请稍候~",
         state: "working",
       }).catch((err) => {
         error(`Failed to send status update:`, err);
