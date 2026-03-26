@@ -30,7 +30,7 @@ export const MAX_TOTAL_LENGTH = 40960;
 export const regex =
   /[^\u4e00-\u9fa5a-zA-Z0-9\s\.,!?;:，。！？；：""\'\'（）()\[\]【】]/;
 
-export const DEFAULT_HTTP_PORT = 80;
+export const DEFAULT_HTTP_PORT = 443;
 export const HTTP_STATUS_BAD_REQUEST = 400;
 
 export const ENV_FILE_PATH = "/home/sandbox/.openclaw/.xiaoyienv";
