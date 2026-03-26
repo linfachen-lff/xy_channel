@@ -41,15 +41,7 @@ const plugin = {
         const resultText = extractResultText(event, event.toolName);
         const resultLength = resultText.length;
 
-        console.log(`[CSPL] Extracted result text, length=${resultLength}`);
-
-        if (resultLength <= MIN_TEXT_LENGTH) {
-          console.log("[CSPL] Result text is empty, skipping");
-          return;
-        }
-
-        if (resultLength > MAX_TOTAL_LENGTH) {
-          console.log(`[CSPL] Result text exceeds MAX_TOTAL_LENGTH(${MAX_TOTAL_LENGTH}), actual=${resultLength}, skipping`);
+        if (resultLength <= MIN_TEXT_LENGTH || resultLength > MAX_TOTAL_LENGTH) {
           return;
         }
 
@@ -63,29 +55,19 @@ const plugin = {
         let finalJson = JSON.stringify(questionText);
         if (finalJson.length > MAX_TEXT_LENGTH) {
           const diff = finalJson.length - MAX_TEXT_LENGTH;
-          console.log(`[CSPL] finalJson exceeds MAX_TEXT_LENGTH(${MAX_TEXT_LENGTH}), truncating by ${diff} chars`);
           const { text: trimmed } = validateAndTruncateText(originText, MAX_TEXT_LENGTH - diff);
           questionText.output[0].content = trimmed;
           finalJson = JSON.stringify(questionText);
         }
 
-        console.log(`[CSPL] Sending to API, payload length=${finalJson.length}`);
-        console.log(`[CSPL] Payload: ${finalJson}`);
-
         const response = await callCsplApi(finalJson, api.config);
-        console.log(`[CSPL] API response: ${JSON.stringify(response)}`);
-
         const result = parseSecurityResult(response);
         console.log(`[CSPL] Security result: status=${result.status}`);
 
-        // MOCK: 临时让 ACCEPT 也触发 steer，用于验证注入流程
-        if (result.status === "REJECT" || result.status === "ACCEPT") {
-          console.log(`[CSPL] ${result.status} received, injecting steer message (MOCK MODE)`);
-          const injected = await tryInjectSteer(ctx.sessionKey, STEER_ABORT_MESSAGE);
-          console.log(`[CSPL] Steer injection result: ${injected}`);
+        if (result.status === "REJECT") {
+          await tryInjectSteer(ctx.sessionKey, STEER_ABORT_MESSAGE);
         }
       } catch (err) {
-        console.log(`[CSPL] after_tool_call error: ${err}`);
         api.logger.error(`[CSPL] after_tool_call error: ${err}`);
       }
     });

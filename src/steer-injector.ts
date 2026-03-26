@@ -38,33 +38,22 @@ export async function tryInjectSteer(
   message: string,
 ): Promise<boolean> {
   if (!sessionKey) {
-    console.log("[STEER] No sessionKey provided, skipping");
     return false;
   }
 
-  console.log(`[STEER] Looking up sessionKey=${sessionKey}`);
-
-  // 1. 通过 sessionKey 查找活跃 session（per-peer 模式下 1:1 对应）
   const sessionCtx = getSessionContext(sessionKey);
   if (!sessionCtx) {
-    console.log(`[STEER] sessionKey=${sessionKey} not in activeSessions, skipping`);
     return false;
   }
 
   const { sessionId } = sessionCtx;
-  console.log(`[STEER] Found sessionId=${sessionId}`);
-
-  // 2. 确认任务仍在运行
   const activeTaskId = getCurrentTaskId(sessionId);
-  console.log(`[STEER] hasActiveTask=${hasActiveTask(sessionId)}, activeTaskId=${activeTaskId ?? "none"}`);
 
   if (!hasActiveTask(sessionId)) {
-    console.log(`[STEER] Task already ended for sessionId=${sessionId}, skipping`);
     return false;
   }
 
   if (!cachedCfg || !cachedRuntime) {
-    console.log("[STEER] No cached cfg/runtime available, cannot inject");
     logger.error("[STEER] No cached cfg/runtime available, cannot inject");
     return false;
   }
@@ -86,11 +75,8 @@ export async function tryInjectSteer(
   };
 
   console.log(`[STEER] Injecting steer for sessionId=${sessionId}, taskId=${syntheticMessage.params.id}`);
-  console.log(`[STEER] Synthetic message: ${JSON.stringify(syntheticMessage)}`);
 
   try {
-    // 4. 走完整 handleXYMessage 流程
-    //    由于 hasActiveTask(sessionId)=true，会自动触发 isSecondMessage=true 的 steer 模式
     await handleXYMessage({
       cfg: cachedCfg,
       runtime: cachedRuntime,
@@ -98,10 +84,8 @@ export async function tryInjectSteer(
       accountId: cachedAccountId,
     });
 
-    console.log(`[STEER] Steer injected successfully for sessionId=${sessionId}`);
     return true;
   } catch (err) {
-    console.log(`[STEER] Failed to inject steer: ${err}`);
     logger.error(`[STEER] ❌ Failed to inject steer: ${err}`);
     return false;
   }
