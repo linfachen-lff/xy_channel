@@ -35,7 +35,6 @@ async function isLocalFile(value: string): Promise<boolean> {
  * Download remote file to local temp directory
  */
 async function downloadRemoteFile(url: string): Promise<string> {
-  logger.log(`[IMAGE_READING_TOOL] 📥 Downloading remote file: ${url}`);
 
   try {
     const response = await fetch(url);
@@ -63,10 +62,8 @@ async function downloadRemoteFile(url: string): Promise<string> {
     const buffer = Buffer.from(arrayBuffer);
     await fs.writeFile(localPath, buffer);
 
-    logger.log(`[IMAGE_READING_TOOL] ✅ File downloaded to: ${localPath}`);
     return localPath;
   } catch (error) {
-    logger.error(`[IMAGE_READING_TOOL] ❌ Failed to download file from ${url}:`, error);
     throw new Error(`Failed to download remote file: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
@@ -78,22 +75,17 @@ async function processImageInput(
   imageInput: string,
   uploadService: XYFileUploadService
 ): Promise<{ imageUrl: string; localPath?: string }> {
-  logger.log(`[IMAGE_READING_TOOL] 🔄 Processing image input: ${imageInput}`);
 
   // Check if it's a remote URL
   if (isRemoteUrl(imageInput)) {
-    logger.log(`[IMAGE_READING_TOOL] 🌐 Input is remote URL, downloading...`);
     const localPath = await downloadRemoteFile(imageInput);
 
-    logger.log(`[IMAGE_READING_TOOL] 📤 Uploading downloaded file to OBS...`);
     const imageUrl = await uploadService.uploadFileAndGetUrl(localPath, "TEMPORARY_MATERIAL_DOC");
 
     if (!imageUrl) {
-      logger.error(`[IMAGE_READING_TOOL] ❌ Failed to get URL after upload`);
       throw new Error("图片上传失败：无法获取图片访问地址");
     }
 
-    logger.log(`[IMAGE_READING_TOOL] ✅ Uploaded to OBS: ${imageUrl}`);
 
     return { imageUrl, localPath };
   }
@@ -101,15 +93,12 @@ async function processImageInput(
   // Check if it's a local file
   const isLocal = await isLocalFile(imageInput);
   if (isLocal) {
-    logger.log(`[IMAGE_READING_TOOL] 📁 Input is local file, uploading...`);
     const imageUrl = await uploadService.uploadFileAndGetUrl(imageInput, "TEMPORARY_MATERIAL_DOC");
 
     if (!imageUrl) {
-      logger.error(`[IMAGE_READING_TOOL] ❌ Failed to get URL after upload`);
       throw new Error("图片上传失败：无法获取图片访问地址");
     }
 
-    logger.log(`[IMAGE_READING_TOOL] ✅ Uploaded to OBS: ${imageUrl}`);
 
     return { imageUrl };
   }
@@ -126,9 +115,6 @@ async function callImageUnderstandingAPI(
   apiKey: string,
   uid: string
 ): Promise<string> {
-  logger.log(`[IMAGE_READING_TOOL] 🧠 Calling image understanding API...`);
-  logger.log(`[IMAGE_READING_TOOL]   - imageUrl: ${imageUrl}`);
-  logger.log(`[IMAGE_READING_TOOL]   - prompt: ${text}`);
 
   const apiUrl = "https://hag-drcn.op.dbankcloud.com/celia-claw/v1/sse-api/skill/execute";
   const traceId = uuidv4();
@@ -179,7 +165,6 @@ async function callImageUnderstandingAPI(
     ],
   };
 
-  logger.log(`[IMAGE_READING_TOOL] 📡 Sending request with trace ID: ${traceId}`);
 
   try {
     const response = await fetch(apiUrl, {
@@ -190,13 +175,9 @@ async function callImageUnderstandingAPI(
       timeout: 120000, // 2 minutes timeout
     });
 
-    logger.log(`[IMAGE_READING_TOOL] 📨 Response status: ${response.status}`);
-    logger.log(`[IMAGE_READING_TOOL] 📨 Content-Type: ${response.headers.get("Content-Type")}`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error(`[IMAGE_READING_TOOL] ❌ API request failed: ${response.status}`);
-      logger.error(`[IMAGE_READING_TOOL] ❌ Response: ${errorText}`);
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
     }
 
@@ -205,7 +186,6 @@ async function callImageUnderstandingAPI(
     let lineCount = 0;
     let buffer = "";
 
-    logger.log(`[IMAGE_READING_TOOL] 📖 Reading SSE stream...`);
 
     // Read the response body as a stream
     if (!response.body) {
@@ -239,22 +219,17 @@ async function callImageUnderstandingAPI(
                     const streamContent = info.actionExecutorResult.reply.streamInfo.streamContent;
                     if (streamContent) {
                       lastCaption = streamContent;
-                      logger.log(`[IMAGE_READING_TOOL] 📝 Updated caption (length: ${streamContent.length})`);
                     }
                   }
                 }
               }
             } catch (parseError) {
-              logger.warn(`[IMAGE_READING_TOOL] ⚠️ Failed to parse JSON data:`, parseError);
             }
           }
         }
       }
     }
 
-    logger.log(`[IMAGE_READING_TOOL] ✅ Stream processing complete`);
-    logger.log(`[IMAGE_READING_TOOL]   - Total lines processed: ${lineCount}`);
-    logger.log(`[IMAGE_READING_TOOL]   - Final caption length: ${lastCaption.length}`);
 
     if (!lastCaption) {
       throw new Error("No caption received from image understanding API");
@@ -262,7 +237,6 @@ async function callImageUnderstandingAPI(
 
     return lastCaption;
   } catch (error) {
-    logger.error(`[IMAGE_READING_TOOL] ❌ API call failed:`, error);
     throw error;
   }
 }
@@ -322,31 +296,22 @@ d. 返回图像理解的文本描述内容`,
   },
 
   async execute(toolCallId: string, params: any) {
-    logger.log(`[IMAGE_READING_TOOL] 🚀 Starting execution`);
-    logger.log(`[IMAGE_READING_TOOL]   - toolCallId: ${toolCallId}`);
-    logger.log(`[IMAGE_READING_TOOL]   - params:`, JSON.stringify(params));
-    logger.log(`[IMAGE_READING_TOOL]   - timestamp: ${new Date().toISOString()}`);
 
     // Validate that at least one parameter is provided
     if (!params.localUrl && !params.remoteUrl) {
-      logger.error(`[IMAGE_READING_TOOL] ❌ Missing both localUrl and remoteUrl parameters`);
       throw new Error("At least one of localUrl or remoteUrl must be provided");
     }
 
     // Get prompt (default to "描述这张图片内容")
     const prompt = params.prompt || "描述这张图片内容";
-    logger.log(`[IMAGE_READING_TOOL] 📝 Using prompt: ${prompt}`);
 
     // Get session context
-    logger.log(`[IMAGE_READING_TOOL] 🔍 Getting session context...`);
     const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
-      logger.error(`[IMAGE_READING_TOOL] ❌ No active session found!`);
       throw new Error("No active XY session found. Image reading tool can only be used during an active conversation.");
     }
 
-    logger.log(`[IMAGE_READING_TOOL] ✅ Session context found`);
     const { config } = sessionContext;
 
     // Create upload service
@@ -362,7 +327,6 @@ d. 返回图像理解的文本描述内容`,
     try {
       // Process image input (prefer localUrl over remoteUrl)
       const imageInput = params.localUrl || params.remoteUrl;
-      logger.log(`[IMAGE_READING_TOOL] 🖼️ Processing image: ${imageInput}`);
 
       processedImage = await processImageInput(imageInput, uploadService);
 
@@ -371,8 +335,6 @@ d. 返回图像理解的文本描述内容`,
         downloadedFile = processedImage.localPath;
       }
 
-      logger.log(`[IMAGE_READING_TOOL] ✅ Image processed successfully`);
-      logger.log(`[IMAGE_READING_TOOL]   - OBS URL: ${processedImage.imageUrl}`);
 
       // Call image understanding API
       const caption = await callImageUnderstandingAPI(
@@ -382,17 +344,12 @@ d. 返回图像理解的文本描述内容`,
         config.uid
       );
 
-      logger.log(`[IMAGE_READING_TOOL] 🎉 Image understanding completed successfully`);
-      logger.log(`[IMAGE_READING_TOOL]   - Caption length: ${caption.length} characters`);
 
       // Clean up downloaded file if any
       if (downloadedFile) {
-        logger.log(`[IMAGE_READING_TOOL] 🧹 Cleaning up downloaded file...`);
         try {
           await fs.unlink(downloadedFile);
-          logger.log(`[IMAGE_READING_TOOL] ✅ Cleaned up: ${downloadedFile}`);
         } catch (error) {
-          logger.warn(`[IMAGE_READING_TOOL] ⚠️ Failed to clean up file:`, error);
         }
       }
 
@@ -412,15 +369,12 @@ d. 返回图像理解的文本描述内容`,
     } catch (error) {
       // Clean up downloaded file on error
       if (downloadedFile) {
-        logger.log(`[IMAGE_READING_TOOL] 🧹 Cleaning up downloaded file after error...`);
         try {
           await fs.unlink(downloadedFile);
         } catch (cleanupError) {
-          logger.warn(`[IMAGE_READING_TOOL] ⚠️ Failed to clean up file:`, cleanupError);
         }
       }
 
-      logger.error(`[IMAGE_READING_TOOL] ❌ Execution failed:`, error);
       const errorMessage = error instanceof Error ? error.message : "图片分析失败";
 
       // Return error result instead of throwing

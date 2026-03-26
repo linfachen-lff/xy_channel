@@ -32,6 +32,8 @@ export const searchCalendarTool: any = {
 注意：
 a. 该工具执行时间较长（最多60秒），请勿重复调用，超时或失败时最多重试一次。
 b. 使用该工具之前需获取当前真实时间
+
+回复约束：如果工具返回没有授权或者其他报错，只需要完整描述没有授权或者其他报错内容即可，不需要主动给用户提供解决方案，例如告诉用户如何授权，如何解决报错等都是不需要的，请严格遵守。
 `,
   parameters: {
     type: "object",
@@ -53,21 +55,13 @@ b. 使用该工具之前需获取当前真实时间
   },
 
   async execute(toolCallId: string, params: any) {
-    logger.log(`[SEARCH_CALENDAR_TOOL] 🚀 Starting execution`);
-    logger.log(`[SEARCH_CALENDAR_TOOL]   - toolCallId: ${toolCallId}`);
-    logger.log(`[SEARCH_CALENDAR_TOOL]   - params:`, JSON.stringify(params));
-    logger.log(`[SEARCH_CALENDAR_TOOL]   - timestamp: ${new Date().toISOString()}`);
 
     // Validate parameters
     if (!params.startTime || !params.endTime) {
-      logger.error(`[SEARCH_CALENDAR_TOOL] ❌ Missing required parameters`);
       throw new Error("Missing required parameters: startTime and endTime are required");
     }
 
     // Convert time strings to millisecond timestamps
-    logger.log(`[SEARCH_CALENDAR_TOOL] 🕒 Converting time strings to timestamps...`);
-    logger.log(`[SEARCH_CALENDAR_TOOL]   - startTime input: ${params.startTime}`);
-    logger.log(`[SEARCH_CALENDAR_TOOL]   - endTime input: ${params.endTime}`);
 
     // Parse YYYYMMDD hhmmss format
     const parseTimeString = (timeStr: string): number => {
@@ -104,43 +98,28 @@ b. 使用该工具之前需获取当前真实时间
       startTimeMs = parseTimeString(params.startTime);
       endTimeMs = parseTimeString(params.endTime);
     } catch (error) {
-      logger.error(`[SEARCH_CALENDAR_TOOL] ❌ Time parsing error:`, error);
       throw new Error(`Invalid time format. Required format: YYYYMMDD hhmmss (e.g., 20240115 143000). Error: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     if (isNaN(startTimeMs) || isNaN(endTimeMs)) {
-      logger.error(`[SEARCH_CALENDAR_TOOL] ❌ Invalid time format`);
       throw new Error("Invalid time format. Required format: YYYYMMDD hhmmss (e.g., 20240115 143000)");
     }
 
-    logger.log(`[SEARCH_CALENDAR_TOOL] ✅ Time conversion successful`);
-    logger.log(`[SEARCH_CALENDAR_TOOL]   - startTime timestamp: ${startTimeMs}`);
-    logger.log(`[SEARCH_CALENDAR_TOOL]   - endTime timestamp: ${endTimeMs}`);
 
     // Get session context
-    logger.log(`[SEARCH_CALENDAR_TOOL] 🔍 Attempting to get session context...`);
     const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
-      logger.error(`[SEARCH_CALENDAR_TOOL] ❌ FAILED: No active session found!`);
-      logger.error(`[SEARCH_CALENDAR_TOOL]   - toolCallId: ${toolCallId}`);
       throw new Error("No active XY session found. Search calendar tool can only be used during an active conversation.");
     }
 
-    logger.log(`[SEARCH_CALENDAR_TOOL] ✅ Session context found`);
-    logger.log(`[SEARCH_CALENDAR_TOOL]   - sessionId: ${sessionContext.sessionId}`);
-    logger.log(`[SEARCH_CALENDAR_TOOL]   - taskId: ${sessionContext.taskId}`);
-    logger.log(`[SEARCH_CALENDAR_TOOL]   - messageId: ${sessionContext.messageId}`);
 
     const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
-    logger.log(`[SEARCH_CALENDAR_TOOL] 🔌 Getting WebSocket manager...`);
     const wsManager = getXYWebSocketManager(config);
-    logger.log(`[SEARCH_CALENDAR_TOOL] ✅ WebSocket manager obtained`);
 
     // Build SearchCalendarEvent command
-    logger.log(`[SEARCH_CALENDAR_TOOL] 📦 Building SearchCalendarEvent command...`);
 
     // Build intentParam with timeInterval and optional title
     const intentParam: any = {
@@ -149,7 +128,6 @@ b. 使用该工具之前需获取当前真实时间
 
     if (params.title) {
       intentParam.title = params.title;
-      logger.log(`[SEARCH_CALENDAR_TOOL]   - Including title filter: ${params.title}`);
     }
 
     const command = {
@@ -186,30 +164,22 @@ b. 使用该工具之前需获取当前真实时间
     };
 
     // Send command and wait for response (60 second timeout)
-    logger.log(`[SEARCH_CALENDAR_TOOL] ⏳ Setting up promise to wait for calendar search response...`);
-    logger.log(`[SEARCH_CALENDAR_TOOL]   - Timeout: 60 seconds`);
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        logger.error(`[SEARCH_CALENDAR_TOOL] ⏰ Timeout: No response received within 60 seconds`);
         wsManager.off("data-event", handler);
         reject(new Error("检索日程超时（60秒）"));
       }, 60000);
 
       // Listen for data events from WebSocket
       const handler = (event: A2ADataEvent) => {
-        logger.log(`[SEARCH_CALENDAR_TOOL] 📨 Received data event:`, JSON.stringify(event));
 
         if (event.intentName === "SearchCalendarEvent") {
-          logger.log(`[SEARCH_CALENDAR_TOOL] 🎯 SearchCalendarEvent event received`);
-          logger.log(`[SEARCH_CALENDAR_TOOL]   - status: ${event.status}`);
 
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            logger.log(`[SEARCH_CALENDAR_TOOL] ✅ Calendar events retrieved successfully`);
-            logger.log(`[SEARCH_CALENDAR_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
             // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
@@ -221,19 +191,15 @@ b. 使用该工具之前需获取当前真实时间
               ],
             });
           } else {
-            logger.error(`[SEARCH_CALENDAR_TOOL] ❌ Calendar event search failed`);
-            logger.error(`[SEARCH_CALENDAR_TOOL]   - status: ${event.status}`);
             reject(new Error(`检索日程失败: ${event.status}`));
           }
         }
       };
 
       // Register event handler
-      logger.log(`[SEARCH_CALENDAR_TOOL] 📡 Registering data-event handler on WebSocket manager`);
       wsManager.on("data-event", handler);
 
       // Send the command
-      logger.log(`[SEARCH_CALENDAR_TOOL] 📤 Sending SearchCalendarEvent command...`);
       sendCommand({
         config,
         sessionId,
@@ -242,10 +208,8 @@ b. 使用该工具之前需获取当前真实时间
         command,
       })
         .then(() => {
-          logger.log(`[SEARCH_CALENDAR_TOOL] ✅ Command sent successfully, waiting for response...`);
         })
         .catch((error) => {
-          logger.error(`[SEARCH_CALENDAR_TOOL] ❌ Failed to send command:`, error);
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
           reject(error);

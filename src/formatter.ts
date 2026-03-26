@@ -83,18 +83,11 @@ export async function sendA2AResponse(params: SendA2AResponseParams): Promise<vo
   };
 
   // 📋 Log complete response body
-  log(`[A2A_RESPONSE] 📤 Sending A2A artifact-update response:`);
-  log(`[A2A_RESPONSE]   - sessionId: ${sessionId}`);
-  log(`[A2A_RESPONSE]   - taskId: ${taskId}`);
-  log(`[A2A_RESPONSE]   - messageId: ${messageId}`);
+  log(`[A2A_RESPONSE] 📤 Sending A2A artifact-update response: taskId: ${taskId}`);
   log(`[A2A_RESPONSE]   - append: ${append}`);
   log(`[A2A_RESPONSE]   - final: ${final}`);
-  log(`[A2A_RESPONSE]   - text length: ${text?.length ?? 0}`);
+  log(`[A2A_RESPONSE]   - text: ${text}`);
   log(`[A2A_RESPONSE]   - files count: ${files?.length ?? 0}`);
-  log(`[A2A_RESPONSE] 📦 Complete outbound message:`);
-  log(JSON.stringify(outboundMessage, null, 2));
-  log(`[A2A_RESPONSE] 📦 JSON-RPC response body:`);
-  log(JSON.stringify(jsonRpcResponse, null, 2));
 
   await wsManager.sendMessage(sessionId, outboundMessage);
   log(`[A2A_RESPONSE] ✅ Message sent successfully`);
@@ -219,15 +212,10 @@ export async function sendStatusUpdate(params: SendStatusUpdateParams): Promise<
 
   // 📋 Log complete response body
   log(`[A2A_STATUS] 📤 Sending A2A status-update:`);
-  log(`[A2A_STATUS]   - sessionId: ${sessionId}`);
   log(`[A2A_STATUS]   - taskId: ${taskId}`);
   log(`[A2A_STATUS]   - messageId: ${messageId}`);
   log(`[A2A_STATUS]   - state: ${state}`);
   log(`[A2A_STATUS]   - text: "${text}"`);
-  log(`[A2A_STATUS] 📦 Complete outbound message:`);
-  log(JSON.stringify(outboundMessage, null, 2));
-  log(`[A2A_STATUS] 📦 JSON-RPC response body:`);
-  log(JSON.stringify(jsonRpcResponse, null, 2));
 
   await wsManager.sendMessage(sessionId, outboundMessage);
   log(`[A2A_STATUS] ✅ Status update sent successfully`);
@@ -293,16 +281,7 @@ export async function sendCommand(params: SendCommandParams): Promise<void> {
   };
 
   // 📋 Log complete response body
-  log(`[A2A_COMMAND] 📤 Sending A2A command:`);
-  log(`[A2A_COMMAND]   - sessionId: ${sessionId}`);
-  log(`[A2A_COMMAND]   - taskId: ${taskId}`);
-  log(`[A2A_COMMAND]   - messageId: ${messageId}`);
-  log(`[A2A_COMMAND]   - command: ${command.header.namespace}::${command.header.name}`);
-  log(`[A2A_COMMAND] 📦 Complete outbound message:`);
-  log(JSON.stringify(outboundMessage, null, 2));
-  log(`[A2A_COMMAND] 📦 JSON-RPC response body:`);
-  log(JSON.stringify(jsonRpcResponse, null, 2));
-
+  log(`[A2A_COMMAND] 📤 Sending A2A command: taskId: ${taskId}`);
   await wsManager.sendMessage(sessionId, outboundMessage);
   log(`[A2A_COMMAND] ✅ Command sent successfully`);
 }

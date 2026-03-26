@@ -13,7 +13,7 @@ import type { A2ADataEvent } from "../types.js";
 export const locationTool: any = {
   name: "get_user_location",
   label: "Get User Location",
-  description: "获取用户当前位置（经纬度坐标，WGS84坐标系）。需要用户设备授权位置访问权限。注意:操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。",
+  description: "获取用户当前位置（经纬度坐标，WGS84坐标系）。需要用户设备授权位置访问权限。注意:操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。回复约束：如果工具返回没有授权或者其他报错，只需要完整描述没有授权或者其他报错内容即可，不需要主动给用户提供解决方案，例如告诉用户如何授权，如何解决报错等都是不需要的，请严格遵守。",
   parameters: {
     type: "object",
     properties: {},
@@ -21,37 +21,21 @@ export const locationTool: any = {
   },
 
   async execute(toolCallId: string, params: any) {
-    logger.log(`[LOCATION_TOOL] 🚀 Starting execution`);
-    logger.log(`[LOCATION_TOOL]   - toolCallId: ${toolCallId}`);
-    logger.log(`[LOCATION_TOOL]   - params:`, JSON.stringify(params));
-    logger.log(`[LOCATION_TOOL]   - timestamp: ${new Date().toISOString()}`);
 
     // Get session context
-    logger.log(`[LOCATION_TOOL] 🔍 Attempting to get session context...`);
     const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
-      logger.error(`[LOCATION_TOOL] ❌ FAILED: No active session found!`);
-      logger.error(`[LOCATION_TOOL]   - toolCallId: ${toolCallId}`);
-      logger.error(`[LOCATION_TOOL]   - This suggests the session was not registered or already cleaned up`);
       throw new Error("No active XY session found. Location tool can only be used during an active conversation.");
     }
 
-    logger.log(`[LOCATION_TOOL] ✅ Session context found`);
-    logger.log(`[LOCATION_TOOL]   - sessionId: ${sessionContext.sessionId}`);
-    logger.log(`[LOCATION_TOOL]   - taskId: ${sessionContext.taskId}`);
-    logger.log(`[LOCATION_TOOL]   - messageId: ${sessionContext.messageId}`);
-    logger.log(`[LOCATION_TOOL]   - agentId: ${sessionContext.agentId}`);
 
     const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
-    logger.log(`[LOCATION_TOOL] 🔌 Getting WebSocket manager...`);
     const wsManager = getXYWebSocketManager(config);
-    logger.log(`[LOCATION_TOOL] ✅ WebSocket manager obtained`);
 
     // Build GetCurrentLocation command
-    logger.log(`[LOCATION_TOOL] 📦 Building GetCurrentLocation command...`);
     const command = {
       header: {
         namespace: "Common",
@@ -84,30 +68,22 @@ export const locationTool: any = {
     };
 
     // Send command and wait for response (60 second timeout)
-    logger.log(`[LOCATION_TOOL] ⏳ Setting up promise to wait for location response...`);
-    logger.log(`[LOCATION_TOOL]   - Timeout: 60 seconds`);
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        logger.error(`[LOCATION_TOOL] ⏰ Timeout: No response received within 60 seconds`);
         wsManager.off("data-event", handler);
         reject(new Error("获取位置超时（60秒）"));
       }, 60000);
 
       // Listen for data events from WebSocket
       const handler = (event: A2ADataEvent) => {
-        logger.log(`[LOCATION_TOOL] 📨 Received data event:`, JSON.stringify(event));
 
         if (event.intentName === "GetCurrentLocation") {
-          logger.log(`[LOCATION_TOOL] 🎯 GetCurrentLocation event received`);
-          logger.log(`[LOCATION_TOOL]   - status: ${event.status}`);
 
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            logger.log(`[LOCATION_TOOL] ✅ Location retrieved successfully`);
-            logger.log(`[LOCATION_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
             // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
@@ -119,8 +95,6 @@ export const locationTool: any = {
               ]
             });
           } else {
-            logger.error(`[LOCATION_TOOL] ❌ Location retrieval failed`);
-            logger.error(`[LOCATION_TOOL]   - status: ${event.status}`);
             reject(new Error(`获取位置失败: ${event.status}`));
           }
         }
@@ -128,11 +102,9 @@ export const locationTool: any = {
 
       // Register event handler
       // Note: The WebSocket manager needs to emit 'data-event' when receiving data events
-      logger.log(`[LOCATION_TOOL] 📡 Registering data-event handler on WebSocket manager`);
       wsManager.on("data-event", handler);
 
       // Send the command
-      logger.log(`[LOCATION_TOOL] 📤 Sending GetCurrentLocation command...`);
       sendCommand({
         config,
         sessionId,
@@ -140,9 +112,7 @@ export const locationTool: any = {
         messageId,
         command,
       }).then(() => {
-        logger.log(`[LOCATION_TOOL] ✅ Command sent successfully, waiting for response...`);
       }).catch((error) => {
-        logger.error(`[LOCATION_TOOL] ❌ Failed to send command:`, error);
         clearTimeout(timeout);
         wsManager.off("data-event", handler);
         reject(error);

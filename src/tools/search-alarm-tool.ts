@@ -38,7 +38,9 @@ export const searchAlarmTool: any = {
 
 注意：
 a. 操作超时时间为60秒，请勿重复调用此工具，如果超时或失败，最多重试一次。
-b. 使用该工具之前需获取当前真实时间`,
+b. 使用该工具之前需获取当前真实时间
+
+回复约束：如果工具返回没有授权或者其他报错，只需要完整描述没有授权或者其他报错内容即可，不需要主动给用户提供解决方案，例如告诉用户如何授权，如何解决报错等都是不需要的，请严格遵守。`,
   parameters: {
     type: "object",
     properties: {
@@ -69,10 +71,6 @@ b. 使用该工具之前需获取当前真实时间`,
   },
 
   async execute(toolCallId: string, params: any) {
-    logger.log(`[SEARCH_ALARM_TOOL] 🚀 Starting execution`);
-    logger.log(`[SEARCH_ALARM_TOOL]   - toolCallId: ${toolCallId}`);
-    logger.log(`[SEARCH_ALARM_TOOL]   - params:`, JSON.stringify(params));
-    logger.log(`[SEARCH_ALARM_TOOL]   - timestamp: ${new Date().toISOString()}`);
 
     // ===== Validate at least one search criterion is provided =====
     const hasRangeType = params.rangeType !== undefined && params.rangeType !== null;
@@ -82,107 +80,79 @@ b. 使用该工具之前需获取当前真实时间`,
     const hasEndTime = params.endTime !== undefined && params.endTime !== null;
 
     if (!hasRangeType && !hasAlarmState && !hasDaysOfWakeType && !hasStartTime && !hasEndTime) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ No search criteria provided`);
       throw new Error("至少需要提供一个检索条件：rangeType、alarmState、daysOfWakeType 或时间范围（startTime + endTime）");
     }
 
     // ===== Validate rangeType =====
     if (hasRangeType) {
       if (typeof params.rangeType !== "string") {
-        logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid rangeType type`);
         throw new Error("rangeType must be a string");
       }
       if (!RANGE_TYPE_VALUES.includes(params.rangeType)) {
-        logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid rangeType value: ${params.rangeType}`);
         throw new Error(`rangeType must be one of: ${RANGE_TYPE_VALUES.join(", ")}`);
       }
-      logger.log(`[SEARCH_ALARM_TOOL]   - rangeType: ${params.rangeType}`);
     }
 
     // ===== Validate alarmState =====
     if (hasAlarmState) {
       if (typeof params.alarmState !== "number") {
-        logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid alarmState type`);
         throw new Error("alarmState must be a number");
       }
       if (!ALARM_STATE_VALUES.includes(params.alarmState)) {
-        logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid alarmState value: ${params.alarmState}`);
         throw new Error(`alarmState must be one of: ${ALARM_STATE_VALUES.join(", ")}`);
       }
-      logger.log(`[SEARCH_ALARM_TOOL]   - alarmState: ${params.alarmState}`);
     }
 
     // ===== Validate daysOfWakeType =====
     if (hasDaysOfWakeType) {
       if (typeof params.daysOfWakeType !== "number") {
-        logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid daysOfWakeType type`);
         throw new Error("daysOfWakeType must be a number");
       }
       if (!DAYS_OF_WAKE_TYPE_VALUES.includes(params.daysOfWakeType)) {
-        logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid daysOfWakeType value: ${params.daysOfWakeType}`);
         throw new Error(`daysOfWakeType must be one of: ${DAYS_OF_WAKE_TYPE_VALUES.join(", ")}`);
       }
-      logger.log(`[SEARCH_ALARM_TOOL]   - daysOfWakeType: ${params.daysOfWakeType}`);
     }
 
     // ===== Validate time interval (startTime and endTime must be provided together) =====
     if (hasStartTime !== hasEndTime) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ startTime and endTime must be provided together`);
       throw new Error("startTime 和 endTime 必须一起提供");
     }
 
     let timeInterval: [number, number] | null = null;
     if (hasStartTime && hasEndTime) {
       // Parse and convert startTime and endTime to timestamps
-      logger.log(`[SEARCH_ALARM_TOOL] 🕒 Parsing time interval...`);
-      logger.log(`[SEARCH_ALARM_TOOL]   - startTime input: ${params.startTime}`);
-      logger.log(`[SEARCH_ALARM_TOOL]   - endTime input: ${params.endTime}`);
 
       const startTimeMs = parseAlarmTimeToTimestamp(params.startTime);
       const endTimeMs = parseAlarmTimeToTimestamp(params.endTime);
 
       if (startTimeMs === null) {
-        logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid startTime format`);
         throw new Error("Invalid startTime format. Required format: YYYYMMDD hhmmss (e.g., 20240315 000000)");
       }
       if (endTimeMs === null) {
-        logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid endTime format`);
         throw new Error("Invalid endTime format. Required format: YYYYMMDD hhmmss (e.g., 20240315 235959)");
       }
 
       if (startTimeMs >= endTimeMs) {
-        logger.error(`[SEARCH_ALARM_TOOL] ❌ startTime must be before endTime`);
         throw new Error("startTime 必须早于 endTime");
       }
 
       timeInterval = [startTimeMs, endTimeMs];
-      logger.log(`[SEARCH_ALARM_TOOL] ✅ Time interval parsed: [${startTimeMs}, ${endTimeMs}]`);
     }
 
     // Get session context
-    logger.log(`[SEARCH_ALARM_TOOL] 🔍 Attempting to get session context...`);
     const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ FAILED: No active session found!`);
-      logger.error(`[SEARCH_ALARM_TOOL]   - toolCallId: ${toolCallId}`);
       throw new Error("No active XY session found. Search alarm tool can only be used during an active conversation.");
     }
 
-    logger.log(`[SEARCH_ALARM_TOOL] ✅ Session context found`);
-    logger.log(`[SEARCH_ALARM_TOOL]   - sessionId: ${sessionContext.sessionId}`);
-    logger.log(`[SEARCH_ALARM_TOOL]   - taskId: ${sessionContext.taskId}`);
-    logger.log(`[SEARCH_ALARM_TOOL]   - messageId: ${sessionContext.messageId}`);
 
     const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
-    logger.log(`[SEARCH_ALARM_TOOL] 🔌 Getting WebSocket manager...`);
     const wsManager = getXYWebSocketManager(config);
-    logger.log(`[SEARCH_ALARM_TOOL] ✅ WebSocket manager obtained`);
 
     // Build SearchAlarm command
-    logger.log(`[SEARCH_ALARM_TOOL] 📦 Building SearchAlarm command...`);
 
     // Build intentParam with provided search criteria
     const intentParam: any = {};
@@ -233,30 +203,22 @@ b. 使用该工具之前需获取当前真实时间`,
     };
 
     // Send command and wait for response (60 second timeout)
-    logger.log(`[SEARCH_ALARM_TOOL] ⏳ Setting up promise to wait for alarm search response...`);
-    logger.log(`[SEARCH_ALARM_TOOL]   - Timeout: 60 seconds`);
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        logger.error(`[SEARCH_ALARM_TOOL] ⏰ Timeout: No response received within 60 seconds`);
         wsManager.off("data-event", handler);
         reject(new Error("检索闹钟超时（60秒）"));
       }, 60000);
 
       // Listen for data events from WebSocket
       const handler = (event: A2ADataEvent) => {
-        logger.log(`[SEARCH_ALARM_TOOL] 📨 Received data event:`, JSON.stringify(event));
 
         if (event.intentName === "SearchAlarm") {
-          logger.log(`[SEARCH_ALARM_TOOL] 🎯 SearchAlarm event received`);
-          logger.log(`[SEARCH_ALARM_TOOL]   - status: ${event.status}`);
 
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            logger.log(`[SEARCH_ALARM_TOOL] ✅ Alarm search completed successfully`);
-            logger.log(`[SEARCH_ALARM_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
             // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
@@ -268,20 +230,15 @@ b. 使用该工具之前需获取当前真实时间`,
               ],
             });
           } else {
-            logger.error(`[SEARCH_ALARM_TOOL] ❌ Alarm search failed`);
-            logger.error(`[SEARCH_ALARM_TOOL]   - status: ${event.status}`);
-            logger.error(`[SEARCH_ALARM_TOOL]   - outputs:`, JSON.stringify(event.outputs || {}));
             reject(new Error(`检索闹钟失败: ${event.status}`));
           }
         }
       };
 
       // Register event handler
-      logger.log(`[SEARCH_ALARM_TOOL] 📡 Registering data-event handler on WebSocket manager`);
       wsManager.on("data-event", handler);
 
       // Send the command
-      logger.log(`[SEARCH_ALARM_TOOL] 📤 Sending SearchAlarm command...`);
       sendCommand({
         config,
         sessionId,
@@ -290,10 +247,8 @@ b. 使用该工具之前需获取当前真实时间`,
         command,
       })
         .then(() => {
-          logger.log(`[SEARCH_ALARM_TOOL] ✅ Command sent successfully, waiting for response...`);
         })
         .catch((error) => {
-          logger.error(`[SEARCH_ALARM_TOOL] ❌ Failed to send command:`, error);
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
           reject(error);
@@ -315,7 +270,6 @@ function parseAlarmTimeToTimestamp(alarmTime: string): number | null {
 
     // Check basic format (should have at least 13 characters: YYYYMMDD hhmmss)
     if (trimmed.length < 13) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ alarmTime too short: ${trimmed}`);
       return null;
     }
 
@@ -324,11 +278,9 @@ function parseAlarmTimeToTimestamp(alarmTime: string): number | null {
     const datePart = trimmed.substring(0, 8); // YYYYMMDD
     const timePart = trimmed.substring(8).trim(); // hhmmss (may have leading space)
 
-    logger.log(`[SEARCH_ALARM_TOOL]   - datePart: ${datePart}, timePart: ${timePart}`);
 
     // Validate lengths
     if (datePart.length !== 8 || timePart.length !== 6) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid part lengths: datePart=${datePart.length}, timePart=${timePart.length}`);
       return null;
     }
 
@@ -340,34 +292,27 @@ function parseAlarmTimeToTimestamp(alarmTime: string): number | null {
     const minute = parseInt(timePart.substring(2, 4), 10);
     const second = parseInt(timePart.substring(4, 6), 10);
 
-    logger.log(`[SEARCH_ALARM_TOOL]   - Parsed: ${year}-${month}-${day} ${hour}:${minute}:${second}`);
 
     // Validate values
     if (isNaN(year) || isNaN(month) || isNaN(day) ||
         isNaN(hour) || isNaN(minute) || isNaN(second)) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ NaN detected in parsed values`);
       return null;
     }
 
     // Validate ranges
     if (month < 1 || month > 12) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid month: ${month}`);
       return null;
     }
     if (day < 1 || day > 31) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid day: ${day}`);
       return null;
     }
     if (hour < 0 || hour > 23) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid hour: ${hour}`);
       return null;
     }
     if (minute < 0 || minute > 59) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid minute: ${minute}`);
       return null;
     }
     if (second < 0 || second > 59) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ Invalid second: ${second}`);
       return null;
     }
 
@@ -376,13 +321,11 @@ function parseAlarmTimeToTimestamp(alarmTime: string): number | null {
     const timestamp = date.getTime();
 
     if (isNaN(timestamp)) {
-      logger.error(`[SEARCH_ALARM_TOOL] ❌ Generated timestamp is NaN`);
       return null;
     }
 
     return timestamp;
   } catch (error) {
-    logger.error(`[SEARCH_ALARM_TOOL] ❌ Exception in parseAlarmTimeToTimestamp:`, error);
     return null;
   }
 }

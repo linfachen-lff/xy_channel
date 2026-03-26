@@ -417,12 +417,33 @@ export class XYWebSocketManager extends EventEmitter {
       console.log(`[WS-RECV] Raw message frame, size: ${messageStr.length} bytes`);
 
       const parsed = JSON.parse(messageStr);
-      console.log("[WS-RECV] Parsed message:", JSON.stringify(parsed, null, 2));
+
+      // 提取并打印消息内容（只显示 text，data 只打印提示）
+      const parts = parsed.params?.message?.parts;
+      if (parts && Array.isArray(parts) && parts.length > 0) {
+        const textParts = parts.filter((p: any) => p?.kind === "text");
+        const dataParts = parts.filter((p: any) => p?.kind === "data");
+
+        // 打印 text 内容
+        if (textParts.length > 0) {
+          const textContents = textParts
+            .map((p: any) => p?.text || "")
+            .filter((text: string) => text.length > 0)
+            .join(" ");
+          if (textContents.length > 0) {
+            console.log("[WS-RECV] Text:", textContents);
+          }
+        }
+
+        // 打印 data 提示
+        if (dataParts.length > 0) {
+          console.log("[WS-RECV] Data: received data message(s)");
+        }
+      }
 
       // Check if message is in direct A2A JSON-RPC format (server push)
       if (parsed.jsonrpc === "2.0") {
         const a2aRequest: A2AJsonRpcRequest = parsed;
-        console.log(`[XY] Message type: Direct A2A JSON-RPC, method: ${a2aRequest.method}`);
 
         // Extract sessionId from params
         const sessionId = a2aRequest.params?.sessionId;
@@ -431,15 +452,12 @@ export class XYWebSocketManager extends EventEmitter {
           return;
         }
 
-        console.log(`[XY] Session ID: ${sessionId}`);
-
         // Check if message contains only data parts (tool results)
         const dataParts = a2aRequest.params?.message?.parts?.filter((p): p is { kind: "data"; data: any } => p.kind === "data");
         const hasOnlyDataParts = dataParts && dataParts.length > 0 &&
                                  dataParts.length === a2aRequest.params?.message?.parts?.length;
 
         if (hasOnlyDataParts) {
-          console.log("[XY] Message contains only data parts, processing as tool result");
           for (const dataPart of dataParts) {
             const events = dataPart.data?.events;
             if (!Array.isArray(events)) {
@@ -455,10 +473,10 @@ export class XYWebSocketManager extends EventEmitter {
                   outputs: item.payload.outputs || {},
                   status: "success" as const,
                 };
-                console.log("[XY] Emitting data-event:", dataEvent);
+                console.log(`[XY] Emitting data-event, intentName: ${item.payload.intentName}, size: ${JSON.stringify(dataEvent).length} bytes`);
                 this.emit("data-event", dataEvent);
               } else if (item.header?.namespace === "ClawAgent" && item.header?.name === "InvokeJarvisGUIAgentResponse") {
-                console.log("[XY] Emitting gui-agent-response:", item);
+                console.log(`[XY] Emitting gui-agent-response, size: ${JSON.stringify(item).length} bytes`);
                 this.emit("gui-agent-response", item);
               } else if (item.header?.namespace === "Common" && item.header?.name === "Trigger") {
                 console.log("[XY] Trigger event detected, emitting trigger-event with context");
@@ -514,10 +532,10 @@ export class XYWebSocketManager extends EventEmitter {
                     outputs: item.payload.outputs || {},
                     status: "success" as const,
                   };
-                  console.log("[XY] Emitting data-event:", dataEvent);
+                  console.log(`[XY] Emitting data-event, intentName: ${item.payload.intentName}, size: ${JSON.stringify(dataEvent).length} bytes`);
                   this.emit("data-event", dataEvent);
                 } else if (item.header?.namespace === "ClawAgent" && item.header?.name === "InvokeJarvisGUIAgentResponse") {
-                  console.log("[XY] Emitting gui-agent-response:", item);
+                  console.log(`[XY] Emitting gui-agent-response, size: ${JSON.stringify(item).length} bytes`);
                   this.emit("gui-agent-response", item);
                 } else if (item.header?.namespace === "Common" && item.header?.name === "Trigger") {
                   console.log("[XY] Trigger event detected (wrapped format), emitting trigger-event with context");

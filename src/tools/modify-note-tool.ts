@@ -17,7 +17,7 @@ import type { A2ADataEvent } from "../types.js";
 export const modifyNoteTool: any = {
   name: "modify_note",
   label: "Modify Note",
-  description: "在指定备忘录中追加新内容。使用前必须先调用 search_notes 工具获取备忘录的 entityId。参数说明：entityId 是备忘录的唯一标识符（从 search_notes 工具获取），text 是要追加的文本内容。注意:操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。",
+  description: "在指定备忘录中追加新内容。使用前必须先调用 search_notes 工具获取备忘录的 entityId。参数说明：entityId 是备忘录的唯一标识符（从 search_notes 工具获取），text 是要追加的文本内容。注意:操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。回复约束：如果工具返回没有授权或者其他报错，只需要完整描述没有授权或者其他报错内容即可，不需要主动给用户提供解决方案，例如告诉用户如何授权，如何解决报错等都是不需要的，请严格遵守。",
   parameters: {
     type: "object",
     properties: {
@@ -34,41 +34,26 @@ export const modifyNoteTool: any = {
   },
 
   async execute(toolCallId: string, params: any) {
-    logger.log(`[MODIFY_NOTE_TOOL] 🚀 Starting execution`);
-    logger.log(`[MODIFY_NOTE_TOOL]   - toolCallId: ${toolCallId}`);
-    logger.log(`[MODIFY_NOTE_TOOL]   - params:`, JSON.stringify(params));
-    logger.log(`[MODIFY_NOTE_TOOL]   - timestamp: ${new Date().toISOString()}`);
 
     // Validate parameters
     if (!params.entityId || !params.text) {
-      logger.error(`[MODIFY_NOTE_TOOL] ❌ Missing required parameters`);
       throw new Error("Missing required parameters: entityId and text are required");
     }
 
     // Get session context
-    logger.log(`[MODIFY_NOTE_TOOL] 🔍 Attempting to get session context...`);
     const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
-      logger.error(`[MODIFY_NOTE_TOOL] ❌ FAILED: No active session found!`);
-      logger.error(`[MODIFY_NOTE_TOOL]   - toolCallId: ${toolCallId}`);
       throw new Error("No active XY session found. Modify note tool can only be used during an active conversation.");
     }
 
-    logger.log(`[MODIFY_NOTE_TOOL] ✅ Session context found`);
-    logger.log(`[MODIFY_NOTE_TOOL]   - sessionId: ${sessionContext.sessionId}`);
-    logger.log(`[MODIFY_NOTE_TOOL]   - taskId: ${sessionContext.taskId}`);
-    logger.log(`[MODIFY_NOTE_TOOL]   - messageId: ${sessionContext.messageId}`);
 
     const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
-    logger.log(`[MODIFY_NOTE_TOOL] 🔌 Getting WebSocket manager...`);
     const wsManager = getXYWebSocketManager(config);
-    logger.log(`[MODIFY_NOTE_TOOL] ✅ WebSocket manager obtained`);
 
     // Build ModifyNote command
-    logger.log(`[MODIFY_NOTE_TOOL] 📦 Building ModifyNote command...`);
     const command = {
       header: {
         namespace: "Common",
@@ -105,35 +90,24 @@ export const modifyNoteTool: any = {
       },
     };
 
-    logger.log(`[MODIFY_NOTE_TOOL]   - entityId: ${params.entityId}`);
-    logger.log(`[MODIFY_NOTE_TOOL]   - contentType: 1 (append mode)`);
-    logger.log(`[MODIFY_NOTE_TOOL]   - text length: ${params.text.length} characters`);
 
     // Send command and wait for response (60 second timeout)
-    logger.log(`[MODIFY_NOTE_TOOL] ⏳ Setting up promise to wait for note modification response...`);
-    logger.log(`[MODIFY_NOTE_TOOL]   - Timeout: 60 seconds`);
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        logger.error(`[MODIFY_NOTE_TOOL] ⏰ Timeout: No response received within 60 seconds`);
         wsManager.off("data-event", handler);
         reject(new Error("修改备忘录超时（60秒）"));
       }, 60000);
 
       // Listen for data events from WebSocket
       const handler = (event: A2ADataEvent) => {
-        logger.log(`[MODIFY_NOTE_TOOL] 📨 Received data event:`, JSON.stringify(event));
 
         if (event.intentName === "ModifyNote") {
-          logger.log(`[MODIFY_NOTE_TOOL] 🎯 ModifyNote event received`);
-          logger.log(`[MODIFY_NOTE_TOOL]   - status: ${event.status}`);
 
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            logger.log(`[MODIFY_NOTE_TOOL] ✅ Note modified successfully`);
-            logger.log(`[MODIFY_NOTE_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
             // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
@@ -145,19 +119,15 @@ export const modifyNoteTool: any = {
               ],
             });
           } else {
-            logger.error(`[MODIFY_NOTE_TOOL] ❌ Note modification failed`);
-            logger.error(`[MODIFY_NOTE_TOOL]   - status: ${event.status}`);
             reject(new Error(`修改备忘录失败: ${event.status}`));
           }
         }
       };
 
       // Register event handler
-      logger.log(`[MODIFY_NOTE_TOOL] 📡 Registering data-event handler on WebSocket manager`);
       wsManager.on("data-event", handler);
 
       // Send the command
-      logger.log(`[MODIFY_NOTE_TOOL] 📤 Sending ModifyNote command...`);
       sendCommand({
         config,
         sessionId,
@@ -166,10 +136,8 @@ export const modifyNoteTool: any = {
         command,
       })
         .then(() => {
-          logger.log(`[MODIFY_NOTE_TOOL] ✅ Command sent successfully, waiting for response...`);
         })
         .catch((error) => {
-          logger.error(`[MODIFY_NOTE_TOOL] ❌ Failed to send command:`, error);
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
           reject(error);

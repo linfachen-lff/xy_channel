@@ -39,24 +39,17 @@ export const viewPushResultTool: any = {
   },
 
   async execute(toolCallId: string, params: any) {
-    logger.log(`[VIEW_PUSH_RESULT_TOOL] 🚀 Starting execution`);
-    logger.log(`[VIEW_PUSH_RESULT_TOOL]   - toolCallId: ${toolCallId}`);
-    logger.log(`[VIEW_PUSH_RESULT_TOOL]   - params:`, JSON.stringify(params));
 
     const keywords = params.keywords?.trim();
     const limit = Math.min(params.limit || 10, 50); // 限制最多50条
 
     try {
-      logger.log(`[VIEW_PUSH_RESULT_TOOL] 🔍 Searching push data...`);
-      logger.log(`[VIEW_PUSH_RESULT_TOOL]   - keywords: ${keywords || '(none)'}`);
-      logger.log(`[VIEW_PUSH_RESULT_TOOL]   - limit: ${limit}`);
 
       // 根据是否有关键词决定调用哪个方法
       let results = keywords
         ? await searchPushData(keywords)
         : await getAllPushData();
 
-      logger.log(`[VIEW_PUSH_RESULT_TOOL] Found ${results.length} items before limit`);
 
       // 按时间倒序排序（最新的在前）
       results.sort((a, b) => b.time.localeCompare(a.time));
@@ -65,7 +58,6 @@ export const viewPushResultTool: any = {
       results = results.slice(0, limit);
 
       if (results.length === 0) {
-        logger.log(`[VIEW_PUSH_RESULT_TOOL] ⚠️ No results found`);
         return {
           content: [
             {
@@ -94,7 +86,6 @@ export const viewPushResultTool: any = {
         fullLength: item.dataDetail.length,
       }));
 
-      logger.log(`[VIEW_PUSH_RESULT_TOOL] ✅ Returning ${formattedItems.length} items`);
 
       return {
         content: [
@@ -113,7 +104,6 @@ export const viewPushResultTool: any = {
         ],
       };
     } catch (error) {
-      logger.error(`[VIEW_PUSH_RESULT_TOOL] ❌ Failed to execute:`, error);
       return {
         content: [
           {

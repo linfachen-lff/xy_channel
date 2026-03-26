@@ -102,9 +102,6 @@ export function diagnoseAllManagers(): void {
 
   wsManagerCache.forEach((manager, key) => {
     const diag = manager.getConnectionDiagnostics();
-
-    console.log(`📌 Manager: ${key}`);
-    console.log(`   Shutting down: ${diag.isShuttingDown}`);
     console.log(`   Total event listeners on manager: ${diag.totalEventListeners}`);
 
     // Connection

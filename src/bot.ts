@@ -419,20 +419,3 @@ function buildXYMediaPayload(
     MediaTypes: mediaTypes.length > 0 ? mediaTypes : undefined,
   };
 }
-
-/**
- * Infer OpenClaw media type from file type string.
- */
-function inferMediaType(fileType: string): "image" | "video" | "audio" | "file" {
-  const lower = fileType.toLowerCase();
-  if (lower.includes("image") || /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(lower)) {
-    return "image";
-  }
-  if (lower.includes("video") || /\.(mp4|avi|mov|mkv|webm)$/i.test(lower)) {
-    return "video";
-  }
-  if (lower.includes("audio") || /\.(mp3|wav|ogg|m4a)$/i.test(lower)) {
-    return "audio";
-  }
-  return "file";
-}

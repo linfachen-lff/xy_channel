@@ -29,12 +29,6 @@ const asyncLocalStorage = new AsyncLocalStorage<SessionContext>();
  * Should be called when starting to process a message.
  */
 export function registerSession(sessionKey: string, context: SessionContext): void {
-  logger.log(`[SESSION_MANAGER] 📝 Registering session: ${sessionKey}`);
-  logger.log(`[SESSION_MANAGER]   - sessionId: ${context.sessionId}`);
-  logger.log(`[SESSION_MANAGER]   - taskId: ${context.taskId}`);
-  logger.log(`[SESSION_MANAGER]   - messageId: ${context.messageId}`);
-  logger.log(`[SESSION_MANAGER]   - agentId: ${context.agentId}`);
-  logger.log(`[SESSION_MANAGER]   - Active sessions before: ${activeSessions.size}`);
 
   const existing = activeSessions.get(sessionKey);
   if (existing) {
@@ -42,18 +36,14 @@ export function registerSession(sessionKey: string, context: SessionContext): vo
     existing.taskId = context.taskId;
     existing.messageId = context.messageId;
     existing.refCount++;
-    logger.log(`[SESSION_MANAGER]   - Updated existing, refCount=${existing.refCount}`);
   } else {
     // 新建
     activeSessions.set(sessionKey, {
       ...context,
       refCount: 1,
     });
-    logger.log(`[SESSION_MANAGER]   - Created new, refCount=1`);
   }
 
-  logger.log(`[SESSION_MANAGER]   - Active sessions after: ${activeSessions.size}`);
-  logger.log(`[SESSION_MANAGER]   - All session keys: [${Array.from(activeSessions.keys()).join(", ")}]`);
 }
 
 /**
@@ -61,27 +51,19 @@ export function registerSession(sessionKey: string, context: SessionContext): vo
  * Should be called when message processing is complete.
  */
 export function unregisterSession(sessionKey: string): void {
-  logger.log(`[SESSION_MANAGER] 🗑️  Unregistering session: ${sessionKey}`);
-  logger.log(`[SESSION_MANAGER]   - Active sessions before: ${activeSessions.size}`);
-  logger.log(`[SESSION_MANAGER]   - Session existed: ${activeSessions.has(sessionKey)}`);
 
   const existing = activeSessions.get(sessionKey);
   if (!existing) {
-    logger.log(`[SESSION_MANAGER]   - Session not found`);
     return;
   }
 
   existing.refCount--;
-  logger.log(`[SESSION_MANAGER]   - Decremented refCount: ${existing.refCount}`);
 
   if (existing.refCount <= 0) {
     activeSessions.delete(sessionKey);
     configManager.clearSession(existing.sessionId);
-    logger.log(`[SESSION_MANAGER]   - Deleted (refCount=0)`);
   }
 
-  logger.log(`[SESSION_MANAGER]   - Active sessions after: ${activeSessions.size}`);
-  logger.log(`[SESSION_MANAGER]   - Remaining session keys: [${Array.from(activeSessions.keys()).join(", ")}]`);
 }
 
 /**
@@ -89,14 +71,10 @@ export function unregisterSession(sessionKey: string): void {
  * Returns null if session not found.
  */
 export function getSessionContext(sessionKey: string): SessionContext | null {
-  logger.log(`[SESSION_MANAGER] 🔍 Getting session by key: ${sessionKey}`);
-  logger.log(`[SESSION_MANAGER]   - Active sessions: ${activeSessions.size}`);
 
   const contextWithRef = activeSessions.get(sessionKey) ?? null;
 
-  logger.log(`[SESSION_MANAGER]   - Found: ${contextWithRef !== null}`);
   if (contextWithRef) {
-    logger.log(`[SESSION_MANAGER]   - sessionId: ${contextWithRef.sessionId}`);
     // 返回时去掉refCount字段
     const { refCount, ...context } = contextWithRef;
     return context;
@@ -112,12 +90,8 @@ export function getSessionContext(sessionKey: string): SessionContext | null {
  * Returns null if no sessions are active.
  */
 export function getLatestSessionContext(): SessionContext | null {
-  logger.log(`[SESSION_MANAGER] 🔍 Getting latest session context`);
-  logger.log(`[SESSION_MANAGER]   - Active sessions count: ${activeSessions.size}`);
-  logger.log(`[SESSION_MANAGER]   - Active session keys: [${Array.from(activeSessions.keys()).join(", ")}]`);
 
   if (activeSessions.size === 0) {
-    logger.error(`[SESSION_MANAGER]   - ❌ No active sessions found!`);
     return null;
   }
 
@@ -125,10 +99,6 @@ export function getLatestSessionContext(): SessionContext | null {
   const sessions = Array.from(activeSessions.values());
   const latestSessionWithRef = sessions[sessions.length - 1];
 
-  logger.log(`[SESSION_MANAGER]   - ✅ Found latest session:`);
-  logger.log(`[SESSION_MANAGER]     - sessionId: ${latestSessionWithRef.sessionId}`);
-  logger.log(`[SESSION_MANAGER]     - taskId: ${latestSessionWithRef.taskId}`);
-  logger.log(`[SESSION_MANAGER]     - messageId: ${latestSessionWithRef.messageId}`);
 
   // 返回时去掉refCount字段
   const { refCount, ...latestSession } = latestSessionWithRef;
@@ -143,9 +113,6 @@ export function runWithSessionContext<T>(
   context: SessionContext,
   callback: () => Promise<T>
 ): Promise<T> {
-  logger.log(`[SESSION_MANAGER] 🔐 Running with AsyncLocalStorage context`);
-  logger.log(`[SESSION_MANAGER]   - sessionId: ${context.sessionId}`);
-  logger.log(`[SESSION_MANAGER]   - taskId: ${context.taskId}`);
   return asyncLocalStorage.run(context, callback);
 }
 
@@ -162,7 +129,6 @@ export function getCurrentSessionContext(): SessionContext | null {
   const context = asyncLocalStorage.getStore() ?? null;
 
   if (!context) {
-    logger.warn(`[SESSION_MANAGER] ⚠️  No session context in AsyncLocalStorage`);
     return null;
   }
 
@@ -172,12 +138,6 @@ export function getCurrentSessionContext(): SessionContext | null {
 
   // 3. If task-manager has a newer taskId, use the latest value
   if (latestTaskId && latestTaskId !== context.taskId) {
-    logger.log(`[SESSION_MANAGER] 🔄 TaskId updated (interruption detected)`);
-    logger.log(`[SESSION_MANAGER]   - sessionId: ${context.sessionId}`);
-    logger.log(`[SESSION_MANAGER]   - Old taskId: ${context.taskId}`);
-    logger.log(`[SESSION_MANAGER]   - New taskId: ${latestTaskId}`);
-    logger.log(`[SESSION_MANAGER]   - Old messageId: ${context.messageId}`);
-    logger.log(`[SESSION_MANAGER]   - New messageId: ${latestMessageId ?? context.messageId}`);
 
     // Return updated context (create new object, don't modify original)
     return {
@@ -188,10 +148,6 @@ export function getCurrentSessionContext(): SessionContext | null {
   }
 
   // 4. No update needed, return original context
-  logger.log(`[SESSION_MANAGER] ✅ Got current session context from AsyncLocalStorage`);
-  logger.log(`[SESSION_MANAGER]   - sessionId: ${context.sessionId}`);
-  logger.log(`[SESSION_MANAGER]   - taskId: ${context.taskId}`);
-  logger.log(`[SESSION_MANAGER]   - messageId: ${context.messageId}`);
 
   return context;
 }

@@ -73,7 +73,6 @@ function normalizeToArray(param: any): string[] {
  * Download remote file to local temp directory
  */
 async function downloadRemoteFile(url: string): Promise<string> {
-  logger.log(`[SEND_FILE_TO_USER_TOOL] 📥 Downloading remote file: ${url}`);
 
   try {
     const response = await fetch(url);
@@ -102,10 +101,8 @@ async function downloadRemoteFile(url: string): Promise<string> {
     const buffer = Buffer.from(arrayBuffer);
     await fs.writeFile(localPath, buffer);
 
-    logger.log(`[SEND_FILE_TO_USER_TOOL] ✅ File downloaded to: ${localPath}`);
     return localPath;
   } catch (error) {
-    logger.error(`[SEND_FILE_TO_USER_TOOL] ❌ Failed to download file from ${url}:`, error);
     throw new Error(`Failed to download remote file: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
@@ -153,66 +150,46 @@ b. 操作超时时间为2分钟（120秒），请勿重复调用此工具，如�
 
     // Create the main execution promise
     const executionPromise = (async () => {
-    logger.log(`[SEND_FILE_TO_USER_TOOL] 🚀 Starting execution`);
-    logger.log(`[SEND_FILE_TO_USER_TOOL]   - toolCallId: ${toolCallId}`);
-    logger.log(`[SEND_FILE_TO_USER_TOOL]   - params (raw):`, JSON.stringify(params));
-    logger.log(`[SEND_FILE_TO_USER_TOOL]   - timestamp: ${new Date().toISOString()}`);
 
     // Validate that at least one parameter is provided
     if (!params.fileLocalUrls && !params.fileRemoteUrls) {
-      logger.error(`[SEND_FILE_TO_USER_TOOL] ❌ Missing both fileLocalUrls and fileRemoteUrls parameters`);
       throw new Error("At least one of fileLocalUrls or fileRemoteUrls must be provided");
     }
 
     // Normalize fileLocalUrls parameter
     let fileLocalUrls: string[] = [];
     if (params.fileLocalUrls) {
-      logger.log(`[SEND_FILE_TO_USER_TOOL] 🔄 Normalizing fileLocalUrls parameter...`);
       fileLocalUrls = normalizeToArray(params.fileLocalUrls);
 
       if (fileLocalUrls.length === 0) {
-        logger.error(`[SEND_FILE_TO_USER_TOOL] ❌ fileLocalUrls array is empty`);
         throw new Error("fileLocalUrls array cannot be empty");
       }
 
-      logger.log(`[SEND_FILE_TO_USER_TOOL] ✅ Normalized fileLocalUrls:`, JSON.stringify(fileLocalUrls));
     }
 
     // Normalize fileRemoteUrls parameter
     let fileRemoteUrls: string[] = [];
     if (params.fileRemoteUrls) {
-      logger.log(`[SEND_FILE_TO_USER_TOOL] 🔄 Normalizing fileRemoteUrls parameter...`);
       fileRemoteUrls = normalizeToArray(params.fileRemoteUrls);
 
       if (fileRemoteUrls.length === 0) {
-        logger.error(`[SEND_FILE_TO_USER_TOOL] ❌ fileRemoteUrls array is empty`);
         throw new Error("fileRemoteUrls array cannot be empty");
       }
 
-      logger.log(`[SEND_FILE_TO_USER_TOOL] ✅ Normalized fileRemoteUrls:`, JSON.stringify(fileRemoteUrls));
     }
 
     // Get session context
-    logger.log(`[SEND_FILE_TO_USER_TOOL] 🔍 Attempting to get session context...`);
     const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
-      logger.error(`[SEND_FILE_TO_USER_TOOL] ❌ FAILED: No active session found!`);
-      logger.error(`[SEND_FILE_TO_USER_TOOL]   - toolCallId: ${toolCallId}`);
       throw new Error("No active XY session found. Send file to user tool can only be used during an active conversation.");
     }
 
-    logger.log(`[SEND_FILE_TO_USER_TOOL] ✅ Session context found`);
-    logger.log(`[SEND_FILE_TO_USER_TOOL]   - sessionId: ${sessionContext.sessionId}`);
-    logger.log(`[SEND_FILE_TO_USER_TOOL]   - taskId: ${sessionContext.taskId}`);
-    logger.log(`[SEND_FILE_TO_USER_TOOL]   - messageId: ${sessionContext.messageId}`);
 
     const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
-    logger.log(`[SEND_FILE_TO_USER_TOOL] 🔌 Getting WebSocket manager...`);
     const wsManager = getXYWebSocketManager(config);
-    logger.log(`[SEND_FILE_TO_USER_TOOL] ✅ WebSocket manager obtained`);
 
     // Create upload service
     const uploadService = new XYFileUploadService(
@@ -227,39 +204,32 @@ b. 操作超时时间为2分钟（120秒），请勿重复调用此工具，如�
 
     // Download remote files to local temp directory
     if (fileRemoteUrls.length > 0) {
-      logger.log(`[SEND_FILE_TO_USER_TOOL] 📥 Downloading ${fileRemoteUrls.length} remote files...`);
 
       for (let i = 0; i < fileRemoteUrls.length; i++) {
         const remoteUrl = fileRemoteUrls[i];
-        logger.log(`[SEND_FILE_TO_USER_TOOL] 📥 Downloading remote file ${i + 1}/${fileRemoteUrls.length}: ${remoteUrl}`);
 
         try {
           const localPath = await downloadRemoteFile(remoteUrl);
           allLocalPaths.push(localPath);
           downloadedFiles.push(localPath);
         } catch (error) {
-          logger.error(`[SEND_FILE_TO_USER_TOOL] ❌ Failed to download file ${i + 1}:`, error);
           throw new Error(`Failed to download remote file ${remoteUrl}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
 
-      logger.log(`[SEND_FILE_TO_USER_TOOL] ✅ Downloaded ${downloadedFiles.length} remote files`);
     }
 
     // Upload all local files and get fileIds
-    logger.log(`[SEND_FILE_TO_USER_TOOL] 📤 Uploading ${allLocalPaths.length} files...`);
     const uploadedFiles: Array<{ fileName: string; fileId: string; mimeType: string }> = [];
 
     for (let i = 0; i < allLocalPaths.length; i++) {
       const localPath = allLocalPaths[i];
-      logger.log(`[SEND_FILE_TO_USER_TOOL] 📤 Uploading file ${i + 1}/${allLocalPaths.length}: ${localPath}`);
 
       try {
         // Upload file using three-phase upload
         const fileId = await uploadService.uploadFile(localPath);
 
         if (!fileId) {
-          logger.error(`[SEND_FILE_TO_USER_TOOL] ❌ Failed to upload file: ${localPath} (fileId is empty)`);
           throw new Error(`Failed to upload file: ${localPath}`);
         }
 
@@ -268,28 +238,22 @@ b. 操作超时时间为2分钟（120秒），请勿重复调用此工具，如�
         const mimeType = getMimeTypeFromFilename(fileName);
 
         uploadedFiles.push({ fileName, fileId, mimeType });
-        logger.log(`[SEND_FILE_TO_USER_TOOL] ✅ File uploaded successfully: ${fileName} -> ${fileId}`);
       } catch (error) {
-        logger.error(`[SEND_FILE_TO_USER_TOOL] ❌ Failed to upload file ${i + 1}:`, error);
         throw new Error(`Failed to upload file ${localPath}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
     // Clean up downloaded files
     if (downloadedFiles.length > 0) {
-      logger.log(`[SEND_FILE_TO_USER_TOOL] 🧹 Cleaning up ${downloadedFiles.length} downloaded files...`);
       for (const downloadedFile of downloadedFiles) {
         try {
           await fs.unlink(downloadedFile);
-          logger.log(`[SEND_FILE_TO_USER_TOOL] ✅ Cleaned up: ${downloadedFile}`);
         } catch (error) {
-          logger.warn(`[SEND_FILE_TO_USER_TOOL] ⚠️ Failed to clean up file ${downloadedFile}:`, error);
         }
       }
     }
 
     // Build and send agent_response messages for each file
-    logger.log(`[SEND_FILE_TO_USER_TOOL] 📦 Building and sending agent_response messages...`);
     const sentFiles: Array<{ fileName: string; fileId: string }> = [];
 
     for (const uploadedFile of uploadedFiles) {
@@ -329,10 +293,8 @@ b. 操作超时时间为2分钟（120秒），请勿重复调用此工具，如�
       // Send WebSocket message
       await wsManager.sendMessage(sessionId, agentResponse);
       sentFiles.push({ fileName, fileId });
-      logger.log(`[SEND_FILE_TO_USER_TOOL] ✅ Sent file to user: ${fileName} (fileId: ${fileId})`);
     }
 
-    logger.log(`[SEND_FILE_TO_USER_TOOL] 🎉 Successfully sent ${sentFiles.length} files to user`);
 
     return {
       content: [

@@ -31,6 +31,8 @@ export const noteTool: any = {
   a. 操作超时时间为60秒,请勿重复调用此工具
   b. 如果遇到各类调用失败场景,最多只能重试一次，不可以重复调用多次。
   c. 调用工具前需认真检查调用参数是否满足工具要求
+
+  回复约束：如果工具返回没有授权或者其他报错，只需要完整描述没有授权或者其他报错内容即可，不需要主动给用户提供解决方案，例如告诉用户如何授权，如何解决报错等都是不需要的，请严格遵守。
   `,
   parameters: {
     type: "object",
@@ -48,7 +50,6 @@ export const noteTool: any = {
   },
 
   async execute(toolCallId: string, params: any) {
-    logger.debug("Executing note tool, toolCallId:", toolCallId);
 
     // Validate parameters — 抛 ToolInputError 而非普通 Error，
     // 让 openclaw 返回 400 而非 500，明确告知 LLM 这是参数错误，不应重试。
@@ -114,14 +115,12 @@ export const noteTool: any = {
 
       // Listen for data events from WebSocket
       const handler = (event: A2ADataEvent) => {
-        logger.debug("Received data event:", event);
 
         if (event.intentName === "CreateNote") {
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            logger.log(`Note created successfully, outputs:`, JSON.stringify(event.outputs));
 
             // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({

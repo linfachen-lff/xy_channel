@@ -38,43 +38,27 @@ export const searchFileTool: any = {
   },
 
   async execute(toolCallId: string, params: any) {
-    logger.log(`[SEARCH_FILE_TOOL] 🚀 Starting execution`);
-    logger.log(`[SEARCH_FILE_TOOL]   - toolCallId: ${toolCallId}`);
-    logger.log(`[SEARCH_FILE_TOOL]   - params:`, JSON.stringify(params));
-    logger.log(`[SEARCH_FILE_TOOL]   - timestamp: ${new Date().toISOString()}`);
 
     // Validate query parameter
     if (!params.query || typeof params.query !== "string" || params.query.trim() === "") {
-      logger.error(`[SEARCH_FILE_TOOL] ❌ Missing or invalid query parameter`);
       throw new Error("Missing required parameter: query must be a non-empty string");
     }
 
-    logger.log(`[SEARCH_FILE_TOOL] 🔍 Searching for files with keyword: ${params.query}`);
 
     // Get session context
-    logger.log(`[SEARCH_FILE_TOOL] 🔍 Attempting to get session context...`);
     const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
-      logger.error(`[SEARCH_FILE_TOOL] ❌ FAILED: No active session found!`);
-      logger.error(`[SEARCH_FILE_TOOL]   - toolCallId: ${toolCallId}`);
       throw new Error("No active XY session found. Search file tool can only be used during an active conversation.");
     }
 
-    logger.log(`[SEARCH_FILE_TOOL] ✅ Session context found`);
-    logger.log(`[SEARCH_FILE_TOOL]   - sessionId: ${sessionContext.sessionId}`);
-    logger.log(`[SEARCH_FILE_TOOL]   - taskId: ${sessionContext.taskId}`);
-    logger.log(`[SEARCH_FILE_TOOL]   - messageId: ${sessionContext.messageId}`);
 
     const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
-    logger.log(`[SEARCH_FILE_TOOL] 🔌 Getting WebSocket manager...`);
     const wsManager = getXYWebSocketManager(config);
-    logger.log(`[SEARCH_FILE_TOOL] ✅ WebSocket manager obtained`);
 
     // Build SearchFile command
-    logger.log(`[SEARCH_FILE_TOOL] 📦 Building SearchFile command...`);
     const command = {
       header: {
         namespace: "Common",
@@ -109,33 +93,24 @@ export const searchFileTool: any = {
       },
     };
 
-    logger.log(`[SEARCH_FILE_TOOL] 📋 Command details:`, JSON.stringify(command, null, 2));
 
     // Send command and wait for response (60 second timeout)
-    logger.log(`[SEARCH_FILE_TOOL] ⏳ Setting up promise to wait for file search response...`);
-    logger.log(`[SEARCH_FILE_TOOL]   - Timeout: 60 seconds`);
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        logger.error(`[SEARCH_FILE_TOOL] ⏰ Timeout: No response received within 60 seconds`);
         wsManager.off("data-event", handler);
         reject(new Error("搜索文件超时（60秒）"));
       }, 60000);
 
       // Listen for data events from WebSocket
       const handler = (event: A2ADataEvent) => {
-        logger.log(`[SEARCH_FILE_TOOL] 📨 Received data event:`, JSON.stringify(event));
 
         if (event.intentName === "SearchFile") {
-          logger.log(`[SEARCH_FILE_TOOL] 🎯 SearchFile event received`);
-          logger.log(`[SEARCH_FILE_TOOL]   - status: ${event.status}`);
 
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
-            logger.log(`[SEARCH_FILE_TOOL] ✅ File search completed successfully`);
-            logger.log(`[SEARCH_FILE_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
             // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
@@ -147,9 +122,6 @@ export const searchFileTool: any = {
               ]
             });
           } else {
-            logger.error(`[SEARCH_FILE_TOOL] ❌ File search failed`);
-            logger.error(`[SEARCH_FILE_TOOL]   - status: ${event.status}`);
-            logger.error(`[SEARCH_FILE_TOOL]   - outputs:`, JSON.stringify(event.outputs || {}));
 
             const errorDetail = event.outputs ? JSON.stringify(event.outputs) : event.status;
             reject(new Error(`搜索文件失败: ${errorDetail}`));
@@ -158,11 +130,9 @@ export const searchFileTool: any = {
       };
 
       // Register event handler
-      logger.log(`[SEARCH_FILE_TOOL] 📡 Registering data-event handler on WebSocket manager`);
       wsManager.on("data-event", handler);
 
       // Send the command
-      logger.log(`[SEARCH_FILE_TOOL] 📤 Sending SearchFile command...`);
       sendCommand({
         config,
         sessionId,
@@ -171,10 +141,8 @@ export const searchFileTool: any = {
         command,
       })
         .then(() => {
-          logger.log(`[SEARCH_FILE_TOOL] ✅ Command sent successfully, waiting for response...`);
         })
         .catch((error) => {
-          logger.error(`[SEARCH_FILE_TOOL] ❌ Failed to send command:`, error);
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
           reject(error);

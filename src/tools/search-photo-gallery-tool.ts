@@ -47,6 +47,8 @@ export const searchPhotoGalleryTool: any = {
   a. 只有当用户明确表达从手机相册搜索或者从图库搜索时才执行此工具，如果用户仅表达要搜索xxx图片，并没有说明搜索数据源，则不要贸然调用此插件，可以优先尝试websearch或者询问用户是否要从手机图库中搜索。
   b. 操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。
   c. 如果用户请求包含多个实体或时间范围，需要主动拆分成多次查询并告知用户。
+
+  回复约束：如果工具返回没有授权或者其他报错，只需要完整描述没有授权或者其他报错内容即可，不需要主动给用户提供解决方案，例如告诉用户如何授权，如何解决报错等都是不需要的，请严格遵守。
   `,
   parameters: {
     type: "object",
@@ -68,45 +70,28 @@ export const searchPhotoGalleryTool: any = {
   },
 
   async execute(toolCallId: string, params: any) {
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 🚀 Starting execution`);
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - toolCallId: ${toolCallId}`);
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - params:`, JSON.stringify(params));
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - timestamp: ${new Date().toISOString()}`);
 
     // Validate parameters
     if (!params.query) {
-      logger.error(`[SEARCH_PHOTO_GALLERY_TOOL] ❌ Missing required parameter: query`);
       throw new Error("Missing required parameter: query is required");
     }
 
     // Get session context
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 🔍 Attempting to get session context...`);
     const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
-      logger.error(`[SEARCH_PHOTO_GALLERY_TOOL] ❌ FAILED: No active session found!`);
-      logger.error(`[SEARCH_PHOTO_GALLERY_TOOL]   - toolCallId: ${toolCallId}`);
       throw new Error("No active XY session found. Search photo gallery tool can only be used during an active conversation.");
     }
 
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] ✅ Session context found`);
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - sessionId: ${sessionContext.sessionId}`);
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - taskId: ${sessionContext.taskId}`);
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - messageId: ${sessionContext.messageId}`);
 
     const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 🔌 Getting WebSocket manager...`);
     const wsManager = getXYWebSocketManager(config);
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] ✅ WebSocket manager obtained`);
 
     // Search for photos
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📸 Searching for photos...`);
     const outputs = await searchPhotos(wsManager, config, sessionId, taskId, messageId, params.query);
 
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] ✅ Photo search completed successfully`);
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - outputs:`, JSON.stringify(outputs));
 
     return {
       content: [
@@ -131,7 +116,6 @@ async function searchPhotos(
   messageId: string,
   query: string
 ): Promise<any> {
-  logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📦 Building SearchPhotoVideo command...`);
 
   const command = {
     header: {
@@ -169,39 +153,29 @@ async function searchPhotos(
 
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      logger.error(`[SEARCH_PHOTO_GALLERY_TOOL] ⏰ Timeout: No response for SearchPhotoVideo within 60 seconds`);
       wsManager.off("data-event", handler);
       reject(new Error("搜索照片超时（60秒）"));
     }, 60000);
 
     const handler = (event: A2ADataEvent) => {
-      logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📨 Received data event:`, JSON.stringify(event));
 
       if (event.intentName === "SearchPhotoVideo") {
-        logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 🎯 SearchPhotoVideo event received`);
-        logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - status: ${event.status}`);
 
         clearTimeout(timeout);
         wsManager.off("data-event", handler);
 
         if (event.status === "success" && event.outputs) {
-          logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] ✅ Photo search completed successfully`);
-          logger.log(`[SEARCH_PHOTO_GALLERY_TOOL]   - outputs:`, JSON.stringify(event.outputs));
 
           // 成功，直接返回完整的 event.outputs
           resolve(event.outputs);
         } else {
-          logger.error(`[SEARCH_PHOTO_GALLERY_TOOL] ❌ Photo search failed`);
-          logger.error(`[SEARCH_PHOTO_GALLERY_TOOL]   - status: ${event.status}`);
           reject(new Error(`搜索照片失败: ${event.status}`));
         }
       }
     };
 
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📡 Registering data-event handler for SearchPhotoVideo`);
     wsManager.on("data-event", handler);
 
-    logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] 📤 Sending SearchPhotoVideo command...`);
     sendCommand({
       config,
       sessionId,
@@ -210,10 +184,8 @@ async function searchPhotos(
       command,
     })
       .then(() => {
-        logger.log(`[SEARCH_PHOTO_GALLERY_TOOL] ✅ SearchPhotoVideo command sent successfully`);
       })
       .catch((error) => {
-        logger.error(`[SEARCH_PHOTO_GALLERY_TOOL] ❌ Failed to send SearchPhotoVideo command:`, error);
         clearTimeout(timeout);
         wsManager.off("data-event", handler);
         reject(error);

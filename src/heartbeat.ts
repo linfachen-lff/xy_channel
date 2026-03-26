@@ -95,8 +95,6 @@ export class HeartbeatManager {
         this.error(`Heartbeat timeout for ${this.serverName}`);
         this.onTimeout();
       }, this.config.timeout);
-
-      this.log(`[DEBUG] Heartbeat sent for ${this.serverName}`);
     } catch (error) {
       this.error(`Failed to send heartbeat for ${this.serverName}:`, error);
     }

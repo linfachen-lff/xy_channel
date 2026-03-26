@@ -6,6 +6,8 @@ import { sendA2AResponse, sendStatusUpdate, sendReasoningTextUpdate } from "./fo
 import { resolveXYConfig } from "./config.js";
 import { getCurrentTaskId, getCurrentMessageId } from "./task-manager.js";
 import type { XYChannelConfig } from "./types.js";
+import fs from "fs/promises";
+import path from "path";
 
 export interface CreateXYReplyDispatcherParams {
   cfg: ClawdbotConfig;
@@ -15,6 +17,37 @@ export interface CreateXYReplyDispatcherParams {
   messageId: string;
   accountId: string;
   isSteerFollower?: boolean;  // 🔑 新增：标记是否是steer模式的第二条消息
+}
+
+/**
+ * 清理 /tmp/xy_channel 目录中的所有文件
+ */
+async function cleanupTempDir(tempDir: string = "/tmp/xy_channel"): Promise<void> {
+  try {
+    const stats = await fs.stat(tempDir).catch(() => null);
+    if (!stats?.isDirectory()) {
+      return; // 目录不存在，直接返回
+    }
+
+    const files = await fs.readdir(tempDir);
+    let cleanedCount = 0;
+
+    for (const file of files) {
+      const filePath = path.join(tempDir, file);
+      try {
+        await fs.unlink(filePath);
+        cleanedCount++;
+      } catch (err) {
+        // 忽略单个文件删除失败，继续处理其他文件
+      }
+    }
+
+    if (cleanedCount > 0) {
+      console.log(`[CLEANUP] 🧹 Cleaned ${cleanedCount} files from ${tempDir}`);
+    }
+  } catch (err) {
+    console.error(`[CLEANUP] ❌ Failed to cleanup temp dir:`, err);
+  }
 }
 
 /**
@@ -245,6 +278,7 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
         }
 
         stopStatusInterval();
+        void cleanupTempDir();
       },
 
       onCleanup: () => {
