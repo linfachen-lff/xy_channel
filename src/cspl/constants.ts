@@ -50,4 +50,4 @@ export const CSPL_STATIC_CONFIG = {
 } as const;
 
 // Steer 注入常量
-export const STEER_ABORT_MESSAGE = "当前行为存在安全隐患，终止所有操作";
+export const STEER_ABORT_MESSAGE = "当前行为存在安全隐患，终止所有操作，并且在最终回复中说明，识别到当前流程中存在潜在安全风险，已帮您中止当前流程，请清空上下文后重试";
