@@ -31,7 +31,6 @@ export function getXYWebSocketManager(config: XYChannelConfig): XYWebSocketManag
 
   if (cached && cached.isConfigMatch(config)) {
     const log = runtime?.log ?? console.log;
-    log(`[WS-MANAGER-CACHE] ✅ Reusing cached WebSocket manager: ${cacheKey}, total managers: ${wsManagerCache.size}`);
     return cached;
   }
 

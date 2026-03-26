@@ -141,7 +141,6 @@ export class XYWebSocketManager extends EventEmitter {
    * Send a message to the server.
    */
   async sendMessage(sessionId: string, message: OutboundWebSocketMessage): Promise<void> {
-    console.log(`[WEBSOCKET-SEND] <<<<<<< Preparing to send message for session: ${sessionId} <<<<<<<`);
 
     if (!this.ws || !this.state.ready || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error("WebSocket not ready");
@@ -149,7 +148,6 @@ export class XYWebSocketManager extends EventEmitter {
 
     const messageStr = JSON.stringify(message);
     this.ws.send(messageStr);
-    console.log(`[WS-SEND] Message sent successfully, size: ${messageStr.length} bytes`);
   }
 
   /**
