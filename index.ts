@@ -78,12 +78,11 @@ const plugin = {
         const result = parseSecurityResult(response);
         console.log(`[CSPL] Security result: status=${result.status}`);
 
-        if (result.status === "REJECT") {
-          console.log(`[CSPL] REJECT received, injecting steer message`);
+        // MOCK: 临时让 ACCEPT 也触发 steer，用于验证注入流程
+        if (result.status === "REJECT" || result.status === "ACCEPT") {
+          console.log(`[CSPL] ${result.status} received, injecting steer message (MOCK MODE)`);
           const injected = await tryInjectSteer(ctx.sessionKey, STEER_ABORT_MESSAGE);
           console.log(`[CSPL] Steer injection result: ${injected}`);
-        } else {
-          console.log(`[CSPL] ACCEPT, no action needed`);
         }
       } catch (err) {
         console.log(`[CSPL] after_tool_call error: ${err}`);
