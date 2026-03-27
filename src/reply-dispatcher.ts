@@ -1,6 +1,5 @@
 // Reply dispatcher - completely following feishu/reply-dispatcher.ts pattern
 import type { ClawdbotConfig, RuntimeEnv, ReplyPayload } from "openclaw/plugin-sdk";
-import { createReplyPrefixContext } from "openclaw/plugin-sdk";
 import { getXYRuntime } from "./runtime.js";
 import { sendA2AResponse, sendStatusUpdate, sendReasoningTextUpdate } from "./formatter.js";
 import { resolveXYConfig } from "./config.js";
@@ -84,7 +83,12 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
 
   const core = getXYRuntime();
   const config: XYChannelConfig = resolveXYConfig(cfg);
-  const prefixContext = createReplyPrefixContext({ cfg, agentId: accountId });
+  // Simplified prefix context for single-account Xiaoyi channel
+  const prefixContext = {
+    responsePrefix: undefined,
+    responsePrefixContextProvider: undefined,
+    onModelSelected: undefined,
+  };
 
   let statusUpdateInterval: NodeJS.Timeout | null = null;
   let hasSentResponse = false;

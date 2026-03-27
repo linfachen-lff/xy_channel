@@ -77,7 +77,6 @@ export const xyPlugin: ChannelPlugin = {
   },
 
   outbound: xyOutbound,
-  onboarding: xyOnboardingAdapter,
   agentTools: [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, xiaoyiCollectionTool, callPhoneTool, searchMessageTool, sendMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendFileToUserTool, viewPushResultTool, imageReadingTool],
 
   messaging: {
@@ -93,6 +92,22 @@ export const xyPlugin: ChannelPlugin = {
         return trimmed.length > 0;
       },
       hint: "<sessionId>",
+    },
+  },
+
+  bindings: {
+    compileConfiguredBinding: ({ conversationId }) => {
+      const sessionId = conversationId.trim();
+      if (!sessionId) return null;
+      return {
+        conversationId: sessionId,
+        parentConversationId: undefined,
+      };
+    },
+    matchInboundConversation: ({ compiledBinding, conversationId }) => {
+      return compiledBinding.conversationId === conversationId
+        ? { conversationId, matchPriority: 2 }
+        : null;
     },
   },
 

@@ -3,6 +3,7 @@ import type { ClawdbotConfig, RuntimeEnv, ReplyPayload } from "openclaw/plugin-s
 import { getXYRuntime } from "./runtime.js";
 import { setCachedContext } from "./steer-injector.js";
 import { createXYReplyDispatcher } from "./reply-dispatcher.js";
+import { getXYThreadBindingManager } from "./thread-bindings.js";
 import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractTriggerData, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
 import { downloadFilesFromParts } from "./file-download.js";
 import { resolveXYConfig } from "./config.js";
@@ -336,6 +337,18 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
         // 减少session引用计数
         unregisterSession(route.sessionKey);
+
+        // 更新binding活跃时间（不影响主流程）
+        try {
+          const bindingManager = getXYThreadBindingManager("default");
+          if (bindingManager) {
+            bindingManager.touchSession(parsed.sessionId, Date.now());
+            log(`[BOT] ✅ Thread-binding touched for session: ${parsed.sessionId}`);
+          }
+        } catch (err) {
+          // 忽略binding错误，不影响主流程
+          log(`[BOT] ⚠️  Thread-binding touch failed (ignored):`, err);
+        }
 
         log(`[BOT] ✅ Cleanup completed`);
       },

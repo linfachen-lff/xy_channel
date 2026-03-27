@@ -1,7 +1,9 @@
 // Outbound adapter for XY channel
 // Following feishu/outbound.ts pattern
-import type { ChannelOutboundAdapter } from "openclaw/plugin-sdk";
+// NOTE: Using any for compatibility with SDK 2026.3.24
 import type { OutboundWebSocketMessage } from "./types.js";
+
+type ChannelOutboundAdapter = any;
 import { resolveXYConfig } from "./config.js";
 import { XYFileUploadService } from "./file-upload.js";
 import { XYPushService } from "./push.js";
