@@ -4,7 +4,6 @@ import { emptyPluginConfigSchema } from "openclaw/plugin-sdk";
 import { xyPlugin } from "./src/channel.js";
 import { setXYRuntime } from "./src/runtime.js";
 import { tryInjectSteer } from "./src/steer-injector.js";
-import { createXYThreadBindingManager } from "./src/thread-bindings.js";
 import { callCsplApi } from "./src/cspl/call-api.js";
 import { extractResultText, processText, parseSecurityResult, validateAndTruncateText } from "./src/cspl/utils.js";
 import {
@@ -28,12 +27,6 @@ const plugin = {
   register(api: OpenClawPluginApi) {
     setXYRuntime(api.runtime);
     api.registerChannel({ plugin: xyPlugin });
-
-    // 初始化thread-binding管理器（单账号模式）
-    createXYThreadBindingManager({
-      accountId: "default",
-      cfg: api.config,
-    });
 
     // CSPL after_tool_call hook: 监听工具结果，发送至 CSPL API 进行安全检测
     // 如果响应为 REJECT，注入 steer 消息中止当前对话
