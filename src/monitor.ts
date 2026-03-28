@@ -93,7 +93,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
     const messageHandler = (message: any, sessionId: string, serverId: string) => {
       const messageKey = `${sessionId}::${message.id}`;
 
-      log(`[MONITOR-HANDLER] ####### messageHandler triggered: serverId=${serverId}, sessionId=${sessionId}, messageId=${message.id} #######`);
+      log(`[MONITOR-HANDLER] ####### messageHandler triggered: sessionId=${sessionId}, messageId=${message.id} #######`);
 
       // ✅ Report health: received a message
       trackEvent?.();
@@ -104,25 +104,21 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       }
 
       activeMessages.add(messageKey);
-      log(`[MONITOR-HANDLER] 📝 Active messages count: ${activeMessages.size}, messageKey: ${messageKey}`);
 
       const task = async () => {
         try {
-          log(`[MONITOR-HANDLER] 🚀 Starting handleXYMessage for messageKey=${messageKey}`);
           await handleXYMessage({
             cfg,
             runtime,
             message,
             accountId,  // ✅ Pass accountId ("default")
           });
-          log(`[MONITOR-HANDLER] ✅ Completed handleXYMessage for messageKey=${messageKey}`);
         } catch (err) {
           // ✅ Only log error, don't re-throw to prevent gateway restart
           error(`XY gateway: error handling message from ${serverId}: ${String(err)}`);
         } finally {
           // Remove from active messages when done
           activeMessages.delete(messageKey);
-          log(`[MONITOR-HANDLER] 🧹 Cleaned up messageKey=${messageKey}, remaining active: ${activeMessages.size}`);
         }
       };
 
@@ -137,14 +133,12 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
           // Steer模式且有活跃任务：不入队列，直接并发执行
           log(`[MONITOR-HANDLER] 🔄 STEER MODE: Executing concurrently for messageKey=${messageKey}`);
           log(`[MONITOR-HANDLER]   - sessionId: ${parsed.sessionId}`);
-          log(`[MONITOR-HANDLER]   - Bypassing queue to allow message insertion`);
           void task().catch((err) => {
             error(`XY gateway: concurrent steer task failed for ${messageKey}: ${String(err)}`);
             activeMessages.delete(messageKey);
           });
         } else {
           // 正常模式：入队列串行执行
-          log(`[MONITOR-HANDLER] 📋 NORMAL MODE: Enqueuing for messageKey=${messageKey}`);
           void enqueue(sessionId, task).catch((err) => {
             error(`XY gateway: queue processing failed for session ${sessionId}: ${String(err)}`);
             activeMessages.delete(messageKey);
@@ -252,8 +246,8 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
     wsManager.on("error", errorHandler);
     wsManager.on("trigger-event", triggerEventHandler);
 
-    // Start periodic health check (every 5 minutes)
-    console.log("🏥 Starting periodic health check (every 5 minutes)...");
+    // Start periodic health check (every 6 hours)
+    console.log("🏥 Starting periodic health check (every 6 hours)...");
     healthCheckInterval = setInterval(() => {
       console.log("🏥 [HEALTH CHECK] Periodic WebSocket diagnostics...");
       diagnoseAllManagers();
@@ -263,7 +257,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       if (cleaned > 0) {
         console.log(`🧹 [HEALTH CHECK] Auto-cleaned ${cleaned} manager(s) with orphan connections`);
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 6 * 60 * 60 * 1000); // 6 hours
 
     // Connect to WebSocket servers
     wsManager.connect()

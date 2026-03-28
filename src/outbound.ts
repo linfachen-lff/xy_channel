@@ -105,13 +105,6 @@ export const xyOutbound: ChannelOutboundAdapter = {
   },
 
   sendText: async ({ cfg, to, text, accountId }) => {
-    // Log parameters
-    console.log(`[xyOutbound.sendText] Called with:`, {
-      to,
-      accountId,
-      textLength: text?.length || 0,
-      textPreview: text?.slice(0, 100),
-    });
 
     // Resolve configuration
     const config = resolveXYConfig(cfg);
@@ -130,7 +123,7 @@ export const xyOutbound: ChannelOutboundAdapter = {
     let pushDataId: string;
     try {
       pushDataId = await savePushData(text);
-      console.log(`[xyOutbound.sendText] ✅ Push data saved with ID: ${pushDataId}`);
+      console.log(`[xyOutbound.sendText] ✅ Push data saved with ID: ${pushDataId.substring(0, 20)}`);
     } catch (error) {
       console.error(`[xyOutbound.sendText] ❌ Failed to save push data:`, error);
       // 如果持久化失败，仍然继续发送（不阻塞主流程）
@@ -169,7 +162,6 @@ export const xyOutbound: ChannelOutboundAdapter = {
 
     for (const pushId of pushIdList) {
       try {
-        console.log(`[xyOutbound.sendText] Sending to pushId: ${pushId.substring(0, 20)}...`);
         // 传入 pushId 和 pushDataId，使用 kind="data" 格式
         await pushService.sendPush(pushText, title, undefined, actualTo, pushDataId, pushId);
         successCount++;
@@ -181,9 +173,6 @@ export const xyOutbound: ChannelOutboundAdapter = {
       }
     }
 
-    console.log(`[xyOutbound.sendText] 📊 Broadcast summary: ${successCount} success, ${failureCount} failures`);
-    console.log(`[xyOutbound.sendText] Completed successfully`);
-
     // Return message info
     return {
       channel: "xiaoyi-channel",
@@ -193,14 +182,6 @@ export const xyOutbound: ChannelOutboundAdapter = {
   },
 
   sendMedia: async ({ cfg, to, text, mediaUrl, accountId, mediaLocalRoots }) => {
-    // Log parameters
-    console.log(`[xyOutbound.sendMedia] Called with:`, {
-      to,
-      accountId,
-      text,
-      mediaUrl,
-      mediaLocalRoots,
-    });
 
     // Parse to: "sessionId::taskId"
     const parts = to.split("::");

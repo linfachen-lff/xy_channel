@@ -60,9 +60,7 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
   const error = runtime?.error ?? console.error;
 
   log(`[DISPATCHER-CREATE] ******* Creating dispatcher *******`);
-  log(`[DISPATCHER-CREATE]   - sessionId: ${sessionId}`);
   log(`[DISPATCHER-CREATE]   - taskId: ${taskId}`);
-  log(`[DISPATCHER-CREATE]   - messageId: ${messageId}`);
   log(`[DISPATCHER-CREATE]   - isSteerFollower: ${isSteerFollower ?? false}`);
 
   // 初始taskId和messageId（作为fallback）

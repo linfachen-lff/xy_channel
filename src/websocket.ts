@@ -410,11 +410,10 @@ export class XYWebSocketManager extends EventEmitter {
    * Handle incoming message from server.
    */
   private handleMessage(data: WebSocket.Data): void {
-    console.log("[WEBSOCKET-HANDLE] >>>>>>> Receiving message... <<<<<<<");
 
     try {
       const messageStr = data.toString();
-      console.log(`[WS-RECV] Raw message frame, size: ${messageStr.length} bytes`);
+      console.log(`[WS-RECV] Raw message frame, size: ${messageStr.length} characters`);
 
       const parsed = JSON.parse(messageStr);
 
@@ -424,20 +423,26 @@ export class XYWebSocketManager extends EventEmitter {
         const textParts = parts.filter((p: any) => p?.kind === "text");
         const dataParts = parts.filter((p: any) => p?.kind === "data");
 
-        // 打印 text 内容
+        // 打印 text 内容（隐藏敏感信息）
         if (textParts.length > 0) {
           const textContents = textParts
             .map((p: any) => p?.text || "")
             .filter((text: string) => text.length > 0)
             .join(" ");
           if (textContents.length > 0) {
-            console.log("[WS-RECV] Text:", textContents);
+            // 隐藏中间内容，只保留前后各5个字符
+            let maskedText: string;
+            if (textContents.length <= 8) {
+              // 如果长度 <= 8，显示前2个 + *** + 后2个
+              maskedText = textContents.length >= 4
+                ? `${textContents.slice(0, 2)}***${textContents.slice(-2)}`
+                : `${textContents.slice(0, 1)}***${textContents.slice(-1)}`;
+            } else {
+              // 如果长度 > 8，显示前5个 + *** + 后5个
+              maskedText = `${textContents.slice(0, 5)}***${textContents.slice(-5)}`;
+            }
+            console.log("[WS-RECV] Text:", maskedText);
           }
-        }
-
-        // 打印 data 提示
-        if (dataParts.length > 0) {
-          console.log("[WS-RECV] Data: received data message(s)");
         }
       }
 
@@ -493,7 +498,6 @@ export class XYWebSocketManager extends EventEmitter {
         }
 
         // Emit message event for non-data-only messages
-        console.log("[XY] *** EMITTING message event (Direct A2A path) ***");
         this.emit("message", a2aRequest, sessionId);
         return;
       }

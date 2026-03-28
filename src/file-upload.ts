@@ -64,14 +64,12 @@ export class XYFileUploadService {
       }
 
       const prepareData = await prepareResp.json() as FileUploadPrepareResponse;
-      console.log(`[XY File Upload] Prepare response:`, JSON.stringify(prepareData, null, 2));
 
       if (prepareData.code !== "0") {
         throw new Error(`Prepare failed: ${prepareData.desc}`);
       }
 
       const { objectId, draftId, uploadInfos } = prepareData;
-      console.log(`[XY File Upload] Prepare complete: objectId=${objectId}, draftId=${draftId}`);
 
       // Phase 2: Upload
       console.log(`[XY File Upload] Phase 2: Upload file data`);
@@ -83,12 +81,8 @@ export class XYFileUploadService {
         body: fileBuffer,
       });
 
-      console.log(`[XY File Upload] Upload response status: ${uploadResp.status}, url: ${uploadInfo.url}`);
-      console.log(`[XY File Upload] Upload response headers:`, JSON.stringify(Object.fromEntries(uploadResp.headers.entries()), null, 2));
-
       if (!uploadResp.ok) {
         const uploadErrorText = await uploadResp.text();
-        console.log(`[XY File Upload] Upload error response:`, uploadErrorText);
         throw new Error(`Upload failed: HTTP ${uploadResp.status}`);
       }
 
@@ -115,7 +109,6 @@ export class XYFileUploadService {
       }
 
       const completeData = await completeResp.json();
-      console.log(`[XY File Upload] Complete response:`, JSON.stringify(completeData, null, 2));
 
       console.log(`[XY File Upload] File upload successful: ${fileName} → objectId=${objectId}`);
       return objectId;
@@ -130,7 +123,6 @@ export class XYFileUploadService {
    * Uses completeAndQuery endpoint to get the file URL directly.
    */
   async uploadFileAndGetUrl(filePath: string, objectType: string = "TEMPORARY_MATERIAL_DOC"): Promise<string> {
-    console.log(`[XY File Upload] Starting file upload with URL retrieval: ${filePath}`);
 
     try {
       // Read file
@@ -167,7 +159,6 @@ export class XYFileUploadService {
       }
 
       const prepareData = await prepareResp.json() as FileUploadPrepareResponse;
-      console.log(`[XY File Upload] Prepare response:`, JSON.stringify(prepareData, null, 2));
 
       if (prepareData.code !== "0") {
         throw new Error(`Prepare failed: ${prepareData.desc}`);
@@ -190,7 +181,6 @@ export class XYFileUploadService {
 
       if (!uploadResp.ok) {
         const uploadErrorText = await uploadResp.text();
-        console.log(`[XY File Upload] Upload error response:`, uploadErrorText);
         throw new Error(`Upload failed: HTTP ${uploadResp.status}`);
       }
 
@@ -217,7 +207,6 @@ export class XYFileUploadService {
       }
 
       const completeData = await completeResp.json();
-      console.log(`[XY File Upload] CompleteAndQuery response:`, JSON.stringify(completeData, null, 2));
 
       // Extract file URL from response
       const fileUrl = completeData?.fileDetailInfo?.url || "";
@@ -225,7 +214,7 @@ export class XYFileUploadService {
         throw new Error("No file URL returned from completeAndQuery");
       }
 
-      console.log(`[XY File Upload] File upload successful: ${fileName} → URL=${fileUrl}`);
+      console.log(`[XY File Upload] File upload successful`);
       return fileUrl;
     } catch (error) {
       console.error(`[XY File Upload] File upload with URL retrieval failed for ${filePath}:`, error);

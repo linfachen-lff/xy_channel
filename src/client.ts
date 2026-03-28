@@ -86,15 +86,10 @@ export function getCachedManagerCount(): number {
  * Helps identify connection issues and orphan connections.
  */
 export function diagnoseAllManagers(): void {
-  console.log("========================================");
-  console.log("📊 WebSocket Manager Global Diagnostics");
-  console.log("========================================");
   console.log(`Total cached managers: ${wsManagerCache.size}`);
-  console.log("");
 
   if (wsManagerCache.size === 0) {
     console.log("ℹ️  No managers in cache");
-    console.log("========================================");
     return;
   }
 
@@ -127,8 +122,6 @@ export function diagnoseAllManagers(): void {
   } else {
     console.log(`✅ No orphan connections found`);
   }
-
-  console.log("========================================");
 }
 
 /**

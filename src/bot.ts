@@ -50,8 +50,6 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
   try {
     // Check for special messages BEFORE parsing (these have different param structures)
     const messageMethod = message.method;
-    log(`[BOT-ENTRY] <<<<<<< Received message with method: ${messageMethod}, id: ${message.id} >>>>>>>`);
-    log(`[BOT-ENTRY] Stack trace for debugging:`, new Error().stack?.split('\n').slice(1, 4).join('\n'));
 
 
     // Handle clearContext messages (params only has sessionId)
@@ -110,8 +108,6 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
         log(`[BOT] ✅ Found pushData, sending direct response`);
         log(`[BOT]   - pushDataId: ${pushDataItem.pushDataId}`);
-        log(`[BOT]   - time: ${pushDataItem.time}`);
-        log(`[BOT]   - content length: ${pushDataItem.dataDetail.length} chars`);
 
         const config = resolveXYConfig(cfg);
 
@@ -163,9 +159,6 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     const pushId = extractPushId(parsed.parts);
     if (pushId) {
       log(`[BOT] 📌 Extracted push_id from user message`);
-      log(`[BOT]   - Session ID: ${parsed.sessionId}`);
-      log(`[BOT]   - Push ID preview: ${pushId.substring(0, 20)}...`);
-      log(`[BOT]   - Full push_id: ${pushId}`);
       configManager.updatePushId(parsed.sessionId, pushId);
 
       // 持久化 pushId 到本地文件（异步，不阻塞主流程）
@@ -194,13 +187,6 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     log(`xy: resolved route accountId=${route.accountId}, sessionKey=${route.sessionKey}`);
 
-    // 🔑 注册session（带引用计数）
-    log(`[BOT] 📝 About to register session for tools...`);
-    log(`[BOT]   - sessionKey: ${route.sessionKey}`);
-    log(`[BOT]   - sessionId: ${parsed.sessionId}`);
-    log(`[BOT]   - taskId: ${parsed.taskId}`);
-    log(`[BOT]   - isSecondMessage: ${isSecondMessage}`);
-
     registerSession(route.sessionKey, {
       config,
       sessionId: parsed.sessionId,
@@ -208,8 +194,6 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       messageId: parsed.messageId,
       agentId: route.accountId,
     });
-
-    log(`[BOT] ✅ Session registered for tools`);
 
     // 🔑 发送初始状态更新（第二条消息也要发，用新taskId）
     log(`[STATUS] Sending initial status update for session ${parsed.sessionId}`);
@@ -279,9 +263,7 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     // 🔑 创建dispatcher（dispatcher会自动使用动态taskId）
     log(`[BOT-DISPATCHER] 🎯 Creating reply dispatcher`);
-    log(`[BOT-DISPATCHER]   - session: ${parsed.sessionId}`);
     log(`[BOT-DISPATCHER]   - taskId: ${parsed.taskId}`);
-    log(`[BOT-DISPATCHER]   - isSecondMessage: ${isSecondMessage}`);
 
     const { dispatcher, replyOptions, markDispatchIdle, startStatusInterval } = createXYReplyDispatcher({
       cfg,
@@ -292,21 +274,13 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       accountId: route.accountId,
       isSteerFollower: isSecondMessage,  // 🔑 标记第二条消息
     });
-    log(`[BOT-DISPATCHER] ✅ Reply dispatcher created successfully`);
 
     // 🔑 只有第一条消息启动状态定时器
     // 第二条消息会很快返回，不需要定时器
     if (!isSecondMessage) {
       startStatusInterval();
       log(`[BOT-DISPATCHER] ✅ Status interval started for first message`);
-    } else {
-      log(`[BOT-DISPATCHER] ⏭️  Skipped status interval for steer follower`);
-    }
-
-    log(`xy: dispatching to agent (session=${parsed.sessionId})`);
-
-    // Dispatch to OpenClaw core using correct API (following feishu pattern)
-    log(`[BOT] 🚀 Starting dispatcher with session: ${route.sessionKey}`);
+    } 
 
     // Build session context for AsyncLocalStorage
     const sessionContext = {
@@ -322,8 +296,6 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       onSettled: () => {
         log(`[BOT] 🏁 onSettled called for session: ${route.sessionKey}`);
         log(`[BOT]   - isSecondMessage: ${isSecondMessage}`);
-
-        markDispatchIdle();
 
         // 🔑 减少引用计数
         decrementTaskIdRef(parsed.sessionId);

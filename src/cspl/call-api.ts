@@ -63,23 +63,6 @@ export async function callCsplApi(
     action: config.action,
   };
 
-  // 打印请求信息
-  console.log(`[CSPL API] ==================== 发起请求 ====================`);
-  console.log(`[CSPL API] URL: ${config.api.url}`);
-  console.log(`[CSPL API] Method: POST`);
-  console.log(`[CSPL API] Headers:`);
-  console.log(`[CSPL API]   - x-hag-trace-id: ${headers["x-hag-trace-id"]}`);
-  console.log(`[CSPL API]   - x-uid: ${headers["x-uid"]}`);
-  console.log(`[CSPL API]   - x-api-key: ${headers["x-api-key"] ? "***" + headers["x-api-key"].slice(-8) : "undefined"}`);
-  console.log(`[CSPL API]   - x-request-from: ${headers["x-request-from"]}`);
-  console.log(`[CSPL API]   - x-skill-id: ${headers["x-skill-id"]}`);
-  console.log(`[CSPL API]   - content-type: ${headers["content-type"]}`);
-  console.log(`[CSPL API] Body:`);
-  console.log(`[CSPL API]   - questionText: ${questionText.substring(0, 100)}${questionText.length > 100 ? "..." : ""}`);
-  console.log(`[CSPL API]   - textSource: ${payload.textSource}`);
-  console.log(`[CSPL API]   - action: ${payload.action}`);
-  console.log(`[CSPL API] =================================================`);
-
   return new Promise((resolve, reject) => {
     const options = buildRequestOptions(
       config.api.url,
@@ -88,8 +71,6 @@ export async function callCsplApi(
     );
 
     const req = https.request(options, (res) => {
-      console.log(`[CSPL API] Response Status: ${res.statusCode}`);
-      console.log(`[CSPL API] Response Headers: ${JSON.stringify(res.headers)}`);
 
       if (res.statusCode && res.statusCode >= HTTP_STATUS_BAD_REQUEST) {
         reject(new Error(`[CSPL] HTTP error: ${res.statusCode}`));
@@ -103,12 +84,9 @@ export async function callCsplApi(
         try {
           const result = parseResponse(data);
           console.log(`[CSPL API] ✅ 请求成功`);
-          console.log(`[CSPL API] Response Body: ${data.substring(0, 200)}${data.length > 200 ? "..." : ""}`);
-          console.log(`[CSPL API] =================================================`);
           resolve(result);
         } catch (e) {
           console.error(`[CSPL API] ❌ 请求失败: ${e instanceof Error ? e.message : String(e)}`);
-          console.error(`[CSPL API] Response Body: ${data}`);
           reject(e);
         }
       });

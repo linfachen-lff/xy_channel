@@ -86,7 +86,7 @@ export async function sendA2AResponse(params: SendA2AResponseParams): Promise<vo
   log(`[A2A_RESPONSE] 📤 Sending A2A artifact-update response: taskId: ${taskId}`);
   log(`[A2A_RESPONSE]   - append: ${append}`);
   log(`[A2A_RESPONSE]   - final: ${final}`);
-  log(`[A2A_RESPONSE]   - text: ${text}`);
+  log(`[A2A_RESPONSE]   - text: ${text.length <= 10 ? text : text.slice(0, 5) + '***' + text.slice(-5)}`);
   log(`[A2A_RESPONSE]   - files count: ${files?.length ?? 0}`);
 
   await wsManager.sendMessage(sessionId, outboundMessage);
@@ -213,12 +213,9 @@ export async function sendStatusUpdate(params: SendStatusUpdateParams): Promise<
   // 📋 Log complete response body
   log(`[A2A_STATUS] 📤 Sending A2A status-update:`);
   log(`[A2A_STATUS]   - taskId: ${taskId}`);
-  log(`[A2A_STATUS]   - messageId: ${messageId}`);
-  log(`[A2A_STATUS]   - state: ${state}`);
   log(`[A2A_STATUS]   - text: "${text}"`);
 
   await wsManager.sendMessage(sessionId, outboundMessage);
-  log(`[A2A_STATUS] ✅ Status update sent successfully`);
 }
 
 /**
