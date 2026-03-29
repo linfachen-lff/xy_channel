@@ -4,7 +4,7 @@ import { getXYRuntime } from "./runtime.js";
 import { setCachedContext } from "./steer-injector.js";
 import { createXYReplyDispatcher } from "./reply-dispatcher.js";
 import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractTriggerData, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
-
+import { downloadFilesFromParts } from "./file-download.js";
 import { resolveXYConfig } from "./config.js";
 import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse, sendA2AResponse } from "./formatter.js";
 import { registerSession, unregisterSession, runWithSessionContext } from "./tools/session-manager.js";
@@ -212,8 +212,9 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     const text = extractTextFromParts(parsed.parts);
     const fileParts = extractFileParts(parsed.parts);
 
-    // Build media payload directly from file URLs (no local download needed)
-    const mediaPayload = buildXYMediaPayload(fileParts);
+    // Download files to local disk
+    const downloadedFiles = await downloadFilesFromParts(fileParts);
+    const mediaPayload = buildXYMediaPayload(downloadedFiles);
 
     // Resolve envelope format options (following feishu pattern)
     const envelopeOptions = core.channel.reply.resolveEnvelopeFormatOptions(cfg);
@@ -367,26 +368,26 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 }
 
 /**
- * Build media payload for inbound context using file URLs.
- * OpenClaw natively supports MediaUrl/MediaUrls — no local download needed.
+ * Build media payload for inbound context.
+ * Following feishu pattern: buildFeishuMediaPayload().
  *
- * @param fileParts - File parts extracted from A2A message (with uri field)
+ * @param mediaList - Downloaded files with local paths
  */
 function buildXYMediaPayload(
-  fileParts: Array<{ name: string; mimeType: string; uri: string }>,
+  mediaList: Array<{ path: string; name: string; mimeType: string }>,
 ): {
-  MediaUrl?: string;
+  MediaPath?: string;
   MediaType?: string;
-  MediaUrls?: string[];
+  MediaPaths?: string[];
   MediaTypes?: string[];
 } {
-  const first = fileParts[0];
-  const mediaUrls = fileParts.map((f) => f.uri);
-  const mediaTypes = fileParts.map((f) => f.mimeType).filter(Boolean);
+  const first = mediaList[0];
+  const mediaPaths = mediaList.map((media) => media.path);
+  const mediaTypes = mediaList.map((media) => media.mimeType).filter(Boolean);
   return {
-    MediaUrl: first?.uri,
+    MediaPath: first?.path,
     MediaType: first?.mimeType,
-    MediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+    MediaPaths: mediaPaths.length > 0 ? mediaPaths : undefined,
     MediaTypes: mediaTypes.length > 0 ? mediaTypes : undefined,
   };
 }
