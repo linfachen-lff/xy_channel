@@ -18,31 +18,37 @@ export interface CreateXYReplyDispatcherParams {
   isSteerFollower?: boolean;  // 🔑 新增：标记是否是steer模式的第二条消息
 }
 
+const TEMP_FILE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 /**
- * 清理 /tmp/xy_channel 目录中的所有文件
+ * 清理 /tmp/xy_channel 目录中超过 24 小时的旧文件
  */
-async function cleanupTempDir(tempDir: string = "/tmp/xy_channel"): Promise<void> {
+export async function cleanupStaleTempFiles(tempDir: string = "/tmp/xy_channel"): Promise<void> {
   try {
     const stats = await fs.stat(tempDir).catch(() => null);
     if (!stats?.isDirectory()) {
-      return; // 目录不存在，直接返回
+      return;
     }
 
     const files = await fs.readdir(tempDir);
+    const now = Date.now();
     let cleanedCount = 0;
 
     for (const file of files) {
       const filePath = path.join(tempDir, file);
       try {
-        await fs.unlink(filePath);
-        cleanedCount++;
+        const fileStat = await fs.stat(filePath);
+        if (now - fileStat.mtimeMs > TEMP_FILE_TTL_MS) {
+          await fs.unlink(filePath);
+          cleanedCount++;
+        }
       } catch (err) {
-        // 忽略单个文件删除失败，继续处理其他文件
+        // 忽略单个文件处理失败
       }
     }
 
     if (cleanedCount > 0) {
-      console.log(`[CLEANUP] 🧹 Cleaned ${cleanedCount} files from ${tempDir}`);
+      console.log(`[CLEANUP] 🧹 Cleaned ${cleanedCount} stale files (>${TEMP_FILE_TTL_MS / 1000 / 3600}h) from ${tempDir}`);
     }
   } catch (err) {
     console.error(`[CLEANUP] ❌ Failed to cleanup temp dir:`, err);
@@ -280,7 +286,6 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
         }
 
         stopStatusInterval();
-        void cleanupTempDir();
       },
 
       onCleanup: () => {

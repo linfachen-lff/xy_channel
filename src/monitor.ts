@@ -7,6 +7,7 @@ import { handleXYMessage } from "./bot.js";
 import { parseA2AMessage } from "./parser.js";
 import { hasActiveTask } from "./task-manager.js";
 import { handleTriggerEvent } from "./trigger-handler.js";
+import { cleanupStaleTempFiles } from "./reply-dispatcher.js";
 
 export type MonitorXYOpts = {
   config?: any;
@@ -257,6 +258,9 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       if (cleaned > 0) {
         console.log(`🧹 [HEALTH CHECK] Auto-cleaned ${cleaned} manager(s) with orphan connections`);
       }
+
+      // Cleanup stale temp files (older than 24 hours)
+      void cleanupStaleTempFiles();
     }, 6 * 60 * 60 * 1000); // 6 hours
 
     // Connect to WebSocket servers
