@@ -113,10 +113,11 @@ async function callImageUnderstandingAPI(
   imageUrl: string,
   text: string,
   apiKey: string,
-  uid: string
+  uid: string,
+  fileUploadUrl: string
 ): Promise<string> {
 
-  const apiUrl = "https://hag-drcn.op.dbankcloud.com/celia-claw/v1/sse-api/skill/execute";
+  const apiUrl = `${fileUploadUrl}/celia-claw/v1/sse-api/skill/execute`;
   const traceId = uuidv4();
 
   const headers = {
@@ -341,7 +342,8 @@ d. 返回图像理解的文本描述内容`,
         processedImage.imageUrl,
         prompt,
         config.apiKey,
-        config.uid
+        config.uid,
+        config.fileUploadUrl
       );
 
 

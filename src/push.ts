@@ -40,7 +40,6 @@ interface PushRequest {
  * Used for outbound messages and scheduled tasks.
  */
 export class XYPushService {
-  private readonly DEFAULT_PUSH_URL = "https://hag.cloud.huawei.com/open-ability-agent/v1/agent-webhook";
   private readonly REQUEST_FROM = "openclaw";
 
   constructor(private config: XYChannelConfig) {}
@@ -70,7 +69,7 @@ export class XYPushService {
     pushDataId?: string,
     pushId?: string
   ): Promise<void> {
-    const pushUrl = this.config.pushUrl || this.DEFAULT_PUSH_URL;
+    const pushUrl = `${this.config.fileUploadUrl}/open-ability-agent/v1/agent-webhook`;
     const traceId = this.generateTraceId();
 
     // Use provided pushId or fall back to config pushId
