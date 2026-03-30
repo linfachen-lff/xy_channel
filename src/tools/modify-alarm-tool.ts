@@ -221,11 +221,6 @@ export const modifyAlarmTool: any = {
           throw new Error("daysOfWeek array cannot be empty");
         }
 
-        // 验证数组长度必须为1
-        if (normalizedDaysOfWeek.length !== 1) {
-          throw new Error("daysOfWeek 仅支持长度为1的数组。如果需要一周中不同的几天，需要多次调用此工具");
-        }
-
         // Validate each day
         for (const day of normalizedDaysOfWeek) {
           if (typeof day !== "string" || !DAYS_OF_WEEK_VALUES.includes(day)) {
