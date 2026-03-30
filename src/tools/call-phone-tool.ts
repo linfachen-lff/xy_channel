@@ -114,37 +114,16 @@ export const callPhoneTool: any = {
 
           if (event.status === "success" && event.outputs) {
 
-            // Check for error code in outputs
-            const code = event.outputs.code !== undefined ? event.outputs.code : null;
-
-            if (code !== null && code !== 0) {
-              const errorMsg = event.outputs.errorMsg || event.outputs.errMsg || "未知错误";
-              reject(new Error(`拨打电话失败: ${errorMsg} (错误代码: ${code})`));
-              return;
-            }
-
-            // Return the outputs directly
-            const result = {
-              success: true,
-              code: code,
-              phoneNumber: params.phoneNumber,
-              slotId: slotId,
-              message: "电话拨打成功",
-            };
-
-
             resolve({
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(result),
+                  text: JSON.stringify(event.outputs),
                 },
               ],
             });
           } else {
-
-            const errorDetail = event.outputs ? JSON.stringify(event.outputs) : event.status;
-            reject(new Error(`拨打电话失败: ${errorDetail}`));
+            reject(new Error(`拨打电话失败: ${event.status}`));
           }
         }
       };
