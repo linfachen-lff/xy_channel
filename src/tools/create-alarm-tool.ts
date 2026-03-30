@@ -11,7 +11,7 @@ const ALARM_SNOOZE_DURATION_VALUES = [5, 10, 15, 20, 25, 30];
 const ALARM_SNOOZE_TOTAL_VALUES = [0, 1, 3, 5, 10];
 const ALARM_RING_DURATION_VALUES = [1, 5, 10, 15, 20, 30];
 const DAYS_OF_WAKE_TYPE_VALUES = [0, 1, 2, 3, 4];
-const DAYS_OF_WEEK_VALUES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAYS_OF_WEEK_VALUES = ["Mon", "Tues", "Wed", "Thur", "Fri", "Sat", "Sun"];
 
 /**
  * XY create alarm tool - creates an alarm on user's device.
@@ -33,7 +33,7 @@ export const createAlarmTool: any = {
 - alarmSnoozeTotal: 再响次数，枚举值：0,1,3,5,10，默认0（表示不再响）
 - alarmRingDuration: 响铃时长（分钟），枚举值：1,5,10,15,20,30，默认5
 - daysOfWakeType: 闹钟响铃类型，枚举值：0=单次响铃，1=法定节假日，2=每天，3=自定义时间，4=法定工作日，默认0
-- daysOfWeek: 自定义响铃星期，仅当daysOfWakeType=3（自定义时间）时必需且有效，其他情况不要传递此参数。数组或JSON字符串，枚举值：Mon,Tue,Wed,Thu,Fri,Sat,Sun。
+- daysOfWeek: 自定义响铃星期，仅当daysOfWakeType=3（自定义时间）时必需且有效，其他情况不要传递此参数。数组或JSON字符串，枚举值：Mon,Tues,Wed,Thur,Fri,Sat,Sun。
 
 注意事项：
 a. 操作超时时间为60秒，请勿重复调用此工具，如果超时或失败，最多重试一次。
@@ -70,7 +70,7 @@ b. 使用该工具之前需获取当前真实时间
       daysOfWeek: {
         // 不指定 type，允许传入数组或 JSON 字符串
         // 具体的类型验证和转换在 execute 函数内部进行
-        description: "自定义响铃星期（仅当daysOfWakeType=3时需要，其他情况不要传递），数组或JSON字符串，枚举值：Mon,Tue,Wed,Thu,Fri,Sat,Sun。",
+        description: "自定义响铃星期（仅当daysOfWakeType=3时需要，其他情况不要传递），数组或JSON字符串，枚举值：Mon,Tues,Wed,Thur,Fri,Sat,Sun。",
       },
     },
     required: ["alarmTime"],
