@@ -277,9 +277,11 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
               text: "任务执行异常，请重试~",
               append: false,
               final: true,
+              errorCode: 99921111,
+              errorMessage: "任务执行异常，请重试",
             });
             finalSent = true;
-            log(`[ON_IDLE] ✅ Sent error response`);
+            log(`[ON_IDLE] ✅ Sent error response with code: 99921111`);
           } catch (err) {
             error(`[ON_IDLE] Failed to send error response:`, err);
           }
