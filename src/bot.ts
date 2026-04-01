@@ -30,6 +30,7 @@ export interface HandleXYMessageParams {
   runtime: RuntimeEnv;
   message: A2AJsonRpcRequest;
   accountId: string;
+  webSocketSessionId?: string; // 可选：WebSocket 层级的 sessionId，用于保存 .xiaoyiruntime
 }
 
 /**
@@ -38,7 +39,7 @@ export interface HandleXYMessageParams {
  * Runtime is expected to be validated before calling this function.
  */
 export async function handleXYMessage(params: HandleXYMessageParams): Promise<void> {
-  const { cfg, runtime, message, accountId } = params;
+  const { cfg, runtime, message, accountId, webSocketSessionId } = params;
   const log = runtime?.log ?? console.log;
   const error = runtime?.error ?? console.error;
 
@@ -171,7 +172,11 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     }
 
     // 保存 runtime 信息到 .xiaoyiruntime 文件（异步，不阻塞主流程）
-    saveRuntimeInfo(parsed.sessionId, parsed.taskId).catch((err) => {
+    saveRuntimeInfo(
+      webSocketSessionId || parsed.sessionId, // SESSION_ID (WebSocket 层级，如果没有则 fallback)
+      parsed.sessionId, // CONVERSATION_ID (param 里的 sessionId)
+      parsed.taskId // TASK_ID (param.id)
+    ).catch((err) => {
       error(`[BOT] Failed to save runtime info:`, err);
     });
 

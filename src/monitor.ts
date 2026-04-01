@@ -113,6 +113,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
             runtime,
             message,
             accountId,  // ✅ Pass accountId ("default")
+            webSocketSessionId: sessionId,  // ✅ 传递 WebSocket 层级的 sessionId
           });
         } catch (err) {
           // ✅ Only log error, don't re-throw to prevent gateway restart

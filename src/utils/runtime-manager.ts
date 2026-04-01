@@ -19,23 +19,29 @@ async function ensureDirectoryExists(filePath: string): Promise<void> {
 
 /**
  * 保存 runtime 信息到 .xiaoyiruntime 文件
- * @param sessionId - 会话 ID
+ * @param webSocketSessionId - WebSocket 层级的 sessionId (SESSION_ID)
+ * @param conversationId - param 里的 sessionId (CONVERSATION_ID)
  * @param taskId - 任务 ID (param.id)
  */
-export async function saveRuntimeInfo(sessionId: string, taskId: string): Promise<void> {
-  if (!sessionId || !taskId) {
-    logger.warn(`[RuntimeManager] Invalid sessionId or taskId: sessionId=${sessionId}, taskId=${taskId}`);
+export async function saveRuntimeInfo(
+  webSocketSessionId: string,
+  conversationId: string,
+  taskId: string
+): Promise<void> {
+  if (!webSocketSessionId || !conversationId || !taskId) {
+    logger.warn(`[RuntimeManager] Invalid params: SESSION_ID=${webSocketSessionId}, CONVERSATION_ID=${conversationId}, TASK_ID=${taskId}`);
     return;
   }
 
   try {
     await ensureDirectoryExists(RUNTIME_FILE);
 
-    const content = `SESSION_ID=${sessionId}\nTASK_ID=${taskId}\n`;
+    const content = `SESSION_ID=${webSocketSessionId}\nCONVERSATION_ID=${conversationId}\nTASK_ID=${taskId}\n`;
     await fs.writeFile(RUNTIME_FILE, content, "utf-8");
 
     logger.log(`[RuntimeManager] ✅ Saved runtime info to .xiaoyiruntime`);
-    logger.log(`[RuntimeManager]   - SESSION_ID: ${sessionId}`);
+    logger.log(`[RuntimeManager]   - SESSION_ID: ${webSocketSessionId}`);
+    logger.log(`[RuntimeManager]   - CONVERSATION_ID: ${conversationId}`);
     logger.log(`[RuntimeManager]   - TASK_ID: ${taskId}`);
   } catch (error) {
     logger.error(`[RuntimeManager] Failed to save runtime info:`, error);
