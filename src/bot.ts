@@ -11,6 +11,7 @@ import { registerSession, unregisterSession, runWithSessionContext } from "./too
 import { configManager } from "./utils/config-manager.js";
 import { addPushId } from "./utils/pushid-manager.js";
 import { getPushDataById } from "./utils/pushdata-manager.js";
+import { saveRuntimeInfo } from "./utils/runtime-manager.js";
 import {
   registerTaskId,
   incrementTaskIdRef,
@@ -168,6 +169,11 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     } else {
       log(`[BOT] ℹ️  No push_id found in message, will use config default`);
     }
+
+    // 保存 runtime 信息到 .xiaoyiruntime 文件（异步，不阻塞主流程）
+    saveRuntimeInfo(parsed.sessionId, parsed.taskId).catch((err) => {
+      error(`[BOT] Failed to save runtime info:`, err);
+    });
 
     // Resolve configuration (needed for status updates)
     const config = resolveXYConfig(cfg);
