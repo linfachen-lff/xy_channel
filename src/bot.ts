@@ -302,6 +302,8 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       agentId: route.accountId,
     };
 
+    log(`[BOT-DISPATCH] ⏳ withReplyDispatcher starting, sessionKey=${route.sessionKey}`);
+
     await core.channel.reply.withReplyDispatcher({
       dispatcher,
       onSettled: () => {
@@ -324,14 +326,31 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       },
       run: () =>
         // 🔐 Use AsyncLocalStorage to provide session context to tools
-        runWithSessionContext(sessionContext, () =>
-          core.channel.reply.dispatchReplyFromConfig({
-            ctx: ctxPayload,
-            cfg,
-            dispatcher,
-            replyOptions,
-          })
-        ),
+        runWithSessionContext(sessionContext, async () => {
+          log(`[BOT-DISPATCH] ⏳ dispatchReplyFromConfig starting...`);
+          log(`[BOT-DISPATCH]   - sessionKey: ${ctxPayload.SessionKey}`);
+          log(`[BOT-DISPATCH]   - provider: ${ctxPayload.Provider}`);
+          log(`[BOT-DISPATCH]   - surface: ${ctxPayload.Surface}`);
+          log(`[BOT-DISPATCH]   - from: ${ctxPayload.From}`);
+          log(`[BOT-DISPATCH]   - body length: ${(ctxPayload.Body as string)?.length ?? 0}`);
+          try {
+            const result = await core.channel.reply.dispatchReplyFromConfig({
+              ctx: ctxPayload,
+              cfg,
+              dispatcher,
+              replyOptions,
+            });
+            log(`[BOT-DISPATCH] ✅ dispatchReplyFromConfig returned`);
+            log(`[BOT-DISPATCH]   - result: ${JSON.stringify(result)}`);
+            return result;
+          } catch (dispatchErr) {
+            error(`[BOT-DISPATCH] ❌ dispatchReplyFromConfig threw`);
+            error(`[BOT-DISPATCH]   - error name: ${dispatchErr instanceof Error ? dispatchErr.name : "unknown"}`);
+            error(`[BOT-DISPATCH]   - error message: ${String(dispatchErr)}`);
+            error(`[BOT-DISPATCH]   - error stack: ${dispatchErr instanceof Error ? dispatchErr.stack?.slice(0, 500) : "N/A"}`);
+            throw dispatchErr;
+          }
+        }),
     });
 
     log(`[BOT] ✅ Dispatcher completed for session: ${parsed.sessionId}`);
