@@ -1,27 +1,42 @@
 // Device type to tool name mapping.
-// Only tools listed under a device type are available for that device.
-// Tools NOT listed here are available to ALL devices (no restriction).
+// Supports two modes:
+//   - allowlist: only listed tools are available (used for restrictive devices like car)
+//   - denylist: listed tools are blocked, everything else is available (used for permissive devices like pc)
+// Tools NOT listed in any device entry → available to all devices (no restriction).
 
 /** Known device type enum. */
 export const DEVICE_TYPES = ["car", "pc", "phone"] as const;
 export type DeviceType = (typeof DEVICE_TYPES)[number];
 
-/**
- * Map: deviceType → tool names allowed for that device.
- * undefined / empty deviceType → all tools available.
- * Unrecognized deviceType → all tools available.
- * Tool not listed in any device entry → available to all devices.
- */
-const DEVICE_TOOL_ALLOWLIST: Partial<Record<DeviceType, string[]>> = {
-  car: ["send_command_to_car"],
-  pc: ["location"],
+interface DeviceToolPolicy {
+  /** If true, `tools` is an allowlist (only these tools are available). */
+  allowlist: boolean;
+  /** Tool names for this policy. */
+  tools: string[];
+}
+
+const DEVICE_TOOL_POLICY: Partial<Record<DeviceType, DeviceToolPolicy>> = {
+  car: { allowlist: true, tools: ["send_command_to_car"] },
+  pc: {
+    allowlist: false,
+    tools: [
+      "xiaoyi_gui_agent",
+      "call_phone",
+      "send_message",
+      "search_contact",
+    ],
+  },
 };
 
 export function filterToolsByDevice(tools: any[], deviceType?: string): any[] {
   if (!deviceType) return tools;
 
-  const allowedTools = (DEVICE_TOOL_ALLOWLIST as Record<string, string[]>)[deviceType];
-  if (!allowedTools) return tools; // unrecognized device → no filtering
+  const policy = (DEVICE_TOOL_POLICY as Record<string, DeviceToolPolicy>)[deviceType];
+  if (!policy) return tools; // unrecognized device → no filtering
 
-  return tools.filter((tool) => allowedTools.includes(tool.name));
+  if (policy.allowlist) {
+    return tools.filter((tool) => policy.tools.includes(tool.name));
+  } else {
+    return tools.filter((tool) => !policy.tools.includes(tool.name));
+  }
 }
