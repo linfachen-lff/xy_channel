@@ -3,7 +3,7 @@ import type { ClawdbotConfig, RuntimeEnv, ReplyPayload } from "openclaw/plugin-s
 import { getXYRuntime } from "./runtime.js";
 import { setCachedContext } from "./steer-injector.js";
 import { createXYReplyDispatcher } from "./reply-dispatcher.js";
-import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractTriggerData, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
+import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractDeviceType, extractTriggerData, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
 import { downloadFilesFromParts } from "./file-download.js";
 import { resolveXYConfig } from "./config.js";
 import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse, sendA2AResponse } from "./formatter.js";
@@ -11,6 +11,7 @@ import { registerSession, unregisterSession, runWithSessionContext } from "./too
 import { configManager } from "./utils/config-manager.js";
 import { addPushId } from "./utils/pushid-manager.js";
 import { getPushDataById } from "./utils/pushdata-manager.js";
+import { saveRuntimeInfo } from "./utils/runtime-manager.js";
 import {
   registerTaskId,
   incrementTaskIdRef,
@@ -29,6 +30,7 @@ export interface HandleXYMessageParams {
   runtime: RuntimeEnv;
   message: A2AJsonRpcRequest;
   accountId: string;
+  webSocketSessionId?: string; // 可选：WebSocket 层级的 sessionId，用于保存 .xiaoyiruntime
 }
 
 /**
@@ -37,7 +39,7 @@ export interface HandleXYMessageParams {
  * Runtime is expected to be validated before calling this function.
  */
 export async function handleXYMessage(params: HandleXYMessageParams): Promise<void> {
-  const { cfg, runtime, message, accountId } = params;
+  const { cfg, runtime, message, accountId, webSocketSessionId } = params;
   const log = runtime?.log ?? console.log;
   const error = runtime?.error ?? console.error;
 
@@ -169,6 +171,21 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       log(`[BOT] ℹ️  No push_id found in message, will use config default`);
     }
 
+    // Extract deviceType if present (same level as push_id in systemVariables)
+    const deviceType = extractDeviceType(parsed.parts);
+    if (deviceType) {
+      log(`[BOT] 📱 Extracted deviceType from user message: ${deviceType}`);
+    }
+
+    // 保存 runtime 信息到 .xiaoyiruntime 文件（异步，不阻塞主流程）
+    saveRuntimeInfo(
+      webSocketSessionId || parsed.sessionId, // SESSION_ID (WebSocket 层级，如果没有则 fallback)
+      parsed.sessionId, // CONVERSATION_ID (param 里的 sessionId)
+      parsed.taskId // TASK_ID (param.id)
+    ).catch((err) => {
+      error(`[BOT] Failed to save runtime info:`, err);
+    });
+
     // Resolve configuration (needed for status updates)
     const config = resolveXYConfig(cfg);
 
@@ -289,7 +306,10 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       taskId: parsed.taskId,
       messageId: parsed.messageId,
       agentId: route.accountId,
+      deviceType,
     };
+
+    log(`[BOT-DISPATCH] ⏳ withReplyDispatcher starting, sessionKey=${route.sessionKey}`);
 
     await core.channel.reply.withReplyDispatcher({
       dispatcher,
@@ -313,14 +333,31 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       },
       run: () =>
         // 🔐 Use AsyncLocalStorage to provide session context to tools
-        runWithSessionContext(sessionContext, () =>
-          core.channel.reply.dispatchReplyFromConfig({
-            ctx: ctxPayload,
-            cfg,
-            dispatcher,
-            replyOptions,
-          })
-        ),
+        runWithSessionContext(sessionContext, async () => {
+          log(`[BOT-DISPATCH] ⏳ dispatchReplyFromConfig starting...`);
+          log(`[BOT-DISPATCH]   - sessionKey: ${ctxPayload.SessionKey}`);
+          log(`[BOT-DISPATCH]   - provider: ${ctxPayload.Provider}`);
+          log(`[BOT-DISPATCH]   - surface: ${ctxPayload.Surface}`);
+          log(`[BOT-DISPATCH]   - from: ${ctxPayload.From}`);
+          log(`[BOT-DISPATCH]   - body length: ${(ctxPayload.Body as string)?.length ?? 0}`);
+          try {
+            const result = await core.channel.reply.dispatchReplyFromConfig({
+              ctx: ctxPayload,
+              cfg,
+              dispatcher,
+              replyOptions,
+            });
+            log(`[BOT-DISPATCH] ✅ dispatchReplyFromConfig returned`);
+            log(`[BOT-DISPATCH]   - result: ${JSON.stringify(result)}`);
+            return result;
+          } catch (dispatchErr) {
+            error(`[BOT-DISPATCH] ❌ dispatchReplyFromConfig threw`);
+            error(`[BOT-DISPATCH]   - error name: ${dispatchErr instanceof Error ? dispatchErr.name : "unknown"}`);
+            error(`[BOT-DISPATCH]   - error message: ${String(dispatchErr)}`);
+            error(`[BOT-DISPATCH]   - error stack: ${dispatchErr instanceof Error ? dispatchErr.stack?.slice(0, 500) : "N/A"}`);
+            throw dispatchErr;
+          }
+        }),
     });
 
     log(`[BOT] ✅ Dispatcher completed for session: ${parsed.sessionId}`);

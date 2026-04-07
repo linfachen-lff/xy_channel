@@ -24,17 +24,19 @@ export interface SendA2AResponseParams {
   append: boolean;
   final: boolean;
   files?: Array<{ fileName: string; fileType: string; fileId: string }>;
+  errorCode?: number | string; // 错误码，用于任务执行异常场景
+  errorMessage?: string; // 错误描述
 }
 
 /**
  * Send an A2A artifact update response.
  */
 export async function sendA2AResponse(params: SendA2AResponseParams): Promise<void> {
-  const { config, sessionId, taskId, messageId, text, append, final, files } = params;
+  const { config, sessionId, taskId, messageId, text, append, final, files, errorCode, errorMessage } = params;
 
   const runtime = getXYRuntime() as any;
   const log = runtime?.log ?? console.log;
-  const error = runtime?.error ?? console.error;
+  const errorFn = runtime?.error ?? console.error;
 
   // Build artifact update event
   const artifact: A2ATaskArtifactUpdateEvent = {
@@ -66,11 +68,20 @@ export async function sendA2AResponse(params: SendA2AResponseParams): Promise<vo
   }
 
   // Build JSON-RPC response
-  const jsonRpcResponse = {
+  const jsonRpcResponse: any = {
     jsonrpc: "2.0",
     id: messageId,
     result: artifact,
   };
+
+  // 🔑 添加 error 字段（仅当提供 errorCode 时）
+  if (errorCode !== undefined) {
+    jsonRpcResponse.error = {
+      code: errorCode,
+      message: errorMessage ?? "任务执行异常，请重试",
+    };
+    log(`[A2A_RESPONSE] ⚠️ Including error code: ${errorCode}`);
+  }
 
   // Send via WebSocket
   const wsManager = getXYWebSocketManager(config);
