@@ -23,10 +23,10 @@ export const uploadFileTool: any = {
   label: "Upload File",
   description: `工具能力描述：将手机本地文件上传并获取可公网访问的 URL。
 
-  前置工具调用：此工具使用前必须先调用 search_file 工具获取文件的 uri
+  前置工具调用：此工具使用前必须先调用 search_file 或者 QueryCollection 工具获取文件的 uri
 
   工具参数说明：
-  a. 入参中的fileInfos数组，每个元素必须包含mediaUri字段（对应于search_file工具返回结果中的uri），必须与search_file结果中对应的uri完全保持一致，不要自行修改。
+  a. 入参中的fileInfos数组，每个元素必须包含mediaUri字段（对应于search_file工具或者QueryCollection返回结果中的uri），必须与search_file或者QueryCollection结果中对应的uri完全保持一致，不要自行修改。
   b. fileInfos中的timeout字段是可选的，表示上传文件超时时间，单位是毫秒，默认是20000（20秒）。
   c. fileInfos 是文件在手机本地的信息数组（从 search_file 工具响应中获取）。限制：每次最多支持传入 5 条文件信息。
 
