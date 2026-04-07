@@ -1,6 +1,7 @@
 // Xiaoyi Provider
 // Wraps any OpenAI-compatible endpoint and injects dynamic headers
 // (taskId, sessionId, conversationId) from the current XY channel session.
+// Falls back to uid-based values when no session context is available.
 //
 // Users configure the underlying model in config:
 //   models.providers.xiaoyiprovider.baseUrl = "https://..."
@@ -22,6 +23,20 @@ const EXTRA_PARAM_TASK_ID = "x-task-id";
 const EXTRA_PARAM_SESSION_ID = "x-session-id";
 const EXTRA_PARAM_CONVERSATION_ID = "x-conversation-id";
 
+/**
+ * Encode uid to base64 and take first 32 chars.
+ */
+function encodeUid(uid: string): string {
+  return Buffer.from(uid).toString("base64").slice(0, 32);
+}
+
+/**
+ * Get uid from plugin config (OpenClawConfig -> plugins -> xiaoyi-channel -> config).
+ */
+function getUidFromConfig(config: any): string | undefined {
+  return config?.plugins?.entries?.["xiaoyi-channel"]?.config?.uid;
+}
+
 export const xiaoyiProvider: ProviderPlugin = {
   id: "xiaoyiprovider",
   label: "Xiaoyi Provider",
@@ -32,19 +47,36 @@ export const xiaoyiProvider: ProviderPlugin = {
    * Inject dynamic session params into extraParams so they flow
    * through to wrapStreamFn's ctx.extraParams.
    *
-   * Reads from AsyncLocalStorage (set by bot.ts runWithSessionContext)
-   * which automatically fetches the latest taskId from task-manager
-   * (handles steer mode taskId switching).
+   * Priority:
+   *   1. Session context (from AsyncLocalStorage, set by bot.ts)
+   *   2. uid-based fallback: base64(uid)[:32]_timestamp
+   *   3. No uid available → return undefined (no headers injected)
    */
   prepareExtraParams: (ctx) => {
     const sessionCtx = getCurrentSessionContext();
-    if (!sessionCtx) return undefined;
+
+    if (sessionCtx) {
+      return {
+        ...ctx.extraParams,
+        [EXTRA_PARAM_TASK_ID]: sessionCtx.taskId,
+        [EXTRA_PARAM_SESSION_ID]: sessionCtx.sessionId,
+        [EXTRA_PARAM_CONVERSATION_ID]: sessionCtx.messageId,
+      };
+    }
+
+    // Fallback: uid-based values
+    const uid = getUidFromConfig(ctx.config);
+    if (!uid) return undefined;
+
+    const prefix = encodeUid(uid);
+    const ts = Date.now();
+    const fallbackValue = `${prefix}_${ts}`;
 
     return {
       ...ctx.extraParams,
-      [EXTRA_PARAM_TASK_ID]: sessionCtx.taskId,
-      [EXTRA_PARAM_SESSION_ID]: sessionCtx.sessionId,
-      [EXTRA_PARAM_CONVERSATION_ID]: sessionCtx.messageId,
+      [EXTRA_PARAM_TASK_ID]: fallbackValue,
+      [EXTRA_PARAM_SESSION_ID]: fallbackValue,
+      [EXTRA_PARAM_CONVERSATION_ID]: fallbackValue,
     };
   },
 
@@ -75,10 +107,11 @@ export const xiaoyiProvider: ProviderPlugin = {
 
     return async (model, context, options) => {
       // 记录输入
-      console.log(`[xiaoyiprovider] input messages: ${JSON.stringify(context.messages)}`);
+      console.log(`[xiaoyiprovider] input messages count: ${context.messages.length}`);
       if (context.systemPrompt) {
-        console.log(`[xiaoyiprovider] system prompt: ${context.systemPrompt}`);
+        console.log(`[xiaoyiprovider] system prompt length: ${context.systemPrompt.length}`);
       }
+      console.log(`[xiaoyiprovider] headers: ${JSON.stringify(dynamicHeaders)}`);
 
       const stream = await underlying(model, context, {
         ...options,
