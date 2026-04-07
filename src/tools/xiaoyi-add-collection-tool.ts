@@ -50,7 +50,7 @@ export const xiaoyiAddCollectionTool: any = {
       },
       dataType: {
         type: "string",
-        description: "必填字段。标识数据类型：HYPER_LINK表示网页，TEXT表示文本，IMAGE表示图片，FILE表示文件。",
+        description: "必填字段。标识数据类型：HYPER_LINK表示网页，TEXT表示文本，IMAGE表示图片，FILE表示文件。IMAGE和FILE类型都只支持手机本地地址（file://开头），如果是超链接（http或者https开头），无论是图片还是文件，都使用HYPER_LINK",
       },
     },
     required: ["dataType"],
