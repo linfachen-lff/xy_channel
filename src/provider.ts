@@ -73,14 +73,28 @@ export const xiaoyiProvider: ProviderPlugin = {
 
     if (Object.keys(dynamicHeaders).length === 0) return underlying;
 
-    return (model, context, options) => {
-      return underlying(model, context, {
+    return async (model, context, options) => {
+      // 记录输入
+      console.log(`[xiaoyiprovider] input messages: ${JSON.stringify(context.messages)}`);
+      if (context.systemPrompt) {
+        console.log(`[xiaoyiprovider] system prompt: ${context.systemPrompt}`);
+      }
+
+      const stream = await underlying(model, context, {
         ...options,
         headers: {
           ...options?.headers,
           ...dynamicHeaders,
         },
       });
+
+      // 异步监听输出（不阻塞 stream 返回）
+      stream.result().then(
+        (msg) => console.log(`[xiaoyiprovider] output: ${JSON.stringify(msg)}`),
+        (err) => console.log(`[xiaoyiprovider] error: ${err}`),
+      );
+
+      return stream;
     };
   },
 };
