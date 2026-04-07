@@ -1,4 +1,4 @@
-// XiaoYi Collection tool implementation
+// XiaoYi Delete Collection tool implementation
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
@@ -20,13 +20,12 @@ class ToolInputError extends Error {
 }
 
 /**
- * XY collection tool - retrieves user's collection data from XiaoYi.
- * Returns personalized knowledge data saved in user's collection.
+ * XY delete collection tool - deletes data from user's XiaoYi collection.
  */
-export const xiaoyiCollectionTool: any = {
-  name: "QueryCollection",
-  label: "XiaoYi Collection",
-  description: `检索用户在小艺收藏中记下来的公共知识数据，本技能支持查询用户收藏的公共知识数据，也可以根据特定语义化描述进行特定内容的检索，通过参数进行控制。本技能返回结果中，linkTitle是收藏内容的标题，description是对收藏内容的总结，label是收藏内容的标签，linkUrl是可以直接访问的原始内容链接。如果你认为某条数据对用户交互有用，可以通过linkUrl抓取更加丰富的原始数据。
+export const xiaoyiDeleteCollectionTool: any = {
+  name: "DeleteCollection",
+  label: "Delete XiaoYi Collection",
+  description: `从小艺收藏中删除之前已保存的公共知识数据。任何用户希望删除已保存到个人知识库的数据都可以调用本技能。如果用户想更新之前的收藏数据，需要先query获取itemId然后再delete，最后执行Add，按照这个步骤完成收藏数据更新。
   注意:
   a. 操作超时时间为60秒,请勿重复调用此工具
   b. 如果遇到各类调用失败场景,最多只能重试一次，不可以重复调用多次。
@@ -37,51 +36,65 @@ export const xiaoyiCollectionTool: any = {
   parameters: {
     type: "object",
     properties: {
-      queryAll: {
-        type: "string",
-        description: "非必填参数，描述是否需要查询用户所有收藏数据。如果填入true则表示获取用户所有公共知识数据，其他参数无效。",
-      },
-      query: {
-        type: "string",
-        description: "非必填参数，queryAll不填或者为false则必填。用户的查询条件，可按照用户query进行检索。",
+      itemIds: {
+        // 不指定 type，允许传入数组或 JSON 字符串
+        // 具体的类型验证和转换在 execute 函数内部进行
+        description: "准备删除的数据的itemId合集。itemId可以由用户指定，也可以从之前检索回来的收藏数据项的itemId字段获取。",
       },
     },
-    required: [],
+    required: ["itemIds"],
   },
 
   async execute(toolCallId: string, params: any) {
 
-    // Validate parameters
-    const queryAll = params.queryAll;
-    const query = params.query;
+    // ===== 参数规范化：兼容数组和 JSON 字符串 =====
+    let itemIds: string[] | null = null;
 
-    if (queryAll !== "true" && (!query || typeof query !== "string")) {
-      throw new ToolInputError("queryAll不为true时，query参数必填");
+    if (!params.itemIds) {
+      throw new ToolInputError("缺少必填参数: itemIds");
+    }
+
+    // 情况1: 已经是数组
+    if (Array.isArray(params.itemIds)) {
+      itemIds = params.itemIds;
+    }
+    // 情况2: 是字符串，尝试解析为 JSON 数组
+    else if (typeof params.itemIds === 'string') {
+      try {
+        const parsed = JSON.parse(params.itemIds);
+        if (Array.isArray(parsed)) {
+          itemIds = parsed;
+        } else {
+          throw new ToolInputError("itemIds must be an array or a JSON string representing an array");
+        }
+      } catch (parseError) {
+        if (parseError instanceof ToolInputError) throw parseError;
+        throw new ToolInputError(`itemIds must be a valid JSON array string. Parse error: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      }
+    }
+    // 情况3: 其他类型，报错
+    else {
+      throw new ToolInputError(`itemIds must be an array or a JSON string, got ${typeof params.itemIds}`);
+    }
+
+    // 验证数组非空
+    if (!itemIds || itemIds.length === 0) {
+      throw new ToolInputError("itemIds array cannot be empty");
     }
 
     // Get session context
     const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
-      throw new Error("No active XY session found. XiaoYi collection tool can only be used during an active conversation.");
+      throw new Error("No active XY session found. DeleteCollection tool can only be used during an active conversation.");
     }
-
 
     const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
 
-    // Build intentParam
-    const intentParam: Record<string, string> = {};
-    if (queryAll === "true") {
-      intentParam.queryAll = "true";
-    } else {
-      intentParam.queryAll = "false";
-      intentParam.query = query;
-    }
-
-    // Build QueryCollection command
+    // Build DeleteCollection command
     const command = {
       header: {
         namespace: "Common",
@@ -91,13 +104,15 @@ export const xiaoyiCollectionTool: any = {
         cardParam: {},
         executeParam: {
           executeMode: "background",
-          intentName: "QueryCollection",
+          intentName: "DeleteCollection",
           bundleName: "com.huawei.hmos.vassistant",
           needUnlock: true,
           actionResponse: true,
           appType: "OHOS_APP",
           timeOut: 5,
-          intentParam,
+          intentParam: {
+            itemIds,
+          },
           permissionId: [],
           achieveType: "INTENT",
         },
@@ -119,20 +134,19 @@ export const xiaoyiCollectionTool: any = {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         wsManager.off("data-event", handler);
-        reject(new Error("查询小艺收藏超时（60秒）"));
+        reject(new Error("删除小艺收藏超时（60秒）"));
       }, 60000);
 
       // Listen for data events from WebSocket
       const handler = (event: A2ADataEvent) => {
 
-        if (event.intentName === "QueryCollection") {
+        if (event.intentName === "DeleteCollection") {
 
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
 
-            // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [
                 {
@@ -142,7 +156,7 @@ export const xiaoyiCollectionTool: any = {
               ]
             });
           } else {
-            reject(new Error(`查询小艺收藏失败: ${event.status}`));
+            reject(new Error(`删除小艺收藏失败: ${event.status}`));
           }
         }
       };

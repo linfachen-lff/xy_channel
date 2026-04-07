@@ -1,10 +1,11 @@
-// XiaoYi Collection tool implementation
+// Save Media to Gallery tool implementation
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
 import { getCurrentSessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
+import { XYFileUploadService } from "../file-upload.js";
 
 /**
  * Duck-typed ToolInputError: openclaw 按 .name 字段匹配，不用 instanceof。
@@ -20,13 +21,18 @@ class ToolInputError extends Error {
 }
 
 /**
- * XY collection tool - retrieves user's collection data from XiaoYi.
- * Returns personalized knowledge data saved in user's collection.
+ * XY save media to gallery tool - saves image or video files to user's device gallery.
+ * Supports local file paths (auto-uploaded to get public URL) and public URLs.
  */
-export const xiaoyiCollectionTool: any = {
-  name: "QueryCollection",
-  label: "XiaoYi Collection",
-  description: `检索用户在小艺收藏中记下来的公共知识数据，本技能支持查询用户收藏的公共知识数据，也可以根据特定语义化描述进行特定内容的检索，通过参数进行控制。本技能返回结果中，linkTitle是收藏内容的标题，description是对收藏内容的总结，label是收藏内容的标签，linkUrl是可以直接访问的原始内容链接。如果你认为某条数据对用户交互有用，可以通过linkUrl抓取更加丰富的原始数据。
+export const saveMediaToGalleryTool: any = {
+  name: "SaveMediaToGallery",
+  label: "Save Media to Gallery",
+  description: `将图片文件或者视频文件保存到手机图库。
+  工具参数说明：
+  a. mediaType：非必填，string类型，不传端侧默认为pic。支持传 pic(图片) 或 video(视频)。
+  b. fileName：非必填，string类型，文件名称，不传手机侧默认生成随机uuid。
+  c. url：必填，string类型，支持本地路径或者公网url路径。如果是本地路径，会先上传获取公网url再保存到图库。
+
   注意:
   a. 操作超时时间为60秒,请勿重复调用此工具
   b. 如果遇到各类调用失败场景,最多只能重试一次，不可以重复调用多次。
@@ -37,51 +43,76 @@ export const xiaoyiCollectionTool: any = {
   parameters: {
     type: "object",
     properties: {
-      queryAll: {
+      mediaType: {
         type: "string",
-        description: "非必填参数，描述是否需要查询用户所有收藏数据。如果填入true则表示获取用户所有公共知识数据，其他参数无效。",
+        description: "非必填，不传默认为pic。支持 pic(图片) 或 video(视频)。",
       },
-      query: {
+      fileName: {
         type: "string",
-        description: "非必填参数，queryAll不填或者为false则必填。用户的查询条件，可按照用户query进行检索。",
+        description: "非必填，文件名称，不传手机侧默认生成随机uuid。",
+      },
+      url: {
+        type: "string",
+        description: "必填，支持本地路径或者公网url路径。如果是本地路径会先上传获取公网url。",
       },
     },
-    required: [],
+    required: ["url"],
   },
 
   async execute(toolCallId: string, params: any) {
 
     // Validate parameters
-    const queryAll = params.queryAll;
-    const query = params.query;
+    const { mediaType, fileName, url } = params;
 
-    if (queryAll !== "true" && (!query || typeof query !== "string")) {
-      throw new ToolInputError("queryAll不为true时，query参数必填");
+    if (!url || typeof url !== "string") {
+      throw new ToolInputError("缺少必填参数: url");
+    }
+
+    if (mediaType && !["pic", "video"].includes(mediaType)) {
+      throw new ToolInputError(`mediaType只支持 pic 或 video，当前值: ${mediaType}`);
     }
 
     // Get session context
     const sessionContext = getCurrentSessionContext();
 
     if (!sessionContext) {
-      throw new Error("No active XY session found. XiaoYi collection tool can only be used during an active conversation.");
+      throw new Error("No active XY session found. SaveMediaToGallery tool can only be used during an active conversation.");
     }
-
 
     const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
 
-    // Build intentParam
-    const intentParam: Record<string, string> = {};
-    if (queryAll === "true") {
-      intentParam.queryAll = "true";
-    } else {
-      intentParam.queryAll = "false";
-      intentParam.query = query;
+    // Determine the URL: if it's a local path, upload first to get public URL
+    let publicUrl = url;
+
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      // Local file path - upload to get public URL
+      const uploadService = new XYFileUploadService(
+        config.fileUploadUrl,
+        config.apiKey,
+        config.uid
+      );
+      publicUrl = await uploadService.uploadFileAndGetUrl(url);
+
+      if (!publicUrl) {
+        throw new Error("本地文件上传失败，无法获取公网URL");
+      }
     }
 
-    // Build QueryCollection command
+    // Build intentParam
+    const intentParam: Record<string, string> = {
+      url: publicUrl,
+    };
+    if (mediaType) {
+      intentParam.mediaType = mediaType;
+    }
+    if (fileName) {
+      intentParam.fileName = fileName;
+    }
+
+    // Build SaveMediaToGallery command
     const command = {
       header: {
         namespace: "Common",
@@ -91,14 +122,15 @@ export const xiaoyiCollectionTool: any = {
         cardParam: {},
         executeParam: {
           executeMode: "background",
-          intentName: "QueryCollection",
+          intentName: "SaveMediaToGallery",
           bundleName: "com.huawei.hmos.vassistant",
+          dimension: "",
           needUnlock: true,
           actionResponse: true,
           appType: "OHOS_APP",
           timeOut: 5,
           intentParam,
-          permissionId: [],
+          permissionId: ["ohos.permission.WRITE_IMAGEVIDEO"],
           achieveType: "INTENT",
         },
         responses: [
@@ -119,20 +151,19 @@ export const xiaoyiCollectionTool: any = {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         wsManager.off("data-event", handler);
-        reject(new Error("查询小艺收藏超时（60秒）"));
+        reject(new Error("保存媒体到图库超时（60秒）"));
       }, 60000);
 
       // Listen for data events from WebSocket
       const handler = (event: A2ADataEvent) => {
 
-        if (event.intentName === "QueryCollection") {
+        if (event.intentName === "SaveMediaToGallery") {
 
           clearTimeout(timeout);
           wsManager.off("data-event", handler);
 
           if (event.status === "success" && event.outputs) {
 
-            // 成功，直接返回完整的 event.outputs JSON 字符串
             resolve({
               content: [
                 {
@@ -142,7 +173,7 @@ export const xiaoyiCollectionTool: any = {
               ]
             });
           } else {
-            reject(new Error(`查询小艺收藏失败: ${event.status}`));
+            reject(new Error(`保存媒体到图库失败: ${event.status}`));
           }
         }
       };
