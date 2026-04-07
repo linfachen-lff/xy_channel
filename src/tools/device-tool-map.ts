@@ -16,7 +16,6 @@ interface DeviceToolPolicy {
 }
 
 const DEVICE_TOOL_POLICY: Partial<Record<DeviceType, DeviceToolPolicy>> = {
-  car: { allowlist: true, tools: ["send_command_to_car"] },
   pc: {
     allowlist: false,
     tools: [
