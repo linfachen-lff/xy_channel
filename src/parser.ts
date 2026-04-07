@@ -109,7 +109,7 @@ export function extractPushId(parts: A2AMessagePart[]): string | null {
 export function extractDeviceType(parts: A2AMessagePart[]): string | null {
   for (const part of parts) {
     if (part.kind === "data" && part.data) {
-      const deviceType = part.data.variables?.systemVariables?.deviceType;
+      const deviceType = part.data.variables?.systemVariables?.device_type;
       if (deviceType && typeof deviceType === "string") {
         return deviceType;
       }
