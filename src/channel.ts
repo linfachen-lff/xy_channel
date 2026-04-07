@@ -33,6 +33,7 @@ import { sendCommandToCarTool } from "./tools/send-command-to-car-tool.js";
 import { xiaoyiCollectionTool } from "./tools/xiaoyi-collection-tool.js";
 import { xiaoyiAddCollectionTool } from "./tools/xiaoyi-add-collection-tool.js";
 import { xiaoyiDeleteCollectionTool } from "./tools/xiaoyi-delete-collection-tool.js";
+import { saveMediaToGalleryTool } from "./tools/save-media-to-gallery-tool.js";
 import { filterToolsByDevice } from "./tools/device-tool-map.js";
 import { getCurrentSessionContext } from "./tools/session-manager.js";
 import { getXYWebSocketManager } from "./client.js";
@@ -84,7 +85,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   agentTools: () => {
-    const allTools = [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, sendMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendFileToUserTool, viewPushResultTool, imageReadingTool, timestampToUtc8Tool, sendCommandToCarTool, xiaoyiCollectionTool, xiaoyiAddCollectionTool, xiaoyiDeleteCollectionTool];
+    const allTools = [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, sendMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendFileToUserTool, viewPushResultTool, imageReadingTool, timestampToUtc8Tool, sendCommandToCarTool, xiaoyiCollectionTool, xiaoyiAddCollectionTool, xiaoyiDeleteCollectionTool, saveMediaToGalleryTool];
     const ctx = getCurrentSessionContext();
     const filtered = filterToolsByDevice(allTools, ctx?.deviceType);
     logger.log(`[DEVICE-FILTER] deviceType=${ctx?.deviceType ?? "(none)"}, tools: ${allTools.length} → ${filtered.length} (${filtered.map(t => t.name).join(", ")})`);
