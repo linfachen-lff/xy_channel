@@ -107,7 +107,7 @@ export const xiaoyiProvider: ProviderPlugin = {
 
     return async (model, context, options) => {
       // 记录输入
-      console.log(`[xiaoyiprovider] input messages count: ${context.messages.length}`);
+      console.log(`[xiaoyiprovider] input messages: ${JSON.stringify(context.messages)}`);
       if (context.systemPrompt) {
         console.log(`[xiaoyiprovider] system prompt length: ${context.systemPrompt.length}`);
       }
