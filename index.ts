@@ -2,7 +2,7 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { emptyPluginConfigSchema } from "openclaw/plugin-sdk";
 import { xyPlugin } from "./src/channel.js";
-import { xiaoyiOpenaiProvider } from "./src/provider.js";
+import { xiaoyiProvider } from "./src/provider.js";
 import { setXYRuntime } from "./src/runtime.js";
 import { tryInjectSteer } from "./src/steer-injector.js";
 import { callCsplApi } from "./src/cspl/call-api.js";
@@ -28,7 +28,7 @@ const plugin = {
   register(api: OpenClawPluginApi) {
     setXYRuntime(api.runtime);
     api.registerChannel({ plugin: xyPlugin });
-    api.registerProvider(xiaoyiOpenaiProvider);
+    api.registerProvider(xiaoyiProvider);
 
     // CSPL after_tool_call hook: 监听工具结果，发送至 CSPL API 进行安全检测
     // 如果响应为 REJECT，注入 steer 消息中止当前对话

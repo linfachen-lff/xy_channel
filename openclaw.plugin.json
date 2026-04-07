@@ -1,7 +1,7 @@
 {
   "id": "xiaoyi-channel",
   "channels": ["xiaoyi-channel"],
-  "providers": ["xiaoyi-openai"],
+  "providers": ["xiaoyiprovider"],
   "skills": [],
   "configSchema": {
     "type": "object",

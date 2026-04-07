@@ -1,29 +1,30 @@
-// Xiaoyi OpenAI-compatible provider
+// Xiaoyi Provider
 // Wraps any OpenAI-compatible endpoint and injects dynamic headers
-// (taskId, sessionId, messageId) from the current XY channel session.
+// (taskId, sessionId, conversationId) from the current XY channel session.
 //
 // Users configure the underlying model in config:
-//   models.providers.xiaoyi-openai.baseUrl = "https://..."
-//   models.providers.xiaoyi-openai.api = "openai-completions"
-//   models.providers.xiaoyi-openai.models = [...]
+//   models.providers.xiaoyiprovider.baseUrl = "https://..."
+//   models.providers.xiaoyiprovider.api = "openai-completions"
+//   models.providers.xiaoyiprovider.models = [...]
 import type { ProviderPlugin } from "openclaw/plugin-sdk/provider-models";
 import { getCurrentSessionContext } from "./tools/session-manager.js";
 
 /**
  * Dynamic header keys injected via extraParams and forwarded to the HTTP request.
- * Replace these with the actual field names required by your backend.
+ * Correspond to the three fields written to .xiaoyiruntime:
+ *   TASK_ID, SESSION_ID, CONVERSATION_ID
  */
-const HEADER_TASK_ID = "X-Xiaoyi-Task-Id";
-const HEADER_SESSION_ID = "X-Xiaoyi-Session-Id";
-const HEADER_MESSAGE_ID = "X-Xiaoyi-Message-Id";
+const HEADER_TASK_ID = "x-task-id";
+const HEADER_SESSION_ID = "x-session-id";
+const HEADER_CONVERSATION_ID = "x-conversation-id";
 
-const EXTRA_PARAM_TASK_ID = "x-xiaoyi-task-id";
-const EXTRA_PARAM_SESSION_ID = "x-xiaoyi-session-id";
-const EXTRA_PARAM_MESSAGE_ID = "x-xiaoyi-message-id";
+const EXTRA_PARAM_TASK_ID = "x-task-id";
+const EXTRA_PARAM_SESSION_ID = "x-session-id";
+const EXTRA_PARAM_CONVERSATION_ID = "x-conversation-id";
 
-export const xiaoyiOpenaiProvider: ProviderPlugin = {
-  id: "xiaoyi-openai",
-  label: "Xiaoyi OpenAI",
+export const xiaoyiProvider: ProviderPlugin = {
+  id: "xiaoyiprovider",
+  label: "Xiaoyi Provider",
   docsPath: "/providers/models",
   auth: [],
 
@@ -43,7 +44,7 @@ export const xiaoyiOpenaiProvider: ProviderPlugin = {
       ...ctx.extraParams,
       [EXTRA_PARAM_TASK_ID]: sessionCtx.taskId,
       [EXTRA_PARAM_SESSION_ID]: sessionCtx.sessionId,
-      [EXTRA_PARAM_MESSAGE_ID]: sessionCtx.messageId,
+      [EXTRA_PARAM_CONVERSATION_ID]: sessionCtx.messageId,
     };
   },
 
@@ -63,11 +64,11 @@ export const xiaoyiOpenaiProvider: ProviderPlugin = {
     if (ctx.extraParams) {
       const taskId = ctx.extraParams[EXTRA_PARAM_TASK_ID];
       const sessionId = ctx.extraParams[EXTRA_PARAM_SESSION_ID];
-      const messageId = ctx.extraParams[EXTRA_PARAM_MESSAGE_ID];
+      const conversationId = ctx.extraParams[EXTRA_PARAM_CONVERSATION_ID];
 
       if (typeof taskId === "string") dynamicHeaders[HEADER_TASK_ID] = taskId;
       if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
-      if (typeof messageId === "string") dynamicHeaders[HEADER_MESSAGE_ID] = messageId;
+      if (typeof conversationId === "string") dynamicHeaders[HEADER_CONVERSATION_ID] = conversationId;
     }
 
     if (Object.keys(dynamicHeaders).length === 0) return underlying;
