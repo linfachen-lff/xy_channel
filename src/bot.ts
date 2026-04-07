@@ -3,7 +3,7 @@ import type { ClawdbotConfig, RuntimeEnv, ReplyPayload } from "openclaw/plugin-s
 import { getXYRuntime } from "./runtime.js";
 import { setCachedContext } from "./steer-injector.js";
 import { createXYReplyDispatcher } from "./reply-dispatcher.js";
-import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractTriggerData, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
+import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractDeviceType, extractTriggerData, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
 import { downloadFilesFromParts } from "./file-download.js";
 import { resolveXYConfig } from "./config.js";
 import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse, sendA2AResponse } from "./formatter.js";
@@ -171,6 +171,12 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       log(`[BOT] ℹ️  No push_id found in message, will use config default`);
     }
 
+    // Extract deviceType if present (same level as push_id in systemVariables)
+    const deviceType = extractDeviceType(parsed.parts);
+    if (deviceType) {
+      log(`[BOT] 📱 Extracted deviceType from user message: ${deviceType}`);
+    }
+
     // 保存 runtime 信息到 .xiaoyiruntime 文件（异步，不阻塞主流程）
     saveRuntimeInfo(
       webSocketSessionId || parsed.sessionId, // SESSION_ID (WebSocket 层级，如果没有则 fallback)
@@ -300,6 +306,7 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       taskId: parsed.taskId,
       messageId: parsed.messageId,
       agentId: route.accountId,
+      deviceType,
     };
 
     log(`[BOT-DISPATCH] ⏳ withReplyDispatcher starting, sessionKey=${route.sessionKey}`);
