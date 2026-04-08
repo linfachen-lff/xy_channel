@@ -5,6 +5,7 @@ import { sendCommand } from "../formatter.js";
 import { getCurrentSessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
+import { XYFileUploadService } from "../file-upload.js";
 
 /**
  * Duck-typed ToolInputError: openclaw 按 .name 字段匹配，不用 instanceof。
@@ -42,7 +43,7 @@ export const xiaoyiAddCollectionTool: any = {
       },
       uri: {
         type: "string",
-        description: "必填字段（IMAGE/FILE类型时）。图片或文件的端存储地址链接。",
+        description: "必填字段（IMAGE/FILE类型时）。图片或文件的地址链接。",
       },
       sourceAppBundleName: {
         type: "string",
@@ -86,6 +87,21 @@ export const xiaoyiAddCollectionTool: any = {
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
 
+    // Handle uri: upload local paths to get public URL
+    let publicUri = uri;
+    if (uri && !uri.startsWith("http://") && !uri.startsWith("https://") && !uri.startsWith("file://")) {
+      const uploadService = new XYFileUploadService(
+        config.fileUploadUrl,
+        config.apiKey,
+        config.uid
+      );
+      publicUri = await uploadService.uploadFileAndGetUrl(uri);
+
+      if (!publicUri) {
+        throw new Error("本地文件上传失败，无法获取公网URL");
+      }
+    }
+
     // Build intentParam
     const intentParam: Record<string, string> = {
       dataType,
@@ -94,8 +110,8 @@ export const xiaoyiAddCollectionTool: any = {
     if (content) {
       intentParam.content = content;
     }
-    if (uri) {
-      intentParam.uri = uri;
+    if (publicUri) {
+      intentParam.uri = publicUri;
     }
     if (sourceAppBundleName) {
       intentParam.sourceAppBundleName = sourceAppBundleName;
