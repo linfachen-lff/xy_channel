@@ -72,6 +72,15 @@ export const saveMediaToGalleryTool: any = {
       throw new ToolInputError(`mediaType只支持 pic 或 video，当前值: ${mediaType}`);
     }
 
+    // Strip file extension from fileName if present
+    let sanitizedFileName = fileName;
+    if (sanitizedFileName && typeof sanitizedFileName === "string") {
+      const lastDot = sanitizedFileName.lastIndexOf(".");
+      if (lastDot > 0) {
+        sanitizedFileName = sanitizedFileName.substring(0, lastDot);
+      }
+    }
+
     // Get session context
     const sessionContext = getCurrentSessionContext();
 
@@ -108,8 +117,8 @@ export const saveMediaToGalleryTool: any = {
     if (mediaType) {
       intentParam.mediaType = mediaType;
     }
-    if (fileName) {
-      intentParam.fileName = fileName;
+    if (sanitizedFileName) {
+      intentParam.fileName = sanitizedFileName;
     }
 
     // Build SaveMediaToGallery command
