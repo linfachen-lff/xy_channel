@@ -7,6 +7,7 @@
 //   models.providers.xiaoyiprovider.baseUrl = "https://..."
 //   models.providers.xiaoyiprovider.api = "openai-completions"
 //   models.providers.xiaoyiprovider.models = [...]
+import { createHash } from "crypto";
 import type { ProviderPlugin } from "openclaw/plugin-sdk/provider-models";
 import { getCurrentSessionContext } from "./tools/session-manager.js";
 
@@ -20,10 +21,10 @@ const HEADER_SESSION_ID = "x-session-id";
 const HEADER_INTERACTION_ID = "x-interaction-id";
 
 /**
- * Encode uid to base64 and take first 32 chars.
+ * Encode uid via SHA-256 and take first 32 hex chars.
  */
 function encodeUid(uid: string): string {
-  return Buffer.from(uid).toString("base64").slice(0, 32);
+  return createHash("sha256").update(uid).digest("hex").slice(0, 32);
 }
 
 /**
@@ -46,7 +47,7 @@ export const xiaoyiProvider: ProviderPlugin = {
    *
    * Priority:
    *   1. Session context (from AsyncLocalStorage, set by bot.ts)
-   *   2. uid-based fallback: base64(uid)[:32]_timestamp
+   *   2. uid-based fallback: sha256(uid).hex[:32]_timestamp
    *   3. No uid available → return undefined (no headers injected)
    */
   prepareExtraParams: (ctx) => {
