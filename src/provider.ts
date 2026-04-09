@@ -107,11 +107,10 @@ export const xiaoyiProvider: ProviderPlugin = {
 
     return async (model, context, options) => {
       // 记录输入
-      console.log(`[xiaoyiprovider] input messages: ${JSON.stringify(context.messages)}`);
+      console.log(`[xiaoyiprovider] input messages count: ${context.messages?.length ?? 0}`);
       if (context.systemPrompt) {
         console.log(`[xiaoyiprovider] system prompt length: ${context.systemPrompt.length}`);
       }
-      console.log(`[xiaoyiprovider] headers: ${JSON.stringify(dynamicHeaders)}`);
 
       const stream = await underlying(model, context, {
         ...options,
@@ -123,7 +122,6 @@ export const xiaoyiProvider: ProviderPlugin = {
 
       // 异步监听输出（不阻塞 stream 返回）
       stream.result().then(
-        (msg) => console.log(`[xiaoyiprovider] output: ${JSON.stringify(msg)}`),
         (err) => console.log(`[xiaoyiprovider] error: ${err}`),
       );
 
