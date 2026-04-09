@@ -15,13 +15,9 @@ import { getCurrentSessionContext } from "./tools/session-manager.js";
  * Correspond to the three fields written to .xiaoyiruntime:
  *   TASK_ID, SESSION_ID, CONVERSATION_ID
  */
-const HEADER_TASK_ID = "x-task-id";
+const HEADER_TRACE_ID = "x-hag-trace-id";
 const HEADER_SESSION_ID = "x-session-id";
-const HEADER_CONVERSATION_ID = "x-conversation-id";
-
-const EXTRA_PARAM_TASK_ID = "x-task-id";
-const EXTRA_PARAM_SESSION_ID = "x-session-id";
-const EXTRA_PARAM_CONVERSATION_ID = "x-conversation-id";
+const HEADER_INTERACTION_ID = "x-interaction-id";
 
 /**
  * Encode uid to base64 and take first 32 chars.
@@ -42,6 +38,7 @@ export const xiaoyiProvider: ProviderPlugin = {
   label: "Xiaoyi Provider",
   docsPath: "/providers/models",
   auth: [],
+  isCacheTtlEligible: () => true,
 
   /**
    * Inject dynamic session params into extraParams so they flow
@@ -56,11 +53,14 @@ export const xiaoyiProvider: ProviderPlugin = {
     const sessionCtx = getCurrentSessionContext();
 
     if (sessionCtx) {
+      const taskId = sessionCtx.taskId;
+      const sessionId = taskId.split("&")[0];
+      const interactionId = taskId.split("&")[1] || "";
       return {
         ...ctx.extraParams,
-        [EXTRA_PARAM_TASK_ID]: sessionCtx.taskId,
-        [EXTRA_PARAM_SESSION_ID]: sessionCtx.sessionId,
-        [EXTRA_PARAM_CONVERSATION_ID]: sessionCtx.messageId,
+        [HEADER_TRACE_ID]: taskId,
+        [HEADER_SESSION_ID]: sessionId,
+        [HEADER_INTERACTION_ID]: interactionId,
       };
     }
 
@@ -74,9 +74,9 @@ export const xiaoyiProvider: ProviderPlugin = {
 
     return {
       ...ctx.extraParams,
-      [EXTRA_PARAM_TASK_ID]: fallbackValue,
-      [EXTRA_PARAM_SESSION_ID]: fallbackValue,
-      [EXTRA_PARAM_CONVERSATION_ID]: fallbackValue,
+      [HEADER_TRACE_ID]: fallbackValue,
+      [HEADER_SESSION_ID]: fallbackValue,
+      [HEADER_INTERACTION_ID]: fallbackValue,
     };
   },
 
@@ -94,13 +94,13 @@ export const xiaoyiProvider: ProviderPlugin = {
     const dynamicHeaders: Record<string, string> = {};
 
     if (ctx.extraParams) {
-      const taskId = ctx.extraParams[EXTRA_PARAM_TASK_ID];
-      const sessionId = ctx.extraParams[EXTRA_PARAM_SESSION_ID];
-      const conversationId = ctx.extraParams[EXTRA_PARAM_CONVERSATION_ID];
+      const traceId = ctx.extraParams[HEADER_TRACE_ID];
+      const sessionId = ctx.extraParams[HEADER_SESSION_ID];
+      const interactionId = ctx.extraParams[HEADER_INTERACTION_ID];
 
-      if (typeof taskId === "string") dynamicHeaders[HEADER_TASK_ID] = taskId;
+      if (typeof traceId === "string") dynamicHeaders[HEADER_TRACE_ID] = traceId;
       if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
-      if (typeof conversationId === "string") dynamicHeaders[HEADER_CONVERSATION_ID] = conversationId;
+      if (typeof interactionId === "string") dynamicHeaders[HEADER_INTERACTION_ID] = interactionId;
     }
 
     if (Object.keys(dynamicHeaders).length === 0) return underlying;
