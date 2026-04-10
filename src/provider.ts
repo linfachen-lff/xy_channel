@@ -111,7 +111,6 @@ export const xiaoyiProvider: ProviderPlugin = {
       if (context.systemPrompt) {
         console.log(`[xiaoyiprovider] system prompt length: ${context.systemPrompt.length}`);
       }
-      console.log(`[xiaoyiprovider] dynamic headers: ${JSON.stringify(dynamicHeaders)}`);
 
       const stream = await underlying(model, context, {
         ...options,
