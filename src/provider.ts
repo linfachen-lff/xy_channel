@@ -92,26 +92,26 @@ export const xiaoyiProvider: ProviderPlugin = {
     const underlying = ctx.streamFn;
     if (!underlying) return underlying;
 
-    const dynamicHeaders: Record<string, string> = {};
-
-    if (ctx.extraParams) {
-      const traceId = ctx.extraParams[HEADER_TRACE_ID];
-      const sessionId = ctx.extraParams[HEADER_SESSION_ID];
-      const interactionId = ctx.extraParams[HEADER_INTERACTION_ID];
-
-      if (typeof traceId === "string") dynamicHeaders[HEADER_TRACE_ID] = traceId;
-      if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
-      if (typeof interactionId === "string") dynamicHeaders[HEADER_INTERACTION_ID] = interactionId;
-    }
-
-    if (Object.keys(dynamicHeaders).length === 0) return underlying;
-
     return async (model, context, options) => {
+      // 每次请求时从 ctx.extraParams 动态读取 header
+      const dynamicHeaders: Record<string, string> = {};
+
+      if (ctx.extraParams) {
+        const traceId = ctx.extraParams[HEADER_TRACE_ID];
+        const sessionId = ctx.extraParams[HEADER_SESSION_ID];
+        const interactionId = ctx.extraParams[HEADER_INTERACTION_ID];
+
+        if (typeof traceId === "string") dynamicHeaders[HEADER_TRACE_ID] = traceId;
+        if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
+        if (typeof interactionId === "string") dynamicHeaders[HEADER_INTERACTION_ID] = interactionId;
+      }
+
       // 记录输入
       console.log(`[xiaoyiprovider] input messages count: ${context.messages?.length ?? 0}`);
       if (context.systemPrompt) {
         console.log(`[xiaoyiprovider] system prompt length: ${context.systemPrompt.length}`);
       }
+      console.log(`[xiaoyiprovider] dynamic headers: ${JSON.stringify(dynamicHeaders)}`);
 
       const stream = await underlying(model, context, {
         ...options,
