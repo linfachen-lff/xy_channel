@@ -29,7 +29,6 @@ import { sendFileToUserTool } from "./tools/send-file-to-user-tool.js";
 import { viewPushResultTool } from "./tools/view-push-result-tool.js";
 import { imageReadingTool } from "./tools/image-reading-tool.js";
 import { timestampToUtc8Tool } from "./tools/timestamp-to-utc8-tool.js";
-import { sendCommandToCarTool } from "./tools/send-command-to-car-tool.js";
 import { xiaoyiCollectionTool } from "./tools/xiaoyi-collection-tool.js";
 import { xiaoyiAddCollectionTool } from "./tools/xiaoyi-add-collection-tool.js";
 import { xiaoyiDeleteCollectionTool } from "./tools/xiaoyi-delete-collection-tool.js";
@@ -85,7 +84,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   agentTools: () => {
-    const allTools = [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, sendMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendFileToUserTool, viewPushResultTool, imageReadingTool, timestampToUtc8Tool, sendCommandToCarTool, xiaoyiCollectionTool, xiaoyiAddCollectionTool, xiaoyiDeleteCollectionTool, saveMediaToGalleryTool];
+    const allTools = [locationTool, noteTool, searchNoteTool, modifyNoteTool, calendarTool, searchCalendarTool, searchContactTool, searchPhotoGalleryTool, uploadPhotoTool, xiaoyiGuiTool, callPhoneTool, searchMessageTool, sendMessageTool, searchFileTool, uploadFileTool, createAlarmTool, searchAlarmTool, modifyAlarmTool, deleteAlarmTool, sendFileToUserTool, viewPushResultTool, imageReadingTool, timestampToUtc8Tool, xiaoyiCollectionTool, xiaoyiAddCollectionTool, xiaoyiDeleteCollectionTool, saveMediaToGalleryTool];
     const ctx = getCurrentSessionContext();
     const filtered = filterToolsByDevice(allTools, ctx?.deviceType);
     logger.log(`[DEVICE-FILTER] deviceType=${ctx?.deviceType ?? "(none)"}, tools: ${allTools.length} → ${filtered.length} (${filtered.map(t => t.name).join(", ")})`);

@@ -23,7 +23,6 @@ const DEVICE_TOOL_POLICY: Partial<Record<DeviceType, DeviceToolPolicy>> = {
       "call_phone",
       "send_message",
       "search_message",
-      "send_command_to_car",
       "search_contact",
       "QueryCollection",
       "AddCollection",
