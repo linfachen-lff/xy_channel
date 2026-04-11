@@ -24,7 +24,7 @@ class ToolInputError extends Error {
  * XY add collection tool - adds data to user's XiaoYi collection.
  */
 export const xiaoyiAddCollectionTool: any = {
-  name: "AddCollection",
+  name: "add_collection",
   label: "Add XiaoYi Collection",
   description: `向小艺收藏中添加公共知识数据，可以给用户提供个性化体验。任何用户希望保存到个人化知识库中的数据都可以调用本技能。不同类型的数据对应的数据要求如下：
 请求入参说明：

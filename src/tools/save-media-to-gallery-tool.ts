@@ -25,7 +25,7 @@ class ToolInputError extends Error {
  * Supports local file paths (auto-uploaded to get public URL) and public URLs.
  */
 export const saveMediaToGalleryTool: any = {
-  name: "SaveMediaToGallery",
+  name: "save_media_to_gallery",
   label: "Save Media to Gallery",
   description: `将图片文件或者视频文件保存到手机图库。
   工具参数说明：

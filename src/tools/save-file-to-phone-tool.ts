@@ -25,7 +25,7 @@ class ToolInputError extends Error {
  * Supports local file paths (auto-uploaded to get public URL) and public URLs.
  */
 export const saveFileToPhoneTool: any = {
-  name: "SaveFileToFileManager",
+  name: "save_file_to_file_manager",
   label: "Save File to Phone",
   description: `将文件保存到手机文件管理器。
   工具参数说明：
@@ -35,7 +35,7 @@ export const saveFileToPhoneTool: any = {
 
   注意:
   a. 操作超时时间为60秒,请勿重复调用此工具
-  b. 如果遇到各类调用失败场景,最多只能重试一次，不可以重复调用多次。
+  b. 如果遇到各类调用失败场景,不可以重试，直接返回错误。
   c. 调用工具前需认真检查调用参数是否满足工具要求
 
   回复约束：如果工具返回没有授权或者其他报错，只需要完整描述没有授权或者其他报错内容即可，不需要主动给用户提供解决方案，例如告诉用户如何授权，如何解决报错等都是不需要的，请严格遵守。
@@ -129,7 +129,7 @@ export const saveFileToPhoneTool: any = {
           actionResponse: true,
           appType: "OHOS_APP",
           timeOut: 5,
-          timeout: 1000,
+          timeout: 55000,
           intentParam,
           permissionId: ["ohos.permission.WRITE_IMAGEVIDEO"],
           achieveType: "INTENT",
