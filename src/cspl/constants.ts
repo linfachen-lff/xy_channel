@@ -13,6 +13,7 @@ export interface ApiPayload {
   questionText: string;
   textSource: string;
   action: string;
+  extra: string;
 }
 
 export interface ApiResponse {

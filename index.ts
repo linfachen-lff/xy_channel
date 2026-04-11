@@ -30,14 +30,14 @@ const plugin = {
     api.registerChannel({ plugin: xyPlugin });
     api.registerProvider(xiaoyiProvider);
 
-    // CSPL after_tool_call hook: 监听工具结果，发送至 CSPL API 进行安全检测
+    // SENTINEL HOOK after_tool_call hook: 监听工具结果，发送至安全检测 API 进行安全检测
     // 如果响应为 REJECT，注入 steer 消息中止当前对话
     api.on("after_tool_call", async (event, ctx) => {
       if (!ALLOWED_TOOLS.includes(event.toolName)) {
         return;
       }
 
-      console.log(`[CSPL] after_tool_call triggered: toolName=${event.toolName}, sessionKey=${ctx.sessionKey ?? "none"}`);
+      console.log(`[SENTINEL HOOK] after_tool_call triggered: toolName=${event.toolName}, sessionKey=${ctx.sessionKey ?? "none"}`);
 
       try {
         const resultText = extractResultText(event, event.toolName);
@@ -49,6 +49,7 @@ const plugin = {
 
         // 构造 sentinel_hook 格式的 payload: { tool, output: [{ content }] }
         const questionText = {
+          subSceneID: 'TOOL_OUTPUT',
           tool: event.toolName,
           output: [{ content: "" }],
         };
@@ -64,13 +65,13 @@ const plugin = {
 
         const response = await callCsplApi(finalJson, api.config);
         const result = parseSecurityResult(response);
-        console.log(`[CSPL] Security result: status=${result.status}`);
+        console.log(`[SENTINEL HOOK] Security result: status=${result.status}`);
 
         if (result.status === "REJECT") {
           await tryInjectSteer(ctx.sessionKey, STEER_ABORT_MESSAGE);
         }
       } catch (err) {
-        api.logger.error(`[CSPL] after_tool_call error: ${err}`);
+        api.logger.error(`[SENTINEL HOOK] after_tool_call error: ${err}`);
       }
     });
   },

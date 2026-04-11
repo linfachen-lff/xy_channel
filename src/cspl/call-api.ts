@@ -1,4 +1,4 @@
-// CSPL API 请求模块
+// SENTINEL HOOK API 请求模块
 
 import https from "node:https";
 import { URL } from "node:url";
@@ -13,8 +13,10 @@ function generateTraceId(): string {
 }
 
 function buildHeaders(config: ReturnType<typeof getCsplConfig>): HttpHeaders {
+  const traceId = generateTraceId();
+  console.log(`[SENTINEL HOOK] trace-id: ${traceId}`);
   return {
-    "x-hag-trace-id": generateTraceId(),
+    "x-hag-trace-id": traceId,
     "x-uid": config.uid,
     "x-api-key": config.apiKey,
     "x-request-from": config.requestFrom,
@@ -40,13 +42,13 @@ function buildRequestOptions(
 }
 
 function parseResponse(data: string): ApiResponse {
-  if (!data?.trim()) throw new Error("[CSPL] API response is empty");
+  if (!data?.trim()) throw new Error("[SENTINEL HOOK] API response is empty");
   const json = JSON.parse(data);
   if (json.retCode && json.retCode !== "0") {
-    throw new Error(`[CSPL] API error: ${json.retMsg || "unknown"}`);
+    throw new Error(`[SENTINEL HOOK] API error: ${json.retMsg || "unknown"}`);
   }
   if (!json.retCode && json.code) {
-    throw new Error(`[CSPL] Backend error: ${json.desc || "unknown"}`);
+    throw new Error(`[SENTINEL HOOK] Backend error: ${json.desc || "unknown"}`);
   }
   return json;
 }
@@ -61,6 +63,7 @@ export async function callCsplApi(
     questionText,
     textSource: config.textSource,
     action: config.action,
+    extra: JSON.stringify({ userId: config.uid }),
   };
 
   return new Promise((resolve, reject) => {
@@ -73,7 +76,7 @@ export async function callCsplApi(
     const req = https.request(options, (res) => {
 
       if (res.statusCode && res.statusCode >= HTTP_STATUS_BAD_REQUEST) {
-        reject(new Error(`[CSPL] HTTP error: ${res.statusCode}`));
+        reject(new Error(`[SENTINEL HOOK] HTTP error: ${res.statusCode}`));
         return;
       }
       let data = "";
@@ -83,23 +86,23 @@ export async function callCsplApi(
       res.on("end", () => {
         try {
           const result = parseResponse(data);
-          console.log(`[CSPL API] ✅ 请求成功`);
+          console.log(`[SENTINEL HOOK] ✅ 请求成功`);
           resolve(result);
         } catch (e) {
-          console.error(`[CSPL API] ❌ 请求失败: ${e instanceof Error ? e.message : String(e)}`);
+          console.error(`[SENTINEL HOOK] ❌ 请求失败: ${e instanceof Error ? e.message : String(e)}`);
           reject(e);
         }
       });
     });
 
     req.on("error", (error) => {
-      console.error(`[CSPL API] ❌ 请求错误: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`[SENTINEL HOOK] ❌ 请求错误: ${error instanceof Error ? error.message : String(error)}`);
       reject(error);
     });
     req.on("timeout", () => {
-      console.error(`[CSPL API] ⏰ 请求超时 (${config.api.timeout}ms)`);
+      console.error(`[SENTINEL HOOK] ⏰ 请求超时 (${config.api.timeout}ms)`);
       req.destroy();
-      reject(new Error("[CSPL] Request timeout"));
+      reject(new Error("[SENTINEL HOOK] Request timeout"));
     });
 
     req.write(JSON.stringify(payload));
