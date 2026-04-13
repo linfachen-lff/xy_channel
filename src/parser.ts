@@ -118,20 +118,29 @@ export function extractDeviceType(parts: A2AMessagePart[]): string | null {
   return null;
 }
 
+export type TriggerData =
+  | { pushDataId: string }
+  | { timestamp: string };
+
 /**
  * Extract Trigger event data from message parts.
- * Looks for Trigger events with pushDataId in data parts.
+ * Looks for Trigger events with pushDataId or timestamp in data parts.
  */
-export function extractTriggerData(parts: A2AMessagePart[]): { pushDataId: string } | null {
+export function extractTriggerData(parts: A2AMessagePart[]): TriggerData | null {
   for (const part of parts) {
     if (part.kind === "data" && part.data) {
       const events = part.data.events;
       if (Array.isArray(events)) {
         for (const event of events) {
           if (event.header?.namespace === "Common" && event.header?.name === "Trigger") {
-            const pushDataId = event.payload?.dataMap?.pushDataId;
+            const dataMap = event.payload?.dataMap;
+            const pushDataId = dataMap?.pushDataId;
             if (pushDataId && typeof pushDataId === "string") {
               return { pushDataId };
+            }
+            const timestamp = dataMap?.timestamp;
+            if (timestamp && typeof timestamp === "string") {
+              return { timestamp };
             }
           }
         }

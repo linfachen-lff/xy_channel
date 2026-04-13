@@ -3,14 +3,14 @@ import type { ClawdbotConfig, RuntimeEnv, ReplyPayload } from "openclaw/plugin-s
 import { getXYRuntime } from "./runtime.js";
 import { setCachedContext } from "./steer-injector.js";
 import { createXYReplyDispatcher } from "./reply-dispatcher.js";
-import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractDeviceType, extractTriggerData, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
+import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractDeviceType, extractTriggerData, isClearContextMessage, isTasksCancelMessage, type TriggerData } from "./parser.js";
 import { downloadFilesFromParts } from "./file-download.js";
 import { resolveXYConfig } from "./config.js";
 import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse, sendA2AResponse } from "./formatter.js";
 import { registerSession, unregisterSession, runWithSessionContext } from "./tools/session-manager.js";
 import { configManager } from "./utils/config-manager.js";
 import { addPushId } from "./utils/pushid-manager.js";
-import { getPushDataById } from "./utils/pushdata-manager.js";
+import { getPushDataById, getPushDataAfterTimestamp } from "./utils/pushdata-manager.js";
 import { saveRuntimeInfo } from "./utils/runtime-manager.js";
 import {
   registerTaskId,
@@ -95,34 +95,54 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     // 如果消息中包含 Trigger 事件数据，直接返回 pushData 内容，不走正常流程
     const triggerData = extractTriggerData(parsed.parts);
     if (triggerData) {
-      log(`[BOT] 📌 Detected Trigger message with pushDataId: ${triggerData.pushDataId}`);
+      log(`[BOT] 📌 Detected Trigger message`);
       log(`[BOT]   - Session ID: ${parsed.sessionId}`);
       log(`[BOT]   - Task ID: ${parsed.taskId}`);
 
       try {
-        // 读取 pushData
-        const pushDataItem = await getPushDataById(triggerData.pushDataId);
-
-        if (!pushDataItem) {
-          error(`[BOT] ❌ pushData not found for ID: ${triggerData.pushDataId}`);
-          return;
-        }
-
-        log(`[BOT] ✅ Found pushData, sending direct response`);
-        log(`[BOT]   - pushDataId: ${pushDataItem.pushDataId}`);
-
         const config = resolveXYConfig(cfg);
 
-        // 直接发送响应（final=true，不走 openclaw 流程）
-        await sendA2AResponse({
-          config,
-          sessionId: parsed.sessionId,
-          taskId: parsed.taskId,
-          messageId: parsed.messageId,
-          text: pushDataItem.dataDetail,
-          append: false,
-          final: true,
-        });
+        if ("pushDataId" in triggerData) {
+          // 单条查询：按 pushDataId 返回
+          log(`[BOT]   - Type: pushDataId = ${triggerData.pushDataId}`);
+          const pushDataItem = await getPushDataById(triggerData.pushDataId);
+
+          if (!pushDataItem) {
+            error(`[BOT] ❌ pushData not found for ID: ${triggerData.pushDataId}`);
+            return;
+          }
+
+          log(`[BOT] ✅ Found pushData, sending direct response`);
+          await sendA2AResponse({
+            config,
+            sessionId: parsed.sessionId,
+            taskId: parsed.taskId,
+            messageId: parsed.messageId,
+            text: pushDataItem.dataDetail,
+            append: false,
+            final: true,
+          });
+        } else {
+          // 批量查询：按 timestamp 返回所有之后的 push 数据
+          log(`[BOT]   - Type: timestamp = ${triggerData.timestamp}`);
+          const items = await getPushDataAfterTimestamp(triggerData.timestamp);
+
+          const result = items.map(item => ({
+            pushDataId: item.pushDataId,
+            pushData: item.dataDetail,
+          }));
+
+          log(`[BOT] ✅ Found ${result.length} pushData items after timestamp, sending response`);
+          await sendA2AResponse({
+            config,
+            sessionId: parsed.sessionId,
+            taskId: parsed.taskId,
+            messageId: parsed.messageId,
+            text: JSON.stringify(result),
+            append: false,
+            final: true,
+          });
+        }
 
         log(`[BOT] ✅ Trigger response sent successfully, exiting early`);
         return;  // 提前返回，不继续处理
