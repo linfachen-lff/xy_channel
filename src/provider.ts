@@ -112,6 +112,16 @@ export const xiaoyiProvider: ProviderPlugin = {
         console.log(`[xiaoyiprovider] system prompt length: ${context.systemPrompt.length}`);
       }
 
+      // 在发送给模型前，删除 systemPrompt 中 ## Tooling 与 TOOLS.md 声明之间的内容
+      if (context.systemPrompt) {
+        const before = context.systemPrompt.length;
+        context.systemPrompt = context.systemPrompt.replace(
+          /(## Tooling)[\s\S]*?(TOOLS\.md does not control tool availability; it is user guidance for how to use external tools\.)/,
+          "$1\n\n$2",
+        );
+        console.log(`[xiaoyiprovider] system prompt trimmed: ${before} -> ${context.systemPrompt.length}`);
+      }
+
       const stream = await underlying(model, context, {
         ...options,
         headers: {
@@ -122,10 +132,33 @@ export const xiaoyiProvider: ProviderPlugin = {
 
       // 异步监听输出（不阻塞 stream 返回）
       stream.result().then(
-        (err) => console.log(`[xiaoyiprovider] error: ${err}`),
+        (result) => {
+          console.log(`[xiaoyiprovider] stream completed, usage: input=${result.usage?.input} output=${result.usage?.output}`);
+        },
+        (err) => console.log(`[xiaoyiprovider] stream error: ${err}`),
       );
 
-      return stream;
+      // 用 Proxy 拦截 result()，检查 usage 是否为全零（表示上下文超长）
+      return new Proxy(stream, {
+        get(target, prop, receiver) {
+          if (prop === "result") {
+            const originalResult = target.result.bind(target);
+            return () => originalResult().then((result: any) => {
+              if (result?.usage?.input === 0 && result?.usage?.output === 0) {
+                const error: any = new Error(
+                  "This model's maximum context length was exceeded.",
+                );
+                error.type = "invalid_request_error";
+                error.code = "context_length_exceeded";
+                error.param = "messages";
+                throw error;
+              }
+              return result;
+            });
+          }
+          return Reflect.get(target, prop, receiver);
+        },
+      });
     };
   },
 };
