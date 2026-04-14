@@ -185,40 +185,6 @@ export async function getAllPushData(): Promise<PushDataItem[]> {
 }
 
 /**
- * 将 Unix 时间戳（秒或毫秒）转为 YYYYMMDD HHmmss 北京时间字符串
- */
-function unixToBeijingStr(ts: string): string {
-  let ms = Number(ts);
-  if (isNaN(ms)) return "";
-  // 秒级时间戳（小于 1e12）转为毫秒
-  if (ms < 1e12) ms *= 1000;
-  return formatBeijingTime(new Date(ms));
-}
-
-/**
- * 获取指定时间戳之后的所有推送数据
- * @param timestamp - Unix 时间戳（秒或毫秒）
- */
-export async function getPushDataAfterTimestamp(timestamp: string): Promise<PushDataItem[]> {
-  try {
-    const target = unixToBeijingStr(timestamp);
-    if (!target) {
-      logger.warn(`[PushDataManager] Invalid timestamp: ${timestamp}`);
-      return [];
-    }
-
-    const list = await readPushDataList();
-    const results = list.filter(item => item.time >= target);
-
-    logger.log(`[PushDataManager] Query after timestamp ${timestamp} (UTC+8: ${target}): found ${results.length} items`);
-    return results;
-  } catch (error) {
-    logger.error(`[PushDataManager] Failed to get pushData after timestamp:`, error);
-    return [];
-  }
-}
-
-/**
  * 清空所有推送数据（用于测试或重置）
  */
 export async function clearAllPushData(): Promise<void> {
