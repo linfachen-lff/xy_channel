@@ -135,30 +135,10 @@ export const xiaoyiProvider: ProviderPlugin = {
         (result) => {
           console.log(`[xiaoyiprovider] stream completed, usage: input=${result.usage?.input} output=${result.usage?.output}`);
         },
-        (err) => console.log(`[xiaoyiprovider] stream error: ${err}`),
+        (err) => console.log(`[xiaoyiprovider] stream error: ${JSON.stringify(err)}`),
       );
 
-      // 用 Proxy 拦截 result()，检查 usage 是否为全零（表示上下文超长）
-      return new Proxy(stream, {
-        get(target, prop, receiver) {
-          if (prop === "result") {
-            const originalResult = target.result.bind(target);
-            return () => originalResult().then((result: any) => {
-              if (result?.usage?.input === 0 && result?.usage?.output === 0) {
-                const error: any = new Error(
-                  "This model's maximum context length was exceeded.",
-                );
-                error.type = "invalid_request_error";
-                error.code = "context_length_exceeded";
-                error.param = "messages";
-                throw error;
-              }
-              return result;
-            });
-          }
-          return Reflect.get(target, prop, receiver);
-        },
-      });
+      return stream;
     };
   },
 };
