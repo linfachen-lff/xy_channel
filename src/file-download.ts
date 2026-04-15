@@ -7,7 +7,6 @@ import path from "path";
  * Download a file from URL to local path.
  */
 export async function downloadFile(url: string, destPath: string): Promise<void> {
-  console.log(`Downloading file from ${url} to ${destPath}`);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
@@ -22,13 +21,12 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
     const buffer = Buffer.from(arrayBuffer);
     await fs.writeFile(destPath, buffer);
 
-    console.log(`File downloaded successfully: ${destPath}`);
   } catch (error) {
     if (error.name === 'AbortError') {
       console.log(`Download timeout (30s) for ${url}`);
       throw new Error(`Download timeout after 30 seconds`);
     }
-    console.log(`Failed to download file from ${url}:`, error);
+    console.log(`Failed to download file from ${url}:`);
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -63,7 +61,7 @@ export async function downloadFilesFromParts(
         mimeType,
       });
     } catch (error) {
-      console.log(`Failed to download file ${name}:`, error);
+      console.log(`Failed to download file ${name}:`);
       // Continue with other files
     }
   }
