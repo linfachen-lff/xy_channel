@@ -208,14 +208,9 @@ export const xyOutbound: ChannelOutboundAdapter = {
     // Upload file
     const fileId = await uploadService.uploadFile(mediaUrl);
 
-    // Check if fileId is empty
+    // Check if fileId is empty (should not happen if uploadFile throws on failure)
     if (!fileId) {
-      console.log(`[xyOutbound.sendMedia] ⚠️ File upload failed: fileId is empty, aborting sendMedia`);
-      return {
-        channel: "xiaoyi-channel",
-        messageId: "",
-        chatId: to,
-      };
+      throw new Error(`File upload returned empty fileId for: ${mediaUrl}`);
     }
 
     console.log(`[xyOutbound.sendMedia] File uploaded:`, {

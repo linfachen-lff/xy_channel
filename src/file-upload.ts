@@ -2,6 +2,7 @@
 // OSMS file upload implementation
 import fetch from "node-fetch";
 import fs from "fs/promises";
+import os from "os";
 import path from "path";
 import { calculateSHA256 } from "./utils/crypto.js";
 import type {
@@ -10,6 +11,24 @@ import type {
   FileUploadCompleteRequest,
   FileUploadCompleteResponse,
 } from "./types.js";
+
+function isRemoteUrl(filePath: string): boolean {
+  return filePath.startsWith("http://") || filePath.startsWith("https://");
+}
+
+async function downloadToTempFile(url: string): Promise<string> {
+  console.log(`[XY File Upload] Downloading remote file: ${url}`);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download remote file: HTTP ${response.status}`);
+  }
+  const buffer = await response.buffer();
+  const urlFileName = path.basename(new URL(url).pathname) || "download";
+  const tempPath = path.join(os.tmpdir(), `xy-upload-${Date.now()}-${urlFileName}`);
+  await fs.writeFile(tempPath, buffer);
+  console.log(`[XY File Upload] Downloaded to temp file: ${tempPath}`);
+  return tempPath;
+}
 
 /**
  * Service for uploading files to XY file storage.
@@ -29,10 +48,19 @@ export class XYFileUploadService {
   async uploadFile(filePath: string, objectType: string = "TEMPORARY_MATERIAL_DOC"): Promise<string> {
     console.log(`[XY File Upload] Starting file upload: ${filePath}`);
 
+    let localFilePath = filePath;
+    let isTempFile = false;
+
     try {
+      // Handle remote URLs by downloading first
+      if (isRemoteUrl(filePath)) {
+        localFilePath = await downloadToTempFile(filePath);
+        isTempFile = true;
+      }
+
       // Read file
-      const fileBuffer = await fs.readFile(filePath);
-      const fileName = path.basename(filePath);
+      const fileBuffer = await fs.readFile(localFilePath);
+      const fileName = path.basename(localFilePath);
       const fileSha256 = calculateSHA256(fileBuffer);
       const fileSize = fileBuffer.length;
 
@@ -114,7 +142,11 @@ export class XYFileUploadService {
       return objectId;
     } catch (error) {
       console.error(`[XY File Upload] File upload failed for ${filePath}:`, error);
-      return "";
+      throw error;
+    } finally {
+      if (isTempFile) {
+        try { await fs.unlink(localFilePath); } catch {}
+      }
     }
   }
 
@@ -123,11 +155,19 @@ export class XYFileUploadService {
    * Uses completeAndQuery endpoint to get the file URL directly.
    */
   async uploadFileAndGetUrl(filePath: string, objectType: string = "TEMPORARY_MATERIAL_DOC"): Promise<string> {
+    let localFilePath = filePath;
+    let isTempFile = false;
 
     try {
+      // Handle remote URLs by downloading first
+      if (isRemoteUrl(filePath)) {
+        localFilePath = await downloadToTempFile(filePath);
+        isTempFile = true;
+      }
+
       // Read file
-      const fileBuffer = await fs.readFile(filePath);
-      const fileName = path.basename(filePath);
+      const fileBuffer = await fs.readFile(localFilePath);
+      const fileName = path.basename(localFilePath);
       const fileSha256 = calculateSHA256(fileBuffer);
       const fileSize = fileBuffer.length;
 
@@ -219,6 +259,10 @@ export class XYFileUploadService {
     } catch (error) {
       console.error(`[XY File Upload] File upload with URL retrieval failed for ${filePath}:`, error);
       throw error;
+    } finally {
+      if (isTempFile) {
+        try { await fs.unlink(localFilePath); } catch {}
+      }
     }
   }
 

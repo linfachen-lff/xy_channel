@@ -51,7 +51,11 @@ export const xiaoyiAddCollectionTool: any = {
       },
       uri: {
         type: "string",
-        description: "必填字段（IMAGE/FILE类型时）。图片或文件的地址链接。",
+        description: `必填字段（IMAGE/FILE类型时）。图片或文件的地址链接。
+        uri具备三种严格的格式
+        (1) http或者https开头的公网链接，一般是用户通过联网搜索获取的文件地址，不允许自行编造，此类链接填入时必须确保真实
+        (2) file://开头的链接，此类链接必须来源于query_collection结果或者search_file或者search_photo_gallery的结果，不允许自行编造
+        (3) 本地路径例，如/tmp/xy_channel/xxx，此类路径是文件保存在当前openclaw运行环境的本地目录，可以直接填入，不要擅自拼接http://或者file://前缀`,
       },
       sourceAppBundleName: {
         type: "string",
