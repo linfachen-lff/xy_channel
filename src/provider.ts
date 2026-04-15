@@ -112,14 +112,41 @@ export const xiaoyiProvider: ProviderPlugin = {
         console.log(`[xiaoyiprovider] system prompt length: ${context.systemPrompt.length}`);
       }
 
-      // 在发送给模型前，删除 systemPrompt 中 ## Tooling 与 TOOLS.md 声明之间的内容
+      // 在发送给模型前，优化 systemPrompt 结构
       if (context.systemPrompt) {
-        const before = context.systemPrompt.length;
-        context.systemPrompt = context.systemPrompt.replace(
+        let sp = context.systemPrompt;
+        const beforeLen = sp.length;
+
+        // 删除 ## Tooling 与 TOOLS.md 声明之间的内容
+        sp = sp.replace(
           /(## Tooling)[\s\S]*?(TOOLS\.md does not control tool availability; it is user guidance for how to use external tools\.)/,
           "$1\n\n$2",
         );
-        console.log(`[xiaoyiprovider] system prompt trimmed: ${before} -> ${context.systemPrompt.length}`);
+
+        // (1) 提取 <available_skills>...</available_skills> 作为第一部分
+        const skillsMatch = sp.match(/<available_skills>[\s\S]*?<\/available_skills>/);
+        const part1 = skillsMatch ? skillsMatch[0] : '';
+
+        // (2) 提取 # SOUL.md - Who You Are 到 # TOOLS.md - Local Notes 之前的内容作为第二部分
+        const soulMatch = sp.match(/(# SOUL\.md - Who You Are[\s\S]*?)(?=# TOOLS\.md - Local Notes)/);
+        const part2 = soulMatch ? soulMatch[1].trim() : '';
+
+        if (part1 || part2) {
+          // 从原始位置删除已提取的部分
+          if (skillsMatch) sp = sp.replace(skillsMatch[0], '');
+          if (soulMatch) sp = sp.replace(soulMatch[1], '');
+          // 清理多余空行
+          sp = sp.replace(/\n{3,}/g, '\n\n');
+
+          // (3) 将 第二部分 + 第一部分 插入到 ## Runtime 上面
+          const combined = (part2 + '\n\n' + part1).trim();
+          if (combined && sp.includes('## Runtime')) {
+            sp = sp.replace('## Runtime', combined + '\n\n## Runtime');
+          }
+        }
+
+        console.log(`[xiaoyiprovider] system prompt optimized: ${beforeLen} -> ${sp.length}`);
+        context.systemPrompt = sp;
       }
 
       const stream = await underlying(model, context, {
