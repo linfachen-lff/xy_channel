@@ -90,7 +90,6 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     // Parse the A2A message (for regular messages)
     const parsed = parseA2AMessage(message);
-    console.log("Parsed A2A message:", JSON.stringify(parsed, null, 2));
 
     // ========== 检测 Trigger 消息 ==========
     // 如果消息中包含 Trigger 事件数据，直接返回 pushData 内容，不走正常流程
