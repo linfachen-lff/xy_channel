@@ -8,7 +8,7 @@ import { logger } from "./utils/logger.js";
  * Download a file from URL to local path.
  */
 export async function downloadFile(url: string, destPath: string): Promise<void> {
-  logger.debug(`Downloading file from ${url} to ${destPath}`);
+  console.log(`Downloading file from ${url} to ${destPath}`);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
