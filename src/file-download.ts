@@ -25,10 +25,10 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
     console.log(`File downloaded successfully: ${destPath}`);
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.error(`Download timeout (30s) for ${url}`);
+      console.log(`Download timeout (30s) for ${url}`);
       throw new Error(`Download timeout after 30 seconds`);
     }
-    console.error(`Failed to download file from ${url}:`, error);
+    console.log(`Failed to download file from ${url}:`, error);
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -63,7 +63,7 @@ export async function downloadFilesFromParts(
         mimeType,
       });
     } catch (error) {
-      console.error(`Failed to download file ${name}:`, error);
+      console.log(`Failed to download file ${name}:`, error);
       // Continue with other files
     }
   }
