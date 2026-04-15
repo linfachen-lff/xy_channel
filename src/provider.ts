@@ -123,12 +123,12 @@ export const xiaoyiProvider: ProviderPlugin = {
           "$1\n\n$2",
         );
 
-        // (1) 提取 <available_skills>...</available_skills> 作为第一部分
-        const skillsMatch = sp.match(/<available_skills>[\s\S]*?<\/available_skills>/);
+        // (1) 提取 ## Skills (mandatory) 到 </available_skills> 作为第一部分
+        const skillsMatch = sp.match(/(## Skills \(mandatory\)[\s\S]*?<\/available_skills>)/);
         const part1 = skillsMatch ? skillsMatch[0] : '';
 
-        // (2) 提取 # SOUL.md - Who You Are 到 # TOOLS.md - Local Notes 之前的内容作为第二部分
-        const soulMatch = sp.match(/(# SOUL\.md - Who You Are[\s\S]*?)(?=# TOOLS\.md - Local Notes)/);
+        // (2) 提取 ## /home/sandbox/.openclaw/workspace/SOUL.md 到 ## /home/sandbox/.openclaw/workspace/TOOLS.md 之前的内容作为第二部分
+        const soulMatch = sp.match(/(## \/home\/sandbox\/\.openclaw\/workspace\/SOUL\.md[\s\S]*?)(?=## \/home\/sandbox\/\.openclaw\/workspace\/TOOLS\.md)/);
         const part2 = soulMatch ? soulMatch[1].trim() : '';
 
         if (part1 || part2) {
