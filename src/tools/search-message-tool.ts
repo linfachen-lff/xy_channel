@@ -64,6 +64,7 @@ export const searchMessageTool: any = {
           timeOut: 5,
           intentParam: {
             content: params.content.trim(),
+            size: 50
           },
           permissionId: [],
           achieveType: "INTENT",
