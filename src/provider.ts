@@ -28,10 +28,10 @@ function encodeUid(uid: string): string {
 }
 
 /**
- * Get uid from plugin config (OpenClawConfig -> plugins -> xiaoyi-channel -> config).
+ * Get uid from channel config (OpenClawConfig -> channels -> xiaoyi-channel -> uid).
  */
 function getUidFromConfig(config: any): string | undefined {
-  return config?.plugins?.entries?.["xiaoyi-channel"]?.config?.uid;
+  return config?.channels?.["xiaoyi-channel"]?.uid;
 }
 
 export const xiaoyiProvider: ProviderPlugin = {
