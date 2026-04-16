@@ -153,7 +153,7 @@ export const xiaoyiProvider: ProviderPlugin = {
       const sessionCtx = getCurrentSessionContext();
       if (sessionCtx?.deviceType) {
         const rawDevice = sessionCtx.deviceType;
-        const displayDevice = (rawDevice === "phone") ? "phone" : "鸿蒙PC";
+        const displayDevice = (rawDevice === "2in1") ? "鸿蒙PC" : rawDevice;
         const deviceSection = `\n\n## Current User Device Context\nThe current user is using the following device: ${displayDevice}\n`;
         context.systemPrompt = (context.systemPrompt ?? "") + deviceSection;
       }
