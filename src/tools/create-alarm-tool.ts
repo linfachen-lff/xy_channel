@@ -23,18 +23,7 @@ export const createAlarmTool: any = {
   name: "create_alarm",
   label: "Create Alarm",
   description: `在用户设备上创建闹钟。
-
-必需参数：
-- alarmTime: 闹钟时间，格式必须为：YYYYMMDD hhmmss（例如：20240315 143000，表示2024年3月15日14:30:00）
-
-可选参数（针对用户没有提及的参数，如果有默认参数，则发送请求时使用默认参数）：
-- alarmTitle: 闹钟名称/标题，默认为"闹钟"
-- alarmSnoozeDuration: 小睡间隔（分钟），枚举值：5,10,15,20,25,30，默认10
-- alarmSnoozeTotal: 再响次数，枚举值：0,1,3,5,10，默认0（表示不再响）
-- alarmRingDuration: 响铃时长（分钟），枚举值：1,5,10,15,20,30，默认5
-- daysOfWakeType: 闹钟响铃类型，枚举值：0=单次响铃，1=法定节假日，2=每天，3=自定义时间，4=法定工作日，默认0
-- daysOfWeek: 自定义响铃星期，仅当daysOfWakeType=3（自定义时间）时必需且有效，其他情况不要传递此参数。数组或JSON字符串，枚举值：Mon,Tues,Wed,Thur,Fri,Sat,Sun。
-
+ 
 注意事项：
 a. 操作超时时间为60秒，请勿重复调用此工具，如果超时或失败，最多重试一次。
 b. 使用该工具之前需获取当前真实时间
@@ -45,7 +34,7 @@ b. 使用该工具之前需获取当前真实时间
     properties: {
       alarmTime: {
         type: "string",
-        description: "闹钟时间，格式必须为：YYYYMMDD hhmmss（例如：20240315 143000）",
+        description: "闹钟时间，格式必须为：YYYYMMDD hhmmss（例如：20240315 143000，表示2024年3月15日14:30:00）",
       },
       alarmTitle: {
         type: "string",
@@ -57,7 +46,7 @@ b. 使用该工具之前需获取当前真实时间
       },
       alarmSnoozeTotal: {
         type: "number",
-        description: "再响次数，枚举值：0,1,3,5,10，默认0",
+        description: "再响次数，枚举值：0,1,3,5,10，默认0（表示不再响）",
       },
       alarmRingDuration: {
         type: "number",
@@ -65,12 +54,12 @@ b. 使用该工具之前需获取当前真实时间
       },
       daysOfWakeType: {
         type: "number",
-        description: "闹钟响铃类型：0=单次，1=法定节假日，2=每天，3=自定义，4=法定工作日，默认0",
+        description: "闹钟响铃类型，枚举值：0=单次响铃，1=法定节假日，2=每天，3=自定义时间，4=法定工作日，默认0",
       },
       daysOfWeek: {
         // 不指定 type，允许传入数组或 JSON 字符串
         // 具体的类型验证和转换在 execute 函数内部进行
-        description: "自定义响铃星期（仅当daysOfWakeType=3时需要，其他情况不要传递），数组或JSON字符串，枚举值：Mon,Tues,Wed,Thur,Fri,Sat,Sun。",
+        description: "自定义响铃星期，仅当daysOfWakeType=3（自定义时间）时必需且有效，其他情况不要传递此参数。数组或JSON字符串，枚举值：Mon,Tues,Wed,Thur,Fri,Sat,Sun。",
       },
     },
     required: ["alarmTime"],

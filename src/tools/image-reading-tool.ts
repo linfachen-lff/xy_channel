@@ -268,10 +268,7 @@ export const imageReadingTool: any = {
 工具能力描述：对图片进行理解和分析，返回图片的描述内容。
 
 工具参数说明：
-a. localUrl：本地图片文件路径（可选，通常从用户消息的 mediaPath 字段获取）
-b. remoteUrl：公网图片地址（可选）
-c. prompt：对图片的提示问题，默认为"描述这张图片内容"，可根据用户的具体问题自定义
-d. localUrl 与 remoteUrl 任意一个不为空即可，优先使用 localUrl
+localUrl 与 remoteUrl 任意一个不为空即可，优先使用 localUrl
 
 注意事项：
 a. 支持常见图片格式（jpg, png, gif等）
@@ -283,15 +280,15 @@ d. 返回图像理解的文本描述内容`,
     properties: {
       localUrl: {
         type: "string",
-        description: "本地图片文件路径",
+        description: "本地图片文件路径（可选，通常从用户消息的 mediaPath 字段获取）",
       },
       remoteUrl: {
         type: "string",
-        description: "公网图片地址（HTTP/HTTPS URL）",
+        description: "公网图片地址（可选）,公网图片地址（HTTP/HTTPS URL）",
       },
       prompt: {
         type: "string",
-        description: "对图片的提示问题，默认为'描述这张图片内容'",
+        description: "对图片的提示问题，默认为'描述这张图片内容'，可根据用户的具体问题自定义",
       },
     },
   },

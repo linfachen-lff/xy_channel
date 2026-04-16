@@ -114,12 +114,10 @@ async function downloadRemoteFile(url: string): Promise<string> {
 export const sendFileToUserTool: any = {
   name: "send_file_to_user",
   label: "Send File to User",
-  description: `工具能力描述：帮助用户把本地的文件或者公网地址的文件传到手机。
+  description: `工具能力描述：帮助用户把本地的文件或者公网地址的文件传到用户设备。
 
 工具参数说明：
-a. fileLocalUrls：本地文件路径数组，包含用户需要回传的文件在本地的地址
-b. fileRemoteUrls：公网地址数组，包含用户需要回传的文件的公网地址（会先下载到本地再发送）
-c. fileLocalUrls 与 fileRemoteUrls 任意一个不为空即可，两者都提供时都会处理
+a. fileLocalUrls 与 fileRemoteUrls 任意一个不为空即可，两者都提供时都会处理
 
 注意事项：
 a. 支持传入数组或 JSON 字符串格式

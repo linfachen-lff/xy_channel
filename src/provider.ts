@@ -149,6 +149,15 @@ export const xiaoyiProvider: ProviderPlugin = {
         context.systemPrompt = sp;
       }
 
+      // Append device context to systemPrompt
+      const sessionCtx = getCurrentSessionContext();
+      if (sessionCtx?.deviceType) {
+        const rawDevice = sessionCtx.deviceType;
+        const displayDevice = (rawDevice === "phone") ? "phone" : "鸿蒙PC";
+        const deviceSection = `\n\n## Current User Device Context\nThe current user is using the following device: ${displayDevice}\n`;
+        context.systemPrompt = (context.systemPrompt ?? "") + deviceSection;
+      }
+
       const stream = await underlying(model, context, {
         ...options,
         headers: {

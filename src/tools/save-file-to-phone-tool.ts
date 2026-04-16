@@ -28,10 +28,6 @@ export const saveFileToPhoneTool: any = {
   name: "save_file_to_file_manager",
   label: "Save File to Phone",
   description: `将文件保存到手机文件管理器。
-  工具参数说明：
-  a. fileName：必填，string类型，文件名称。
-  b. url：必填，string类型，支持本地路径或者公网url路径。如果是本地路径，会先上传获取公网url再保存到手机。
-  c. suffix：必填，string类型，文件后缀，例如 ppt、doc、pdf 等。
 
   注意:
   a. 操作超时时间为60秒,请勿重复调用此工具

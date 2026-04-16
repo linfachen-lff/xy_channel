@@ -21,9 +21,6 @@ export const deleteAlarmTool: any = {
   label: "Delete Alarm",
   description: `删除用户设备上的闹钟。使用前必须先调用 search_alarm 或 create_alarm 工具获取闹钟的 entityId。
 
-工具参数：
-- items: 要删除的闹钟列表，每个元素包含 entityId 字段。支持数组或 JSON 字符串格式。entityId 是闹钟的唯一标识符（从 search_alarm 或 create_alarm 工具获取）。
-
 使用示例：
 - 删除单个闹钟：{"items": [{"entityId": "6"}]}
 - 删除多个闹钟：{"items": [{"entityId": "6"}, {"entityId": "8"}]}
@@ -40,7 +37,7 @@ export const deleteAlarmTool: any = {
       items: {
         // 不指定 type，允许传入数组或 JSON 字符串
         // 具体的类型验证和转换在 execute 函数内部进行
-        description: "要删除的闹钟列表，每个元素包含 entityId 字段。支持数组或 JSON 字符串格式。",
+        description: "要删除的闹钟列表，每个元素包含 entityId 字段。支持数组或 JSON 字符串格式。entityId 是闹钟的唯一标识符（从 search_alarm 或 create_alarm 工具获取）。",
       },
     },
     required: ["items"],

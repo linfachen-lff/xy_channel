@@ -26,23 +26,10 @@ export const modifyAlarmTool: any = {
   label: "Modify Alarm",
   description: `修改用户设备上已存在的闹钟。
 
-必需参数：
-- entityId: 闹钟的唯一标识符，必须先通过 search_alarm 或 create_alarm 工具获取
-
-可选参数（与创建闹钟的参数完全一致）：
-- alarmTime: 闹钟时间，格式必须为：YYYYMMDD hhmmss（例如：20240315 143000）
-- alarmTitle: 闹钟名称/标题
-- alarmState: 闹钟开启状态，0=关闭，1=开启
-- alarmSnoozeDuration: 小睡间隔（分钟），枚举值：5,10,15,20,25,30
-- alarmSnoozeTotal: 再响次数，枚举值：0,1,3,5,10
-- alarmRingDuration: 响铃时长（分钟），枚举值：1,5,10,15,20,30
-- daysOfWakeType: 闹钟响铃类型，枚举值：0=单次，1=法定节假日，2=每天，3=自定义，4=法定工作日
-- daysOfWeek: 自定义响铃星期，仅当daysOfWakeType=3（自定义时间）时必需且有效，其他情况不要传递此参数。数组或JSON字符串，枚举值：Mon,Tues,Wed,Thur,Fri,Sat,Sun。
-
 使用流程：
 1. 先调用 search_alarm 工具查询闹钟，获取 entityId，
 2. 调用此工具修改闹钟，传入 entityId 和需要修改的参数
-3. 其余不涉及需改的参数，如果search_alarm 或 create_alarm的结果中有相应的值，需要一并填上，需要与原有的保持一致，防止不填采用默认值
+3. 其余不涉及修改的参数，如果search_alarm 或 create_alarm的结果中有相应的值，需要一并填上，需要与原有的保持一致，防止不填采用默认值
 
 注意事项：操作超时时间为60秒，请勿重复调用此工具，如果超时或失败，最多重试一次。
 
@@ -52,40 +39,40 @@ export const modifyAlarmTool: any = {
     properties: {
       entityId: {
         type: "string",
-        description: "闹钟的唯一标识符，必须先通过 search_alarm 或 create_alarm 工具获取",
+        description: "（必需）闹钟的唯一标识符，必须先通过 search_alarm 或 create_alarm 工具获取",
       },
       alarmTime: {
         type: "string",
-        description: "闹钟时间，格式必须为：YYYYMMDD hhmmss（例如：20240315 143000）",
+        description: "（可选）闹钟时间，格式必须为：YYYYMMDD hhmmss（例如：20240315 143000）",
       },
       alarmTitle: {
         type: "string",
-        description: "闹钟名称/标题",
+        description: "（可选）闹钟名称/标题",
       },
       alarmState: {
         type: "number",
-        description: "闹钟开启状态：0=关闭，1=开启",
+        description: "（可选）闹钟开启状态，枚举值：0=关闭，1=开启",
       },
       alarmSnoozeDuration: {
         type: "number",
-        description: "小睡间隔（分钟），枚举值：5,10,15,20,25,30",
+        description: "（可选）小睡间隔（分钟），枚举值：5,10,15,20,25,30",
       },
       alarmSnoozeTotal: {
         type: "number",
-        description: "再响次数，枚举值：0,1,3,5,10",
+        description: "（可选）再响次数，枚举值：0,1,3,5,10",
       },
       alarmRingDuration: {
         type: "number",
-        description: "响铃时长（分钟），枚举值：1,5,10,15,20,30",
+        description: "（可选）响铃时长（分钟），枚举值：1,5,10,15,20,30",
       },
       daysOfWakeType: {
         type: "number",
-        description: "闹钟响铃类型：0=单次，1=法定节假日，2=每天，3=自定义，4=法定工作日",
+        description: "（可选）闹钟响铃类型，枚举值：0=单次，1=法定节假日，2=每天，3=自定义，4=法定工作日",
       },
       daysOfWeek: {
         // 不指定 type，允许传入数组或 JSON 字符串
         // 具体的类型验证和转换在 execute 函数内部进行
-        description: "自定义响铃星期（仅当daysOfWakeType=3时需要，其他情况不要传递），数组或JSON字符串，枚举值：Mon,Tues,Wed,Thur,Fri,Sat,Sun。",
+        description: "（可选）自定义响铃星期，仅当daysOfWakeType=3（自定义时间）时必需且有效，其他情况不要传递此参数。数组或JSON字符串，枚举值：Mon,Tues,Wed,Thur,Fri,Sat,Sun",
       },
     },
     required: ["entityId"],

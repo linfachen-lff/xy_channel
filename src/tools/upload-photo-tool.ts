@@ -17,7 +17,7 @@ import type { A2ADataEvent } from "../types.js";
 export const uploadPhotoTool: any = {
   name: "upload_photo",
   label: "Upload Photo",
-  description: `工具能力描述：将手机本地文件回传并获取可公网访问的 URL。
+  description: `工具能力描述：将用户本地设备文件回传并获取可公网访问的 URL。
   
   前置工具调用：此工具使用前必须先调用 search_photo_gallery 工具获取照片的 mediaUri或者thumbnailUri
   工具参数说明：

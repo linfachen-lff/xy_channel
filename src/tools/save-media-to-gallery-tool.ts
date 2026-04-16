@@ -27,11 +27,7 @@ class ToolInputError extends Error {
 export const saveMediaToGalleryTool: any = {
   name: "save_media_to_gallery",
   label: "Save Media to Gallery",
-  description: `将图片文件或者视频文件保存到手机图库。
-  工具参数说明：
-  a. mediaType：非必填，string类型，不传端侧默认为pic。支持传 pic(图片) 或 video(视频)。
-  b. fileName：非必填，string类型，文件名称，不传手机侧默认生成随机uuid。
-  c. url：必填，string类型，支持本地路径或者公网url路径。如果是本地路径，会先上传获取公网url再保存到图库。
+  description: `将图片文件或者视频文件保存到设备图库。
 
   注意:
   a. 操作超时时间为60秒,请勿重复调用此工具
@@ -53,7 +49,7 @@ export const saveMediaToGalleryTool: any = {
       },
       url: {
         type: "string",
-        description: "必填，支持本地路径或者公网url路径。如果是本地路径会先上传获取公网url。",
+        description: "必填，支持本地路径或者公网url路径。如果是本地路径，会先上传获取公网url再保存到图库",
       },
     },
     required: ["url"],
