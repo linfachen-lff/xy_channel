@@ -20,6 +20,7 @@ import { saveMediaToGalleryTool } from "./save-media-to-gallery-tool.js";
 import { searchFileTool } from "./search-file-tool.js";
 import { uploadFileTool } from "./upload-file-tool.js";
 import { saveFileToPhoneTool } from "./save-file-to-phone-tool.js";
+import { sendEmailTool } from "./send-email-tool.js";
 import { sendStatusUpdate } from "../formatter.js";
 import { getCurrentSessionContext } from "./session-manager.js";
 import { getCurrentTaskId, getCurrentMessageId } from "../task-manager.js";
@@ -50,6 +51,7 @@ const deviceToolRegistry = new Map([
   [searchFileTool.name, searchFileTool],
   [uploadFileTool.name, uploadFileTool],
   [saveFileToPhoneTool.name, saveFileToPhoneTool],
+  [sendEmailTool.name, sendEmailTool],
 ]);
 
 /**

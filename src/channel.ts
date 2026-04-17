@@ -12,7 +12,7 @@ import { sendFileToUserTool } from "./tools/send-file-to-user-tool.js";
 import { viewPushResultTool } from "./tools/view-push-result-tool.js";
 import { imageReadingTool } from "./tools/image-reading-tool.js";
 import { timestampToUtc8Tool } from "./tools/timestamp-to-utc8-tool.js";
-import { searchEmailTool } from "./tools/search-email-tool.js";
+import { getEmailToolSchemaTool } from "./tools/get-email-tool-schema.js";
 import { callDeviceTool } from "./tools/call-device-tool.js";
 import { getNoteToolSchemaTool } from "./tools/get-note-tool-schema.js";
 import { getCalendarToolSchemaTool } from "./tools/get-calendar-tool-schema.js";
@@ -72,7 +72,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   agentTools: () => {
-    const allTools = [locationTool, callDeviceTool, getNoteToolSchemaTool, getCalendarToolSchemaTool, getContactToolSchemaTool, getPhotoToolSchemaTool, xiaoyiGuiTool, getDeviceFileToolSchemaTool, getAlarmToolSchemaTool, getCollectionToolSchemaTool, sendFileToUserTool, viewPushResultTool, imageReadingTool, timestampToUtc8Tool, searchEmailTool];
+    const allTools = [locationTool, callDeviceTool, getNoteToolSchemaTool, getCalendarToolSchemaTool, getContactToolSchemaTool, getPhotoToolSchemaTool, xiaoyiGuiTool, getDeviceFileToolSchemaTool, getAlarmToolSchemaTool, getCollectionToolSchemaTool, getEmailToolSchemaTool, sendFileToUserTool, viewPushResultTool, imageReadingTool, timestampToUtc8Tool];
     const ctx = getCurrentSessionContext();
     const filtered = filterToolsByDevice(allTools, ctx?.deviceType);
     logger.log(`[DEVICE-FILTER] deviceType=${ctx?.deviceType ?? "(none)"}, tools: ${allTools.length} → ${filtered.length} (${filtered.map(t => t.name).join(", ")})`);
