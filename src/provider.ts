@@ -154,7 +154,7 @@ export const xiaoyiProvider: ProviderPlugin = {
       if (sessionCtx?.deviceType) {
         const rawDevice = sessionCtx.deviceType;
         const displayDevice = (rawDevice === "2in1") ? "鸿蒙PC" : rawDevice;
-        const deviceSection = `\n\n## Current User Device Context\nThe current user is using the following device: ${displayDevice}\n`;
+        const deviceSection = `\n\n## Current User Device Context\nThe current user is using the following device: ${displayDevice}\nYou need to be aware of the user’s current device and provide guidance accordingly. If the response involves device-related tools or actions, you must tailor the reply based on the user’s current device, using device-specific references such as “saved to the Notes/Calendar on your {deviceType}.\n”`;
         context.systemPrompt = (context.systemPrompt ?? "") + deviceSection;
       }
 
