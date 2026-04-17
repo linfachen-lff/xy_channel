@@ -24,9 +24,11 @@ const DEVICE_TOOL_POLICY: Partial<Record<DeviceType, DeviceToolPolicy>> = {
       "send_message",
       "search_message",
       "search_contact",
+      "get_contact_tool_schema",
       "query_collection",
       "add_collection",
       "delete_collection",
+      "get_collection_tool_schema",
     ],
   },
 };

@@ -1,0 +1,129 @@
+import { noteTool } from "./note-tool.js";
+import { searchNoteTool } from "./search-note-tool.js";
+import { modifyNoteTool } from "./modify-note-tool.js";
+import { createAlarmTool } from "./create-alarm-tool.js";
+import { searchAlarmTool } from "./search-alarm-tool.js";
+import { modifyAlarmTool } from "./modify-alarm-tool.js";
+import { deleteAlarmTool } from "./delete-alarm-tool.js";
+import { searchContactTool } from "./search-contact-tool.js";
+import { callPhoneTool } from "./call-phone-tool.js";
+import { searchMessageTool } from "./search-message-tool.js";
+import { sendMessageTool } from "./send-message-tool.js";
+import { xiaoyiAddCollectionTool } from "./xiaoyi-add-collection-tool.js";
+import { xiaoyiCollectionTool } from "./xiaoyi-collection-tool.js";
+import { xiaoyiDeleteCollectionTool } from "./xiaoyi-delete-collection-tool.js";
+import { calendarTool } from "./calendar-tool.js";
+import { searchCalendarTool } from "./search-calendar-tool.js";
+import { searchPhotoGalleryTool } from "./search-photo-gallery-tool.js";
+import { uploadPhotoTool } from "./upload-photo-tool.js";
+import { saveMediaToGalleryTool } from "./save-media-to-gallery-tool.js";
+import { searchFileTool } from "./search-file-tool.js";
+import { uploadFileTool } from "./upload-file-tool.js";
+import { saveFileToPhoneTool } from "./save-file-to-phone-tool.js";
+import { sendStatusUpdate } from "../formatter.js";
+import { getCurrentSessionContext } from "./session-manager.js";
+import { getCurrentTaskId, getCurrentMessageId } from "../task-manager.js";
+
+/**
+ * 端工具注册表 —— 按 name 索引所有可通过 call_device_tool 调度的工具。
+ */
+const deviceToolRegistry = new Map([
+  [noteTool.name, noteTool],
+  [searchNoteTool.name, searchNoteTool],
+  [modifyNoteTool.name, modifyNoteTool],
+  [createAlarmTool.name, createAlarmTool],
+  [searchAlarmTool.name, searchAlarmTool],
+  [modifyAlarmTool.name, modifyAlarmTool],
+  [deleteAlarmTool.name, deleteAlarmTool],
+  [searchContactTool.name, searchContactTool],
+  [callPhoneTool.name, callPhoneTool],
+  [searchMessageTool.name, searchMessageTool],
+  [sendMessageTool.name, sendMessageTool],
+  [xiaoyiAddCollectionTool.name, xiaoyiAddCollectionTool],
+  [xiaoyiCollectionTool.name, xiaoyiCollectionTool],
+  [xiaoyiDeleteCollectionTool.name, xiaoyiDeleteCollectionTool],
+  [calendarTool.name, calendarTool],
+  [searchCalendarTool.name, searchCalendarTool],
+  [searchPhotoGalleryTool.name, searchPhotoGalleryTool],
+  [uploadPhotoTool.name, uploadPhotoTool],
+  [saveMediaToGalleryTool.name, saveMediaToGalleryTool],
+  [searchFileTool.name, searchFileTool],
+  [uploadFileTool.name, uploadFileTool],
+  [saveFileToPhoneTool.name, saveFileToPhoneTool],
+]);
+
+/**
+ * call_device_tool - 通用端工具调度器。
+ * LLM 必须先通过 get_xxx_tool_schema 获取具体工具 schema，再用本工具执行。
+ */
+export const callDeviceTool: any = {
+  name: "call_device_tool",
+  label: "Call Device Tool",
+  description: "用户设备侧工具调用。必须先调用get_xxx_tool_schema获取了具体的工具schema，才能使用本工具执行对应设备侧工具。",
+  parameters: {
+    type: "object",
+    properties: {
+      toolName: {
+        type: "string",
+        description: "要调用的具体端工具名称，即get_xxx_tool_schema返回的工具的name",
+      },
+      arguments: {
+        type: "object",
+        description: "工具所需的具体参数JSON键值对",
+      },
+    },
+    required: ["toolName", "arguments"],
+  },
+  async execute(toolCallId: string, params: any) {
+    const { toolName, arguments: toolArgs } = params;
+
+    // 向用户端发送具体工具名的状态更新
+    const ctx = getCurrentSessionContext();
+    if (ctx) {
+      const currentTaskId = getCurrentTaskId(ctx.sessionId) ?? ctx.taskId;
+      const currentMessageId = getCurrentMessageId(ctx.sessionId) ?? ctx.messageId;
+      try {
+        await sendStatusUpdate({
+          config: ctx.config,
+          sessionId: ctx.sessionId,
+          taskId: currentTaskId,
+          messageId: currentMessageId,
+          text: `正在使用工具: ${toolName}...`,
+          state: "working",
+        });
+      } catch (_) {
+        // 状态更新失败不影响工具执行
+      }
+    }
+
+    const tool = deviceToolRegistry.get(toolName);
+    if (!tool) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `端工具${toolName}不存在。请确保toolName为get_xxx_tool_schema返回的工具的name。`,
+          },
+        ],
+      };
+    }
+
+    try {
+      return await tool.execute(toolCallId, toolArgs);
+    } catch (error: any) {
+      // ToolInputError (.name === "ToolInputError") 或其他参数校验错误
+      if (error.name === "ToolInputError") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `端工具参数错误：${error.message}。请确保arguments符合get_xxx_tool_schema返回的工具schema。`,
+            },
+          ],
+        };
+      }
+      // 非参数错误（网络超时等），直接向上抛出
+      throw error;
+    }
+  },
+};

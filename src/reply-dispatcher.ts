@@ -315,6 +315,13 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
 
         if (phase === "start") {
           const toolName = name || "unknown";
+
+          // call_device_tool 由自身 execute() 内部发送具体子工具名的状态更新
+          if (toolName === "call_device_tool") {
+            log(`[TOOL START] Skipping generic status for call_device_tool, will be handled by execute()`);
+            return;
+          }
+
           try {
             await sendStatusUpdate({
               config,

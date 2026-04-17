@@ -19,7 +19,7 @@ export const uploadPhotoTool: any = {
   label: "Upload Photo",
   description: `工具能力描述：将用户本地设备文件回传并获取可公网访问的 URL。
   
-  前置工具调用：此工具使用前必须先调用 search_photo_gallery 工具获取照片的 mediaUri或者thumbnailUri
+  前置工具调用：此工具使用前必须先通过call_device_tool工具调用 search_photo_gallery 工具获取照片的 mediaUri或者thumbnailUri
   工具参数说明：
   a. 入参中的mediaUris中的mediaUri必须与search_photo_gallery结果中对应的mediaUri或者thumbnailUri完全保持一致，不要自行修改，必须是file:://开头的路径。
   b. 优先使用search_photo_gallery结果中的thumbnailUri作为入参，thumbnailUri是缩略图，清晰度与文件大小都非常合适展示给用户，如果thumbnailUri不存在或者用户要求使用原图，则使用search_photo_gallery结果中对应的mediaUri

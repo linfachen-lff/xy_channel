@@ -23,7 +23,7 @@ export const uploadFileTool: any = {
   label: "Upload File",
   description: `工具能力描述：将用户本地设备文件上传并获取可公网访问的 URL。
 
-  前置工具调用：此工具使用前必须先调用 search_file 或者 query_collection 工具获取文件的 uri
+  前置工具调用：此工具使用前必须先通过call_device_tool调用 search_file 或者 query_collection 工具获取文件的 uri
 
   工具参数说明：
   a. 入参中的fileInfos数组，每个元素必须包含mediaUri字段（对应于search_file工具或者query_collection返回结果中的uri），必须与search_file或者query_collection结果中对应的uri完全保持一致，不要自行修改。
