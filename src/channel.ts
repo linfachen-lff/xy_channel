@@ -12,8 +12,7 @@ import { sendFileToUserTool } from "./tools/send-file-to-user-tool.js";
 import { viewPushResultTool } from "./tools/view-push-result-tool.js";
 import { imageReadingTool } from "./tools/image-reading-tool.js";
 import { timestampToUtc8Tool } from "./tools/timestamp-to-utc8-tool.js";
-import { sendEmailTool } from "./tools/send-email-tool.js";
-import { searchEmailTool } from "./tools/search-email-tool.js";
+import { getEmailToolSchemaTool } from "./tools/get-email-tool-schema.js";
 import { callDeviceTool } from "./tools/call-device-tool.js";
 import { getNoteToolSchemaTool } from "./tools/get-note-tool-schema.js";
 import { getCalendarToolSchemaTool } from "./tools/get-calendar-tool-schema.js";
@@ -22,6 +21,9 @@ import { getPhotoToolSchemaTool } from "./tools/get-photo-tool-schema.js";
 import { getDeviceFileToolSchemaTool } from "./tools/get-device-file-tool-schema.js";
 import { getAlarmToolSchemaTool } from "./tools/get-alarm-tool-schema.js";
 import { getCollectionToolSchemaTool } from "./tools/get-collection-tool-schema.js";
+import { queryAppMessageTool } from "./tools/query-app-message-tool.js";
+import { queryMemoryDataTool } from "./tools/query-memory-data-tool.js";
+import { queryTodoTaskTool } from "./tools/query-todo-task-tool.js";
 import { filterToolsByDevice } from "./tools/device-tool-map.js";
 import { getCurrentSessionContext } from "./tools/session-manager.js";
 import { getXYWebSocketManager } from "./client.js";
@@ -73,7 +75,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   agentTools: () => {
-    const allTools = [locationTool, callDeviceTool, getNoteToolSchemaTool, getCalendarToolSchemaTool, getContactToolSchemaTool, getPhotoToolSchemaTool, xiaoyiGuiTool, getDeviceFileToolSchemaTool, getAlarmToolSchemaTool, getCollectionToolSchemaTool, sendFileToUserTool, viewPushResultTool, imageReadingTool, timestampToUtc8Tool];
+    const allTools = [locationTool, callDeviceTool, getNoteToolSchemaTool, getCalendarToolSchemaTool, getContactToolSchemaTool, getPhotoToolSchemaTool, xiaoyiGuiTool, getDeviceFileToolSchemaTool, getAlarmToolSchemaTool, getCollectionToolSchemaTool, sendFileToUserTool, viewPushResultTool, imageReadingTool, timestampToUtc8Tool, getEmailToolSchemaTool, queryAppMessageTool, queryMemoryDataTool, queryTodoTaskTool];
     const ctx = getCurrentSessionContext();
     const filtered = filterToolsByDevice(allTools, ctx?.deviceType);
     logger.log(`[DEVICE-FILTER] deviceType=${ctx?.deviceType ?? "(none)"}, tools: ${allTools.length} → ${filtered.length} (${filtered.map(t => t.name).join(", ")})`);
