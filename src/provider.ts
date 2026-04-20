@@ -15,14 +15,12 @@ import { getCurrentSessionContext } from "./tools/session-manager.js";
 const RETRY_DELAYS_MS = [10_000, 20_000, 40_000, 60_000];
 const MAX_RETRY_ATTEMPTS = 6;
 
-/** Check if an errorMessage is a retryable provider error. */
+/** Check if an errorMessage indicates a retryable provider error by type. */
 function isRetryableProviderError(message: string | undefined): boolean {
   if (!message) return false;
   const lower = message.toLowerCase();
-  // server_error: "The server had an error while processing your request"
-  if (lower.includes("server_error") || lower.includes("server had an error")) return true;
-  // rate_limit_error: "Rate limit reached for requests"
-  if (lower.includes("rate_limit") || lower.includes("rate limit reached")) return true;
+  if (lower.includes("server_error")) return true;
+  if (lower.includes("rate_limit_error")) return true;
   return false;
 }
 
