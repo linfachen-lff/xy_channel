@@ -24,11 +24,13 @@ function isRetryableProviderError(message: string | undefined): boolean {
   return false;
 }
 
-/** Compute retry delay in ms for the given 1-based attempt. */
+/** Compute retry delay in ms for the given 1-based attempt, with up to 10s jitter. */
 function getRetryDelayMs(attempt: number): number {
-  // attempt 1→10s, 2→20s, 3→40s, 4+→60s
-  if (attempt <= RETRY_DELAYS_MS.length) return RETRY_DELAYS_MS[attempt - 1];
-  return RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1]; // 60s cap
+  const base = attempt <= RETRY_DELAYS_MS.length
+    ? RETRY_DELAYS_MS[attempt - 1]
+    : RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
+  const jitter = Math.floor(Math.random() * 10_000);
+  return base + jitter;
 }
 
 function sleep(ms: number): Promise<void> {
