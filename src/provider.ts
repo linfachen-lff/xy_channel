@@ -8,8 +8,35 @@
 //   models.providers.xiaoyiprovider.api = "openai-completions"
 //   models.providers.xiaoyiprovider.models = [...]
 import { createHash } from "crypto";
+import { createAssistantMessageEventStream } from "@mariozechner/pi-ai";
 import type { ProviderPlugin } from "openclaw/plugin-sdk/provider-models";
 import { getCurrentSessionContext } from "./tools/session-manager.js";
+
+// ── Retry config ──────────────────────────────────────────────
+const RETRY_DELAYS_MS = [10_000, 20_000, 40_000, 60_000];
+const MAX_RETRY_ATTEMPTS = 6;
+
+/** Check if an errorMessage is a retryable provider error. */
+function isRetryableProviderError(message: string | undefined): boolean {
+  if (!message) return false;
+  const lower = message.toLowerCase();
+  // server_error: "The server had an error while processing your request"
+  if (lower.includes("server_error") || lower.includes("server had an error")) return true;
+  // rate_limit_error: "Rate limit reached for requests"
+  if (lower.includes("rate_limit") || lower.includes("rate limit reached")) return true;
+  return false;
+}
+
+/** Compute retry delay in ms for the given 1-based attempt. */
+function getRetryDelayMs(attempt: number): number {
+  // attempt 1→10s, 2→20s, 3→40s, 4+→60s
+  if (attempt <= RETRY_DELAYS_MS.length) return RETRY_DELAYS_MS[attempt - 1];
+  return RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1]; // 60s cap
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * Dynamic header keys injected via extraParams and forwarded to the HTTP request.
@@ -83,10 +110,12 @@ export const xiaoyiProvider: ProviderPlugin = {
 
   /**
    * Wrap the stream function to inject dynamic headers into every
-   * HTTP request to the model provider.
+   * HTTP request to the model provider, and retry on retryable errors
+   * (server_error / rate_limit_error) with backoff: 10s, 20s, 40s, 60s (cap).
    *
-   * Reads the values injected by prepareExtraParams and adds them
-   * as HTTP headers on the outgoing request.
+   * The retry loop awaits stream.result() to detect errors before deciding
+   * whether to retry. This keeps the agent loop waiting (no timeout risk
+   * since the default agent timeout is 48 hours).
    */
   wrapStreamFn: (ctx) => {
     const underlying = ctx.streamFn;
@@ -154,27 +183,73 @@ export const xiaoyiProvider: ProviderPlugin = {
       if (sessionCtx?.deviceType) {
         const rawDevice = sessionCtx.deviceType;
         const displayDevice = (rawDevice === "2in1") ? "鸿蒙PC" : rawDevice;
-        const deviceSection = `\n\n## Current User Device Context\nThe current user is using the following device: ${displayDevice}\nYou need to be aware of the user’s current device and provide guidance accordingly. If the response involves device-related tools or actions, you must tailor the reply based on the user’s current device, using device-specific references such as “saved to the Notes/Calendar on your {deviceType}.\n”`;
+        const deviceSection = `\n\n## Current User Device Context\nThe current user is using the following device: ${displayDevice}\nYou need to be aware of the user's current device and provide guidance accordingly. If the response involves device-related tools or actions, you must tailor the reply based on the user's current device, using device-specific references such as "saved to the Notes/Calendar on your {deviceType}.\n"`;
         context.systemPrompt = (context.systemPrompt ?? "") + deviceSection;
       }
 
-      const stream = await underlying(model, context, {
+      // ── Retry loop ─────────────────────────────────────────
+      for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+        const stream = await underlying(model, context, {
+          ...options,
+          headers: {
+            ...options?.headers,
+            ...dynamicHeaders,
+          },
+        });
+
+        // Wait for the stream to settle (done or error) to inspect the result.
+        // stream.result() resolves to the final AssistantMessage (even on error).
+        const result = await stream.result();
+
+        // Check if this is a retryable error
+        if (result.stopReason === "error" && isRetryableProviderError(result.errorMessage)) {
+          const delayMs = getRetryDelayMs(attempt);
+          console.log(
+            `[xiaoyiprovider] retryable error (attempt ${attempt + 1}/${MAX_RETRY_ATTEMPTS}): ` +
+            `${result.errorMessage} — retrying in ${delayMs}ms`,
+          );
+          await sleep(delayMs);
+          continue;
+        }
+
+        // Success or non-retryable error — log and return
+        if (result.stopReason === "error") {
+          console.log(`[xiaoyiprovider] non-retryable error: ${result.errorMessage}`);
+        } else {
+          console.log(
+            `[xiaoyiprovider] stream completed, usage: input=${result.usage?.input} output=${result.usage?.output}`,
+          );
+        }
+
+        // The original stream has already been consumed by result().
+        // We need to return a new stream that replays the result.
+        const replayStream = createAssistantMessageEventStream();
+
+        // Re-emit events from the result as a single done/error event
+        if (result.stopReason === "error") {
+          replayStream.push({ type: "error", reason: "error", error: result });
+        } else {
+          replayStream.push({ type: "done", reason: result.stopReason as "stop", message: result });
+        }
+        replayStream.end();
+
+        return replayStream;
+      }
+
+      // All retries exhausted — return the last attempt's real error via a new stream
+      console.log(`[xiaoyiprovider] all ${MAX_RETRY_ATTEMPTS} retries exhausted, surfacing last error`);
+      const lastStream = await underlying(model, context, {
         ...options,
         headers: {
           ...options?.headers,
           ...dynamicHeaders,
         },
       });
-
-      // 异步监听输出（不阻塞 stream 返回）
-      stream.result().then(
-        (result) => {
-          console.log(`[xiaoyiprovider] stream completed, usage: input=${result.usage?.input} output=${result.usage?.output}`);
-        },
-        (err) => console.log(`[xiaoyiprovider] stream error: ${JSON.stringify(err)}`),
-      );
-
-      return stream;
+      const lastResult = await lastStream.result();
+      const exhaustedStream = createAssistantMessageEventStream();
+      exhaustedStream.push({ type: "error", reason: "error", error: lastResult });
+      exhaustedStream.end();
+      return exhaustedStream;
     };
   },
 };
