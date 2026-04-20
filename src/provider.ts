@@ -8,7 +8,6 @@
 //   models.providers.xiaoyiprovider.api = "openai-completions"
 //   models.providers.xiaoyiprovider.models = [...]
 import { createHash } from "crypto";
-import { createAssistantMessageEventStream } from "@mariozechner/pi-ai";
 import type { ProviderPlugin } from "openclaw/plugin-sdk/provider-models";
 import { getCurrentSessionContext } from "./tools/session-manager.js";
 
@@ -36,6 +35,38 @@ function getRetryDelayMs(attempt: number): number {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Build a minimal EventStream-compatible object that replays a single
+ * done/error event. This avoids importing @mariozechner/pi-ai at runtime
+ * (the package is not available in the extension sandbox).
+ */
+function buildReplayStream(result: any): any {
+  let settled = false;
+  const queued: any[] = [
+    result.stopReason === "error"
+      ? { type: "error", reason: "error", error: result }
+      : { type: "done", reason: result.stopReason, message: result },
+  ];
+
+  return {
+    result: () => Promise.resolve(result),
+    push: () => {},
+    end: () => {},
+    [Symbol.asyncIterator]: () => {
+      return {
+        next: async () => {
+          if (settled || queued.length === 0) {
+            settled = true;
+            return { value: undefined, done: true };
+          }
+          settled = true;
+          return { value: queued.shift(), done: false };
+        },
+      };
+    },
+  };
 }
 
 /**
@@ -222,18 +253,8 @@ export const xiaoyiProvider: ProviderPlugin = {
         }
 
         // The original stream has already been consumed by result().
-        // We need to return a new stream that replays the result.
-        const replayStream = createAssistantMessageEventStream();
-
-        // Re-emit events from the result as a single done/error event
-        if (result.stopReason === "error") {
-          replayStream.push({ type: "error", reason: "error", error: result });
-        } else {
-          replayStream.push({ type: "done", reason: result.stopReason as "stop", message: result });
-        }
-        replayStream.end();
-
-        return replayStream;
+        // Build a replay stream that delivers the final result.
+        return buildReplayStream(result);
       }
 
       // All retries exhausted — return the last attempt's real error via a new stream
@@ -246,10 +267,7 @@ export const xiaoyiProvider: ProviderPlugin = {
         },
       });
       const lastResult = await lastStream.result();
-      const exhaustedStream = createAssistantMessageEventStream();
-      exhaustedStream.push({ type: "error", reason: "error", error: lastResult });
-      exhaustedStream.end();
-      return exhaustedStream;
+      return buildReplayStream(lastResult);
     };
   },
 };
