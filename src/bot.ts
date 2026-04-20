@@ -3,12 +3,13 @@ import type { ClawdbotConfig, RuntimeEnv, ReplyPayload } from "openclaw/plugin-s
 import { getXYRuntime } from "./runtime.js";
 import { setCachedContext } from "./steer-injector.js";
 import { createXYReplyDispatcher } from "./reply-dispatcher.js";
-import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractDeviceType, extractTriggerData, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
+import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractDeviceType, extractTriggerData, extractSelfEvolutionEnabled, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
 import { downloadFilesFromParts } from "./file-download.js";
 import { resolveXYConfig } from "./config.js";
 import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse, sendA2AResponse } from "./formatter.js";
 import { registerSession, unregisterSession, runWithSessionContext } from "./tools/session-manager.js";
 import { configManager } from "./utils/config-manager.js";
+import { selfEvolutionManager } from "./utils/self-evolution-manager.js";
 import { addPushId } from "./utils/pushid-manager.js";
 import { getPushDataById } from "./utils/pushdata-manager.js";
 import { saveRuntimeInfo } from "./utils/runtime-manager.js";
@@ -21,6 +22,11 @@ import {
   hasActiveTask,
 } from "./task-manager.js";
 import type { A2AJsonRpcRequest } from "./types.js";
+
+const SELF_EVOLUTION_DISABLED_USER_MESSAGE =
+  "用户刚刚关闭了“自进化”功能。从现在开始，你不得再创建、修改或追加任何 skill；仅继续完成当前正常对话任务。";
+const SELF_EVOLUTION_ENABLED_USER_MESSAGE =
+  "用户刚刚重新开启了“自进化”功能。从现在开始，你可以在识别到稳定、可复用的经验时，通过 save_self_evolution_skill 工具保存 skill；不要保存隐私、密钥、临时路径或一次性上下文。";
 
 /**
  * Parameters for handling an XY message.
@@ -177,6 +183,17 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       log(`[BOT] 📱 Extracted deviceType from user message: ${deviceType}`);
     }
 
+    const selfEvolutionEnabled = extractSelfEvolutionEnabled(parsed.parts);
+    const selfEvolutionState = selfEvolutionManager.applySignal(
+      parsed.sessionId,
+      selfEvolutionEnabled,
+    );
+    if (selfEvolutionEnabled !== null) {
+      log(
+        `[BOT] Self-evolution updated: enabled=${selfEvolutionState.enabled}, justEnabled=${selfEvolutionState.justEnabled}, justDisabled=${selfEvolutionState.justDisabled}`,
+      );
+    }
+
     // 保存 runtime 信息到 .xiaoyiruntime 文件（异步，不阻塞主流程）
     saveRuntimeInfo(
       webSocketSessionId || parsed.sessionId, // SESSION_ID (WebSocket 层级，如果没有则 fallback)
@@ -227,6 +244,13 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     // Extract text and files from parts
     const text = extractTextFromParts(parsed.parts);
+    let controlMessage = "";
+    if (selfEvolutionState.justEnabled) {
+      controlMessage = SELF_EVOLUTION_ENABLED_USER_MESSAGE;
+    } else if (selfEvolutionState.justDisabled) {
+      controlMessage = SELF_EVOLUTION_DISABLED_USER_MESSAGE;
+    }
+    const augmentedText = [text, controlMessage].filter(Boolean).join("\n\n");
     const fileParts = extractFileParts(parsed.parts);
 
     // Download files to local disk
@@ -238,7 +262,7 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     const envelopeOptions = core.channel.reply.resolveEnvelopeFormatOptions(cfg);
 
     // Build message body with speaker prefix (following feishu pattern)
-    let messageBody = text || "";
+    let messageBody = augmentedText || "";
 
     // Add speaker prefix for clarity
     const speaker = parsed.sessionId;
@@ -257,8 +281,8 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     // Use route.accountId and route.sessionKey instead of parsed fields
     const ctxPayload = core.channel.reply.finalizeInboundContext({
       Body: body,
-      RawBody: text || "",
-      CommandBody: text || "",
+      RawBody: augmentedText || "",
+      CommandBody: augmentedText || "",
       From: parsed.sessionId,
       To: parsed.sessionId,  // ✅ Simplified: use sessionId as target (context is managed by SessionKey)
       SessionKey: route.sessionKey,  // ✅ Use route.sessionKey

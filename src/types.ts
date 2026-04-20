@@ -77,6 +77,15 @@ export interface A2ADataPart {
   kind: "data";
   data: {
     event?: A2ADataEvent;
+    variables?: {
+      systemVariables?: {
+        push_id?: string;
+        device_type?: string;
+        self_evolution_enabled?: boolean | string | number;
+        [key: string]: any;
+      };
+      [key: string]: any;
+    };
     [key: string]: any;
   };
 }

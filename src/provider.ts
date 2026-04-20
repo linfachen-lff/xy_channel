@@ -10,6 +10,7 @@
 import { createHash } from "crypto";
 import type { ProviderPlugin } from "openclaw/plugin-sdk/provider-models";
 import { getCurrentSessionContext } from "./tools/session-manager.js";
+import { selfEvolutionManager } from "./utils/self-evolution-manager.js";
 
 // ── Retry config ──────────────────────────────────────────────
 const RETRY_DELAYS_MS = [10_000, 20_000, 40_000, 60_000];
@@ -77,6 +78,19 @@ function buildReplayStream(result: any): any {
 const HEADER_TRACE_ID = "x-hag-trace-id";
 const HEADER_SESSION_ID = "x-session-id";
 const HEADER_INTERACTION_ID = "x-interaction-id";
+const SELF_EVOLUTION_PROMPT_SECTION = `
+
+## Self Evolution
+If the user has enabled self-evolution, you may save generalized lessons learned as reusable OpenClaw skills.
+
+Rules:
+- Save lessons only when they are stable, reusable, and likely to help in future tasks.
+- Use the explicit \`save_self_evolution_skill\` tool to persist a skill.
+- Abstract the lesson before saving it. Remove one-off context and keep the guidance broadly reusable.
+- Never save secrets, tokens, passwords, private identifiers, temporary paths, or session-specific data.
+- Do not save guesses or noisy observations. Save only high-confidence operational guidance.
+- If the user later disables self-evolution, stop creating or modifying skills immediately.
+`.trim();
 
 /**
  * Encode uid via SHA-256 and take first 32 hex chars.
@@ -171,6 +185,7 @@ export const xiaoyiProvider: ProviderPlugin = {
       if (context.systemPrompt) {
         console.log(`[xiaoyiprovider] system prompt length: ${context.systemPrompt.length}`);
       }
+      const sessionCtx = getCurrentSessionContext();
 
       // 在发送给模型前，优化 systemPrompt 结构
       if (context.systemPrompt) {
@@ -209,8 +224,16 @@ export const xiaoyiProvider: ProviderPlugin = {
         context.systemPrompt = sp;
       }
 
+      if (selfEvolutionManager.shouldInjectPrompt(sessionCtx?.sessionId)) {
+        const prompt = context.systemPrompt ?? "";
+        if (!prompt.includes("## Self Evolution")) {
+          context.systemPrompt = [prompt, SELF_EVOLUTION_PROMPT_SECTION]
+            .filter(Boolean)
+            .join("\n\n");
+        }
+      }
+
       // Append device context to systemPrompt
-      const sessionCtx = getCurrentSessionContext();
       if (sessionCtx?.deviceType) {
         const rawDevice = sessionCtx.deviceType;
         const displayDevice = (rawDevice === "2in1") ? "鸿蒙PC" : rawDevice;
