@@ -7,6 +7,7 @@ import { handleXYMessage } from "./bot.js";
 import { parseA2AMessage } from "./parser.js";
 import { hasActiveTask } from "./task-manager.js";
 import { handleTriggerEvent } from "./trigger-handler.js";
+import { handleSelfEvolutionEvent } from "./self-evolution-handler.js";
 import { cleanupStaleTempFiles } from "./reply-dispatcher.js";
 
 export type MonitorXYOpts = {
@@ -189,6 +190,11 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       });
     };
 
+    const selfEvolutionHandler = (context: any) => {
+      log(`[MONITOR] Received self-evolution-event, dispatching to handler...`);
+      handleSelfEvolutionEvent(context, runtime);
+    };
+
     const cleanup = () => {
       log("XY gateway: cleaning up...");
 
@@ -209,6 +215,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       wsManager.off("disconnected", disconnectedHandler);
       wsManager.off("error", errorHandler);
       wsManager.off("trigger-event", triggerEventHandler);
+      wsManager.off("self-evolution-event", selfEvolutionHandler);
 
       // ✅ Disconnect the wsManager to prevent connection leaks
       // This is safe because each gateway lifecycle should have clean connections
@@ -247,6 +254,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
     wsManager.on("disconnected", disconnectedHandler);
     wsManager.on("error", errorHandler);
     wsManager.on("trigger-event", triggerEventHandler);
+    wsManager.on("self-evolution-event", selfEvolutionHandler);
 
     // Start periodic health check (every 6 hours)
     console.log("🏥 Starting periodic health check (every 6 hours)...");
