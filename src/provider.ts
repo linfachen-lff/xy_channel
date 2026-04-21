@@ -237,7 +237,7 @@ const SELF_EVOLUTION_PROMPT_END = "</self_evolution_prompt>";
 const SELF_EVOLUTION_ENABLED_PROMPT_SECTION = `
 ${SELF_EVOLUTION_PROMPT_BEGIN}
 ## Self Evolution
-用户已启用自我进化。
+用户已启用自我进化(不管之前是什么状态，不管之前的对话记录，当前视作已开启即可)。
 当你识别出某个稳定、可复用的经验、调试模式或工作流程，并且它很可能对未来完成用户任务有帮助时，你可以考虑将其保存为可复用的经验。
 规则：
 • 仅针对持久、可泛化的经验这样做，不要保存任务特定的经验。
@@ -250,7 +250,7 @@ const SELF_EVOLUTION_DISABLED_PROMPT_SECTION = `
 ${SELF_EVOLUTION_PROMPT_BEGIN}
 ## Self Evolution
 用户当前已禁用自我进化。
-你不得执行自进化相关行为，并且应将此功能视为不可用(不管之前是否已经开启)。
+你不得执行自进化相关行为，并且应将此功能视为不可用(不管之前是什么状态，不管之前的对话记录，当前视作已关闭即可)。
 ${SELF_EVOLUTION_PROMPT_END}
 `.trim();
 

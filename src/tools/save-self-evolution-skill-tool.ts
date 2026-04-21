@@ -95,30 +95,30 @@ export const saveSelfEvolutionSkillTool: any = {
     properties: {
       title: {
         type: "string",
-        description: "Short, reusable title for the learned skill.",
+        description: "所学技能的简短、可复用标题。",
       },
       summary: {
         type: "string",
-        description: "One-sentence summary of the lesson.",
+        description: "技能的概括性总结，不要太长。",
       },
       when_to_use: {
         type: "string",
-        description: "Describe when this skill should be applied in future tasks.",
+        description: "描述在未来任务中什么情况/哪些条件下使用此技能。",
       },
       rules: {
         type: "array",
         items: { type: "string" },
-        description: "Concrete, reusable rules or checklist items.",
+        description: "具体、可复用的规则或checklist。",
       },
       examples: {
         type: "array",
         items: { type: "string" },
-        description: "Optional examples of the pitfall and the correct pattern.",
+        description: "陷阱示例以及正确模式示例，可选",
       },
       tags: {
         type: "array",
         items: { type: "string" },
-        description: "Optional tags for future discovery.",
+        description: "用于未来发现的标签，可选。",
       },
     },
     required: ["title", "summary", "when_to_use", "rules"],
