@@ -314,7 +314,10 @@ export const xiaoyiProvider: ProviderPlugin = {
         const sessionId = ctx.extraParams[HEADER_SESSION_ID];
         const interactionId = ctx.extraParams[HEADER_INTERACTION_ID];
 
-        if (typeof traceId === "string") dynamicHeaders[HEADER_TRACE_ID] = traceId;
+        if (typeof traceId === "string") {
+          const isCron = isCronTriggered(context.messages);
+          dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}` : traceId;
+        }
         if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
         if (typeof interactionId === "string") dynamicHeaders[HEADER_INTERACTION_ID] = interactionId;
       }
