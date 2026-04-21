@@ -231,6 +231,7 @@ export const xiaoyiProvider: ProviderPlugin = {
         // Wait for the stream to settle (done or error) to inspect the result.
         // stream.result() resolves to the final AssistantMessage (even on error).
         const result = await stream.result();
+        console.log("[provider] stream result:", result);
 
         // Check if this is a retryable error
         if (result.stopReason === "error" && isRetryableProviderError(result.errorMessage)) {
