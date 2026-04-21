@@ -14,24 +14,42 @@ import { selfEvolutionManager } from "./utils/self-evolution-manager.js";
 
 // ── Retry config ──────────────────────────────────────────────
 const RETRY_DELAYS_MS = [10_000, 20_000, 40_000, 60_000];
-const MAX_RETRY_ATTEMPTS = 6;
+const MAX_RETRY_ATTEMPTS = 8;
 
-/** Check if an errorMessage is a retryable provider error. */
+/** Check if an errorMessage indicates a retryable provider error by type. */
 function isRetryableProviderError(message: string | undefined): boolean {
   if (!message) return false;
   const lower = message.toLowerCase();
-  // server_error: "The server had an error while processing your request"
-  if (lower.includes("server_error") || lower.includes("server had an error")) return true;
-  // rate_limit_error: "Rate limit reached for requests"
-  if (lower.includes("rate_limit") || lower.includes("rate limit reached")) return true;
+  if (lower.includes("the server had an error while processing your request")) return true;
+  if (lower.includes("rate limit reached for requests")) return true;
   return false;
 }
 
-/** Compute retry delay in ms for the given 1-based attempt. */
-function getRetryDelayMs(attempt: number): number {
-  // attempt 1→10s, 2→20s, 3→40s, 4+→60s
-  if (attempt <= RETRY_DELAYS_MS.length) return RETRY_DELAYS_MS[attempt - 1];
-  return RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1]; // 60s cap
+/** Check if the request is triggered by a cron job by inspecting the first user message. */
+function isCronTriggered(messages: Array<{ role: string; content?: string | Array<{ type: string; text?: string }> }> | undefined): boolean {
+  if (!messages) return false;
+  const firstUser = messages.find(m => m.role === "user");
+  if (!firstUser) return false;
+  let text = "";
+  if (typeof firstUser.content === "string") {
+    text = firstUser.content;
+  } else if (Array.isArray(firstUser.content)) {
+    const block = firstUser.content.find(b => b.type === "text" && typeof b.text === "string");
+    if (block) text = block.text;
+  }
+  return /^\[cron:/i.test(text.trim());
+}
+
+/** Compute retry delay in ms for the given 1-based attempt, with up to 10s jitter. */
+function getRetryDelayMs(attempt: number, isCron = false): number {
+  if (isCron) {
+    return 60_000 + Math.floor(Math.random() * 10_000);
+  }
+  const base = attempt <= RETRY_DELAYS_MS.length
+    ? RETRY_DELAYS_MS[attempt - 1]
+    : RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
+  const jitter = Math.floor(Math.random() * 10_000);
+  return base + jitter;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -67,6 +85,141 @@ function buildReplayStream(result: any): any {
         },
       };
     },
+  };
+}
+
+/**
+ * Wrap the underlying stream with retry logic while preserving real-time streaming.
+ *
+ * Strategy:
+ *  1. Buffer events until the first content-bearing event is seen.
+ *  2. If the stream errors before any content, the buffer is tiny (start + error)
+ *     and we can safely retry with a fresh API call.
+ *  3. Once content events appear, flush the buffer and switch to pass-through mode
+ *     — the consumer sees every text_delta in real time.
+ */
+function createRetryingStream(
+  createStream: () => any,
+  cronJob: boolean,
+): any {
+  let resultResolve: (value: any) => void;
+  const resultPromise = new Promise<any>(resolve => { resultResolve = resolve; });
+
+  const CONTENT_EVENT_TYPES = new Set([
+    "text_start", "text_delta", "text_end",
+    "thinking_start", "thinking_delta", "thinking_end",
+    "toolcall_start", "toolcall_delta", "toolcall_end",
+  ]);
+
+  async function* retryGenerator() {
+    for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+      const stream = await createStream();
+      let hasContent = false;
+      const buffer: any[] = [];
+      let errorResult: any = null;
+
+      for await (const event of stream) {
+        const isContent = CONTENT_EVENT_TYPES.has(event.type);
+
+        if (!hasContent && !isContent) {
+          // ── Buffer phase (no content yet) ──
+          if (event.type === "done") {
+            console.log(
+              `[xiaoyiprovider] stream completed (no content), usage: input=${event.message?.usage?.input} output=${event.message?.usage?.output}`,
+            );
+            for (const b of buffer) yield b;
+            resultResolve(event.message);
+            yield event;
+            return;
+          }
+          if (event.type === "error") {
+            errorResult = event.error;
+          }
+          buffer.push(event);
+        } else {
+          // ── Streaming phase ──
+          if (!hasContent) {
+            console.log("[xiaoyiprovider] first content event received, switching to streaming mode");
+            hasContent = true;
+            for (const b of buffer) yield b;
+          }
+          // IMPORTANT: resolve result() BEFORE yielding terminal events to avoid deadlock.
+          // The SDK calls result() when it sees done/error — if we yield first, the generator
+          // suspends and can never reach resolve, causing a permanent deadlock.
+          if (event.type === "done") {
+            console.log(
+              `[xiaoyiprovider] stream completed, usage: input=${event.message?.usage?.input} output=${event.message?.usage?.output}`,
+            );
+            resultResolve(event.message);
+            yield event;
+            return;
+          }
+          if (event.type === "error") {
+            console.log(`[xiaoyiprovider] stream error after content: ${event.error?.errorMessage}`);
+            resultResolve(event.error);
+            yield event;
+            return;
+          }
+          yield event;
+        }
+      }
+
+      // Stream ended during buffer phase — decide whether to retry
+      if (errorResult?.stopReason === "error" && isRetryableProviderError(errorResult.errorMessage)) {
+        if (attempt < MAX_RETRY_ATTEMPTS - 1) {
+          const delayMs = getRetryDelayMs(attempt + 1, cronJob);
+          console.log(
+            `[xiaoyiprovider] retryable error (attempt ${attempt + 1}/${MAX_RETRY_ATTEMPTS}): ` +
+            `${errorResult.errorMessage} — retrying in ${delayMs}ms`,
+          );
+          await sleep(delayMs);
+          continue; // discard buffer, retry with a new stream
+        }
+        console.log(`[xiaoyiprovider] all ${MAX_RETRY_ATTEMPTS} retries exhausted, surfacing last error`);
+      } else if (errorResult) {
+        console.log(`[xiaoyiprovider] non-retryable error: ${errorResult.errorMessage}`);
+      }
+
+      // Non-retryable or retries exhausted — yield buffered events.
+      // Resolve before yielding the terminal event to avoid the same deadlock.
+      for (const b of buffer) {
+        if (b.type === "done") {
+          resultResolve(b.message);
+        } else if (b.type === "error") {
+          resultResolve(b.error);
+        }
+        yield b;
+      }
+      if (errorResult && buffer.every(b => b.type !== "done" && b.type !== "error")) {
+        resultResolve(errorResult);
+      }
+      return;
+    }
+
+    // Safety: final fallback attempt
+    console.log("[xiaoyiprovider] entering final fallback attempt");
+    const lastStream = await createStream();
+    for await (const event of lastStream) {
+      if (event.type === "done") {
+        resultResolve(event.message);
+        yield event;
+        return;
+      }
+      if (event.type === "error") {
+        resultResolve(event.error);
+        yield event;
+        return;
+      }
+      yield event;
+    }
+  }
+
+  const gen = retryGenerator();
+  return {
+    result: () => resultPromise,
+    push: () => {},
+    end: () => {},
+    [Symbol.asyncIterator]: () => gen,
   };
 }
 
@@ -171,7 +324,10 @@ export const xiaoyiProvider: ProviderPlugin = {
         const sessionId = ctx.extraParams[HEADER_SESSION_ID];
         const interactionId = ctx.extraParams[HEADER_INTERACTION_ID];
 
-        if (typeof traceId === "string") dynamicHeaders[HEADER_TRACE_ID] = traceId;
+        if (typeof traceId === "string") {
+          const isCron = isCronTriggered(context.messages);
+          dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}` : traceId;
+        }
         if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
         if (typeof interactionId === "string") dynamicHeaders[HEADER_INTERACTION_ID] = interactionId;
       }
@@ -237,56 +393,19 @@ export const xiaoyiProvider: ProviderPlugin = {
         context.systemPrompt = (context.systemPrompt ?? "") + deviceSection;
       }
 
-      // ── Retry loop ─────────────────────────────────────────
-      for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
-        const stream = await underlying(model, context, {
-          ...options,
-          headers: {
-            ...options?.headers,
-            ...dynamicHeaders,
-          },
-        });
+      // ── Retry-capable streaming ──────────────────────────────
+      const cronJob = isCronTriggered(context.messages);
+      if (cronJob) console.log("[xiaoyiprovider] detected cron-triggered request, using extended retry delays");
 
-        // Wait for the stream to settle (done or error) to inspect the result.
-        // stream.result() resolves to the final AssistantMessage (even on error).
-        const result = await stream.result();
-
-        // Check if this is a retryable error
-        if (result.stopReason === "error" && isRetryableProviderError(result.errorMessage)) {
-          const delayMs = getRetryDelayMs(attempt);
-          console.log(
-            `[xiaoyiprovider] retryable error (attempt ${attempt + 1}/${MAX_RETRY_ATTEMPTS}): ` +
-            `${result.errorMessage} — retrying in ${delayMs}ms`,
-          );
-          await sleep(delayMs);
-          continue;
-        }
-
-        // Success or non-retryable error — log and return
-        if (result.stopReason === "error") {
-          console.log(`[xiaoyiprovider] non-retryable error: ${result.errorMessage}`);
-        } else {
-          console.log(
-            `[xiaoyiprovider] stream completed, usage: input=${result.usage?.input} output=${result.usage?.output}`,
-          );
-        }
-
-        // The original stream has already been consumed by result().
-        // Build a replay stream that delivers the final result.
-        return buildReplayStream(result);
-      }
-
-      // All retries exhausted — return the last attempt's real error via a new stream
-      console.log(`[xiaoyiprovider] all ${MAX_RETRY_ATTEMPTS} retries exhausted, surfacing last error`);
-      const lastStream = await underlying(model, context, {
+      const makeStream = () => underlying(model, context, {
         ...options,
         headers: {
           ...options?.headers,
           ...dynamicHeaders,
         },
       });
-      const lastResult = await lastStream.result();
-      return buildReplayStream(lastResult);
+
+      return createRetryingStream(makeStream, cronJob);
     };
   },
 };
