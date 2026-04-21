@@ -491,6 +491,11 @@ export class XYWebSocketManager extends EventEmitter {
                   sessionId: sessionId,
                   taskId: a2aRequest.params?.id, // 新的 taskId（点击推送时生成）
                 });
+              } else if (item.header?.namespace === "AgentEvent" && item.header?.name === "ClawSelfEvolutionState") {
+                console.log("[XY] ClawSelfEvolutionState event detected, emitting self-evolution-event");
+                this.emit("self-evolution-event", {
+                  event: item,
+                });
               }
             }
           }
