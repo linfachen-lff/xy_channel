@@ -123,7 +123,9 @@ function createRetryingStream(
         if (!hasContent && !isContent) {
           // ── Buffer phase (no content yet) ──
           if (event.type === "done") {
-            // Success without content — flush buffer and finish
+            console.log(
+              `[xiaoyiprovider] stream completed (no content), usage: input=${event.message?.usage?.input} output=${event.message?.usage?.output}`,
+            );
             for (const b of buffer) yield b;
             resultResolve(event.message);
             yield event;
@@ -136,19 +138,28 @@ function createRetryingStream(
         } else {
           // ── Streaming phase ──
           if (!hasContent) {
-            // First content event — flush buffer then yield
+            console.log("[xiaoyiprovider] first content event received, switching to streaming mode");
             hasContent = true;
             for (const b of buffer) yield b;
           }
-          yield event;
+          // IMPORTANT: resolve result() BEFORE yielding terminal events to avoid deadlock.
+          // The SDK calls result() when it sees done/error — if we yield first, the generator
+          // suspends and can never reach resolve, causing a permanent deadlock.
           if (event.type === "done") {
+            console.log(
+              `[xiaoyiprovider] stream completed, usage: input=${event.message?.usage?.input} output=${event.message?.usage?.output}`,
+            );
             resultResolve(event.message);
+            yield event;
             return;
           }
           if (event.type === "error") {
+            console.log(`[xiaoyiprovider] stream error after content: ${event.error?.errorMessage}`);
             resultResolve(event.error);
+            yield event;
             return;
           }
+          yield event;
         }
       }
 
@@ -168,18 +179,37 @@ function createRetryingStream(
         console.log(`[xiaoyiprovider] non-retryable error: ${errorResult.errorMessage}`);
       }
 
-      // Non-retryable or retries exhausted — yield buffered events
-      for (const b of buffer) yield b;
-      resultResolve(errorResult);
+      // Non-retryable or retries exhausted — yield buffered events.
+      // Resolve before yielding the terminal event to avoid the same deadlock.
+      for (const b of buffer) {
+        if (b.type === "done") {
+          resultResolve(b.message);
+        } else if (b.type === "error") {
+          resultResolve(b.error);
+        }
+        yield b;
+      }
+      if (errorResult && buffer.every(b => b.type !== "done" && b.type !== "error")) {
+        resultResolve(errorResult);
+      }
       return;
     }
 
     // Safety: final fallback attempt
+    console.log("[xiaoyiprovider] entering final fallback attempt");
     const lastStream = await createStream();
     for await (const event of lastStream) {
+      if (event.type === "done") {
+        resultResolve(event.message);
+        yield event;
+        return;
+      }
+      if (event.type === "error") {
+        resultResolve(event.error);
+        yield event;
+        return;
+      }
       yield event;
-      if (event.type === "done") { resultResolve(event.message); return; }
-      if (event.type === "error") { resultResolve(event.error); return; }
     }
   }
 
