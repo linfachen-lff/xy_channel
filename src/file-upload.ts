@@ -246,7 +246,7 @@ export class XYFileUploadService {
         throw new Error(`CompleteAndQuery failed: HTTP ${completeResp.status}`);
       }
 
-      const completeData = await completeResp.json();
+      const completeData = await completeResp.json() as any;
 
       // Extract file URL from response
       const fileUrl = completeData?.fileDetailInfo?.url || "";

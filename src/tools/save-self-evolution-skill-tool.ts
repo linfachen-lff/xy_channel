@@ -50,19 +50,21 @@ function buildSkillMarkdown(params: {
   examples: string[];
   tags: string[];
 }): string {
-  const lines: string[] = [
-    "---",
-    `title: "${params.title.replace(/"/g, '\\"')}"`,
-    `summary: "${params.summary.replace(/"/g, '\\"')}"`,
-    "---",
-    "",
-    `# ${params.title}`,
-    "",
-    "## When To Use",
-    params.whenToUse,
-    "",
-    "## Rules",
-  ];
+const description = `${params.summary}\n\nWhen to use: ${params.whenToUse}`
+  .replace(/"/g, '\\"')
+  .replace(/\r?\n/g, "\\n");
+
+const lines: string[] = [
+  "---",
+  `name: "${params.title.replace(/"/g, '\\"')}"`,
+  `description: "${description}"`,
+  "---",
+  "",
+  `# ${params.title}`,
+  "",
+  "## Rules",
+];
+
 
   for (const rule of params.rules) {
     lines.push(`- ${rule}`);

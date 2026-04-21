@@ -24,10 +24,10 @@ import {
 import type { A2AJsonRpcRequest } from "./types.js";
 
 const SELF_EVOLUTION_DISABLED_USER_MESSAGE =
-  "用户刚刚关闭了“自进化”功能。从现在开始，你不得再创建、修改或追加任何 skill；仅继续完成当前正常对话任务。";
-const SELF_EVOLUTION_ENABLED_USER_MESSAGE =
-  "用户刚刚重新开启了“自进化”功能。从现在开始，你可以在识别到稳定、可复用的经验时，通过 save_self_evolution_skill 工具保存 skill；不要保存隐私、密钥、临时路径或一次性上下文。";
+  "\n[系统自动注入] 用户现在已关闭“self-evolution”功能，从现在开始，除非用户再次开启，否则你不得执行演进。你继续完成当前正常对话任务即可。";
 
+const SELF_EVOLUTION_ENABLED_USER_MESSAGE =
+  "\n[系统自动注入] 用户刚刚重新开启了“self-evolution”功能。从现在开始，你可以在识别到的值得沉淀经验时，阅读evolution skill并开启演进。";
 /**
  * Parameters for handling an XY message.
  */
@@ -190,7 +190,7 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     );
     if (selfEvolutionEnabled !== null) {
       log(
-        `[BOT] Self-evolution updated: enabled=${selfEvolutionState.enabled}, justEnabled=${selfEvolutionState.justEnabled}, justDisabled=${selfEvolutionState.justDisabled}`,
+        `[BOT] Self-evolution updated: enabled=${selfEvolutionState.enabled}, justDisabled=${selfEvolutionState.justDisabled}`,
       );
     }
 

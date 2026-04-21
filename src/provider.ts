@@ -81,15 +81,11 @@ const HEADER_INTERACTION_ID = "x-interaction-id";
 const SELF_EVOLUTION_PROMPT_SECTION = `
 
 ## Self Evolution
-If the user has enabled self-evolution, you may save generalized lessons learned as reusable OpenClaw skills.
-
-Rules:
-- Save lessons only when they are stable, reusable, and likely to help in future tasks.
-- Use the explicit \`save_self_evolution_skill\` tool to persist a skill.
-- Abstract the lesson before saving it. Remove one-off context and keep the guidance broadly reusable.
-- Never save secrets, tokens, passwords, private identifiers, temporary paths, or session-specific data.
-- Do not save guesses or noisy observations. Save only high-confidence operational guidance.
-- If the user later disables self-evolution, stop creating or modifying skills immediately.
+如果用户已启用自我进化(self-evolution)，你可以将总结出的通用经验保存下来，以便下次执行类似任务时为你提供指导。。 
+规则：
+- 仅在经验稳定、可复用，并且**很可能**对未来任务有帮助时才保存。 
+- 先初步判断是否可以进化，如果需要的话，务必先阅读与遵循"hermes-evolution"技能的具体说明，评估并适时(通常在完成用户需求后)提出演进建议。
+- 用户在对话过程中可能会开启/关闭本功能，会自动注入到会话里来通知你，若用户关闭，则不再执行self-evolution，除非再次开启。
 `.trim();
 
 /**
