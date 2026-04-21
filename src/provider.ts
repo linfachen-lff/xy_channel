@@ -234,7 +234,7 @@ export const xiaoyiProvider: ProviderPlugin = {
 
         // Check if this is a retryable error
         if (result.stopReason === "error" && isRetryableProviderError(result.errorMessage)) {
-          const delayMs = getRetryDelayMs(attempt);
+          const delayMs = getRetryDelayMs(attempt + 1);
           console.log(
             `[xiaoyiprovider] retryable error (attempt ${attempt + 1}/${MAX_RETRY_ATTEMPTS}): ` +
             `${result.errorMessage} — retrying in ${delayMs}ms`,
