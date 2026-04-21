@@ -19,8 +19,8 @@ const MAX_RETRY_ATTEMPTS = 8;
 function isRetryableProviderError(message: string | undefined): boolean {
   if (!message) return false;
   const lower = message.toLowerCase();
-  if (lower.includes("server_error")) return true;
-  if (lower.includes("rate_limit_error")) return true;
+  if (lower.includes("the server had an error while processing your request")) return true;
+  if (lower.includes("rate limit reached for requests")) return true;
   return false;
 }
 
