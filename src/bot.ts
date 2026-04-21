@@ -3,13 +3,12 @@ import type { ClawdbotConfig, RuntimeEnv, ReplyPayload } from "openclaw/plugin-s
 import { getXYRuntime } from "./runtime.js";
 import { setCachedContext } from "./steer-injector.js";
 import { createXYReplyDispatcher } from "./reply-dispatcher.js";
-import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractDeviceType, extractTriggerData, extractSelfEvolutionEnabled, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
+import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId, extractDeviceType, extractTriggerData, isClearContextMessage, isTasksCancelMessage } from "./parser.js";
 import { downloadFilesFromParts } from "./file-download.js";
 import { resolveXYConfig } from "./config.js";
 import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse, sendA2AResponse } from "./formatter.js";
 import { registerSession, unregisterSession, runWithSessionContext } from "./tools/session-manager.js";
 import { configManager } from "./utils/config-manager.js";
-import { selfEvolutionManager } from "./utils/self-evolution-manager.js";
 import { addPushId } from "./utils/pushid-manager.js";
 import { getPushDataById } from "./utils/pushdata-manager.js";
 import { saveRuntimeInfo } from "./utils/runtime-manager.js";
@@ -23,11 +22,6 @@ import {
 } from "./task-manager.js";
 import type { A2AJsonRpcRequest } from "./types.js";
 
-const SELF_EVOLUTION_DISABLED_USER_MESSAGE =
-  "\n[系统自动注入] 用户现在已关闭“self-evolution”功能，从现在开始，除非用户再次开启，否则你不得执行演进。你继续完成当前正常对话任务即可。";
-
-const SELF_EVOLUTION_ENABLED_USER_MESSAGE =
-  "\n[系统自动注入] 用户刚刚重新开启了“self-evolution”功能。从现在开始，你可以在识别到的值得沉淀经验时，阅读evolution skill并开启演进。";
 /**
  * Parameters for handling an XY message.
  */
@@ -183,16 +177,6 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       log(`[BOT] 📱 Extracted deviceType from user message: ${deviceType}`);
     }
 
-    const selfEvolutionEnabled = extractSelfEvolutionEnabled(parsed.parts);
-    const selfEvolutionState = selfEvolutionManager.applySignal(
-      parsed.sessionId,
-      selfEvolutionEnabled,
-    );
-    if (selfEvolutionEnabled !== null) {
-      log(
-        `[BOT] Self-evolution updated: enabled=${selfEvolutionState.enabled}, justDisabled=${selfEvolutionState.justDisabled}`,
-      );
-    }
 
     // 保存 runtime 信息到 .xiaoyiruntime 文件（异步，不阻塞主流程）
     saveRuntimeInfo(
@@ -244,13 +228,7 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     // Extract text and files from parts
     const text = extractTextFromParts(parsed.parts);
-    let controlMessage = "";
-    if (selfEvolutionState.justEnabled) {
-      controlMessage = SELF_EVOLUTION_ENABLED_USER_MESSAGE;
-    } else if (selfEvolutionState.justDisabled) {
-      controlMessage = SELF_EVOLUTION_DISABLED_USER_MESSAGE;
-    }
-    const augmentedText = [text, controlMessage].filter(Boolean).join("\n\n");
+    const augmentedText = text;
     const fileParts = extractFileParts(parsed.parts);
 
     // Download files to local disk

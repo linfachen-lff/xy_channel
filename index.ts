@@ -56,7 +56,7 @@ const plugin = {
     api.on("after_tool_call", async (event, ctx) => {
       if (
         ctx.sessionKey &&
-        selfEvolutionManager.isEnabled() &&
+        await selfEvolutionManager.isEnabled() &&
         shouldCountToolCall(event.toolName)
       ) {
         try {

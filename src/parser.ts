@@ -119,31 +119,6 @@ export function extractDeviceType(parts: A2AMessagePart[]): string | null {
 }
 
 /**
- * Extract self-evolution toggle from message parts.
- * Looks for self_evolution_enabled in data parts under variables.systemVariables.
- */
-export function extractSelfEvolutionEnabled(parts: A2AMessagePart[]): boolean | null {
-  for (const part of parts) {
-    if (part.kind === "data" && part.data) {
-      const value = part.data.variables?.systemVariables?.self_evolution_enabled;
-      if (typeof value === "boolean") {
-        return value;
-      }
-      if (typeof value === "string") {
-        const normalized = value.trim().toLowerCase();
-        if (normalized === "true") return true;
-        if (normalized === "false") return false;
-      }
-      if (typeof value === "number") {
-        if (value === 1) return true;
-        if (value === 0) return false;
-      }
-    }
-  }
-  return null;
-}
-
-/**
  * Extract Trigger event data from message parts.
  * Looks for Trigger events with pushDataId in data parts.
  */

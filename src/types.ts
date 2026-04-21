@@ -81,7 +81,6 @@ export interface A2ADataPart {
       systemVariables?: {
         push_id?: string;
         device_type?: string;
-        self_evolution_enabled?: boolean | string | number;
         [key: string]: any;
       };
       [key: string]: any;

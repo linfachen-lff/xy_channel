@@ -125,7 +125,7 @@ export const saveSelfEvolutionSkillTool: any = {
   },
 
   async execute(_toolCallId: string, params: any) {
-    if (!selfEvolutionManager.isEnabled()) {
+    if (!(await selfEvolutionManager.isEnabled())) {
       throw new Error("Self-evolution is currently disabled by the user.");
     }
 

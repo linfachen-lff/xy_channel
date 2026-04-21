@@ -1,82 +1,54 @@
-type SessionSelfEvolutionState = {
-  promptPrimed: boolean;
-  lastUserNoticeState: "enabled" | "disabled" | null;
-};
+import fs from "node:fs/promises";
 
-export type SelfEvolutionState = {
-  enabled: boolean;
-  sessions: Map<string, SessionSelfEvolutionState>;
-};
+const SELF_EVOLUTION_ENV_FILE = "/home/sandbox/.openclaw/.xiaoyienv";
+const SELF_EVOLUTION_ENV_KEY = "selfEvolutionState";
 
-type ApplySelfEvolutionSignalResult = {
-  enabled: boolean;
-  justEnabled: boolean;
-  justDisabled: boolean;
-  promptPrimed: boolean;
-};
+function parseBooleanLike(value: string): boolean | null {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") {
+    return true;
+  }
+  if (normalized === "false") {
+    return false;
+  }
+  return null;
+}
 
 class SelfEvolutionManager {
-  private state: SelfEvolutionState = {
-    enabled: false,
-    sessions: new Map(),
-  };
+  async isEnabled(): Promise<boolean> {
+    try {
+      const envData = await fs.readFile(SELF_EVOLUTION_ENV_FILE, "utf-8");
 
-  private getSessionState(sessionId: string): SessionSelfEvolutionState {
-    let sessionState = this.state.sessions.get(sessionId);
-    if (!sessionState) {
-      sessionState = {
-        promptPrimed: false,
-        lastUserNoticeState: null,
-      };
-      this.state.sessions.set(sessionId, sessionState);
-    }
-    return sessionState;
-  }
+      for (const line of envData.split(/\r?\n/u)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) {
+          continue;
+        }
 
-  applySignal(sessionId: string, enabled: boolean | null): ApplySelfEvolutionSignalResult {
-    const sessionState = this.getSessionState(sessionId);
-    let justEnabled = false;
-    let justDisabled = false;
+        const eqIndex = trimmed.indexOf("=");
+        if (eqIndex === -1) {
+          continue;
+        }
 
-    if (enabled === true) {
-      const wasEnabled = this.state.enabled;
-      this.state.enabled = true;
-      sessionState.promptPrimed = true;
-      if (!wasEnabled && sessionState.lastUserNoticeState !== "enabled") {
-        justEnabled = true;
+        const key = trimmed.slice(0, eqIndex).trim();
+        if (key !== SELF_EVOLUTION_ENV_KEY) {
+          continue;
+        }
+
+        const value = trimmed.slice(eqIndex + 1).trim();
+        const parsed = parseBooleanLike(value);
+        if (parsed !== null) {
+          return parsed;
+        }
       }
-      sessionState.lastUserNoticeState = "enabled";
-    } else if (enabled === false) {
-      const wasEnabled = this.state.enabled;
-      this.state.enabled = false;
-      if (wasEnabled && sessionState.lastUserNoticeState !== "disabled") {
-        justDisabled = true;
+
+      return false;
+    } catch (error: any) {
+      if (error?.code !== "ENOENT") {
+        console.error(`[SELF_EVOLUTION] Failed to read ${SELF_EVOLUTION_ENV_FILE}:`, error);
       }
-      sessionState.lastUserNoticeState = "disabled";
-    }
-
-    return {
-      enabled: this.state.enabled,
-      justEnabled,
-      justDisabled,
-      promptPrimed: sessionState.promptPrimed,
-    };
-  }
-
-  isEnabled(): boolean {
-    return this.state.enabled;
-  }
-
-  shouldInjectPrompt(sessionId?: string | null): boolean {
-    if (!sessionId) {
       return false;
     }
-    const sessionState = this.state.sessions.get(sessionId);
-    return Boolean(sessionState?.promptPrimed);
-  }
-
-  clearSession(sessionId: string): void {
-    this.state.sessions.delete(sessionId);
   }
 }
 

@@ -231,15 +231,35 @@ function createRetryingStream(
 const HEADER_TRACE_ID = "x-hag-trace-id";
 const HEADER_SESSION_ID = "x-session-id";
 const HEADER_INTERACTION_ID = "x-interaction-id";
-const SELF_EVOLUTION_PROMPT_SECTION = `
 
+const SELF_EVOLUTION_PROMPT_BEGIN = "<self_evolution_prompt>";
+const SELF_EVOLUTION_PROMPT_END = "</self_evolution_prompt>";
+const SELF_EVOLUTION_ENABLED_PROMPT_SECTION = `
+${SELF_EVOLUTION_PROMPT_BEGIN}
 ## Self Evolution
-如果用户已启用自我进化(self-evolution)，你可以将总结出的通用经验保存下来，以便下次执行类似任务时为你提供指导。。 
+用户已启用自我进化。
+当你识别出某个稳定、可复用的经验、调试模式或工作流程，并且它很可能对未来完成用户任务有帮助时，你可以考虑将其保存为可复用的经验。
 规则：
-- 仅在经验稳定、可复用，并且**很可能**对未来任务有帮助时才保存。 
-- 先初步判断是否可以进化，如果需要的话，务必先阅读与遵循"hermes-evolution"技能的具体说明，评估并适时(通常在完成用户需求后)提出演进建议。
-- 用户在对话过程中可能会开启/关闭本功能，会自动注入到会话里来通知你，若用户关闭，则不再执行self-evolution，除非再次开启。
+• 仅针对持久、可泛化的经验这样做，不要保存任务特定的经验。
+• 不要为了保存经验而打断或拖延当前的主要任务。
+• 保存前，先查看并遵循相关的"hermes-evolution"技能指导。
+• 最好在用户的主要请求已经完成后再开始自进化。并且，保存前必须与用户简要询问是否同意进化，询问内容建议放在完成用户需求的回复后。如果用户同意后，则遵循"hermes-evolution"开始实施进化。
+${SELF_EVOLUTION_PROMPT_END}
 `.trim();
+const SELF_EVOLUTION_DISABLED_PROMPT_SECTION = `
+${SELF_EVOLUTION_PROMPT_BEGIN}
+## Self Evolution
+用户当前已禁用自我进化。
+你不得执行自进化相关行为，并且应将此功能视为不可用(不管之前是否已经开启)。
+${SELF_EVOLUTION_PROMPT_END}
+`.trim();
+
+function stripSelfEvolutionPrompt(prompt: string): string {
+  return prompt
+    .replace(/\n*<self_evolution_prompt>[\s\S]*?<\/self_evolution_prompt>\n*/gu, "\n\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
 
 /**
  * Encode uid via SHA-256 and take first 32 hex chars.
@@ -376,14 +396,16 @@ export const xiaoyiProvider: ProviderPlugin = {
         context.systemPrompt = sp;
       }
 
-      if (selfEvolutionManager.shouldInjectPrompt(sessionCtx?.sessionId)) {
-        const prompt = context.systemPrompt ?? "";
-        if (!prompt.includes("## Self Evolution")) {
-          context.systemPrompt = [prompt, SELF_EVOLUTION_PROMPT_SECTION]
-            .filter(Boolean)
-            .join("\n\n");
-        }
-      }
+      const selfEvolutionEnabled = await selfEvolutionManager.isEnabled();
+      const prompt = stripSelfEvolutionPrompt(context.systemPrompt ?? "");
+      context.systemPrompt = [
+        prompt,
+        selfEvolutionEnabled
+          ? SELF_EVOLUTION_ENABLED_PROMPT_SECTION
+          : SELF_EVOLUTION_DISABLED_PROMPT_SECTION,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
 
       // Append device context to systemPrompt
       if (sessionCtx?.deviceType) {
