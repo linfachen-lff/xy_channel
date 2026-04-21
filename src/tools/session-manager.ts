@@ -4,6 +4,7 @@ import { AsyncLocalStorage } from "async_hooks";
 import type { XYChannelConfig } from "../types.js";
 import { logger } from "../utils/logger.js";
 import { configManager } from "../utils/config-manager.js";
+import { toolCallNudgeManager } from "../utils/tool-call-nudge-manager.js";
 import { getCurrentTaskId, getCurrentMessageId } from "../task-manager.js";
 
 export interface SessionContext {
@@ -63,6 +64,7 @@ export function unregisterSession(sessionKey: string): void {
   if (existing.refCount <= 0) {
     activeSessions.delete(sessionKey);
     configManager.clearSession(existing.sessionId);
+    toolCallNudgeManager.clearSession(sessionKey);
   }
 
 }
