@@ -89,7 +89,7 @@ export const saveSelfEvolutionSkillTool: any = {
   name: "save_self_evolution_skill",
   label: "Save Self Evolution Skill",
   description:
-    "Persist a reusable lesson learned as an OpenClaw skill. Use only for generalized, reusable经验，不要保存隐私、密钥、一次性上下文或临时路径。",
+    "将可复用的经验/脚本/教训等保存为skill技能，供下次执行类似任务时参考。仅用于通用、可复用的场景。",
   parameters: {
     type: "object",
     properties: {
