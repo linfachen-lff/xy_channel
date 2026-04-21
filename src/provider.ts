@@ -24,8 +24,26 @@ function isRetryableProviderError(message: string | undefined): boolean {
   return false;
 }
 
+/** Check if the request is triggered by a cron job by inspecting the first user message. */
+function isCronTriggered(messages: Array<{ role: string; content?: string | Array<{ type: string; text?: string }> }> | undefined): boolean {
+  if (!messages) return false;
+  const firstUser = messages.find(m => m.role === "user");
+  if (!firstUser) return false;
+  let text = "";
+  if (typeof firstUser.content === "string") {
+    text = firstUser.content;
+  } else if (Array.isArray(firstUser.content)) {
+    const block = firstUser.content.find(b => b.type === "text" && typeof b.text === "string");
+    if (block) text = block.text;
+  }
+  return /^\[cron:/i.test(text.trim());
+}
+
 /** Compute retry delay in ms for the given 1-based attempt, with up to 10s jitter. */
-function getRetryDelayMs(attempt: number): number {
+function getRetryDelayMs(attempt: number, isCron = false): number {
+  if (isCron) {
+    return 60_000 + Math.floor(Math.random() * 10_000);
+  }
   const base = attempt <= RETRY_DELAYS_MS.length
     ? RETRY_DELAYS_MS[attempt - 1]
     : RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
@@ -219,6 +237,8 @@ export const xiaoyiProvider: ProviderPlugin = {
       }
 
       // ── Retry loop ─────────────────────────────────────────
+      const cronJob = isCronTriggered(context.messages);
+      if (cronJob) console.log("[xiaoyiprovider] detected cron-triggered request, using extended retry delays");
       for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
         const stream = await underlying(model, context, {
           ...options,
@@ -234,7 +254,7 @@ export const xiaoyiProvider: ProviderPlugin = {
 
         // Check if this is a retryable error
         if (result.stopReason === "error" && isRetryableProviderError(result.errorMessage)) {
-          const delayMs = getRetryDelayMs(attempt + 1);
+          const delayMs = getRetryDelayMs(attempt + 1, cronJob);
           console.log(
             `[xiaoyiprovider] retryable error (attempt ${attempt + 1}/${MAX_RETRY_ATTEMPTS}): ` +
             `${result.errorMessage} — retrying in ${delayMs}ms`,
