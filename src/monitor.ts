@@ -97,7 +97,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       const messageKey = `${sessionId}::${message.id}`;
 
       log(`[MONITOR-HANDLER] ####### messageHandler triggered: sessionId=${sessionId}, messageId=${message.id} #######`);
-      log(`[MONITOR-HANDLER] A2A message body: ${JSON.stringify(message)}`);
+      console.log(`[MONITOR-HANDLER] A2A message body: ${JSON.stringify(message)}`);
 
       // ✅ Report health: received a message
       trackEvent?.();
