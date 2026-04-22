@@ -416,7 +416,6 @@ export class XYWebSocketManager extends EventEmitter {
       console.log(`[WS-RECV] Raw message frame, size: ${messageStr.length} characters`);
       console.log(`[WS-RECV] @@@@@@ Raw message frame, data: ${messageStr}`);
       const parsed = JSON.parse(messageStr);
-
       // 提取并打印消息内容（只显示 text，data 只打印提示）
       const parts = parsed.params?.message?.parts;
       if (parts && Array.isArray(parts) && parts.length > 0) {
@@ -496,6 +495,11 @@ export class XYWebSocketManager extends EventEmitter {
                 this.emit("self-evolution-event", {
                   event: item,
                 });
+              } else if (item.header?.namespace === "LoginTokenEvent" && item.header?.name === "ClawAutoLogin") {
+                console.log("[XY] LoginTokenEvent.ClawAutoLogin detected, emitting login-token-event");
+                this.emit("login-token-event", {
+                  event: item,
+                });
               }
             }
           }
@@ -553,6 +557,11 @@ export class XYWebSocketManager extends EventEmitter {
                     event: item,
                     sessionId: inboundMsg.sessionId || a2aRequest.params?.sessionId,
                     taskId: inboundMsg.taskId || a2aRequest.params?.id,
+                  });
+                } else if (item.header?.namespace === "LoginTokenEvent" && item.header?.name === "ClawAutoLogin") {
+                  console.log("[XY] LoginTokenEvent.ClawAutoLogin detected (wrapped format), emitting login-token-event");
+                  this.emit("login-token-event", {
+                    event: item,
                   });
                 }
               }

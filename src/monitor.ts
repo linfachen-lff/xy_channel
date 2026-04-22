@@ -8,6 +8,7 @@ import { parseA2AMessage } from "./parser.js";
 import { hasActiveTask } from "./task-manager.js";
 import { handleTriggerEvent } from "./trigger-handler.js";
 import { handleSelfEvolutionEvent } from "./self-evolution-handler.js";
+import { handleLoginTokenEvent } from "./login-token-handler.js";
 import { cleanupStaleTempFiles } from "./reply-dispatcher.js";
 
 export type MonitorXYOpts = {
@@ -195,6 +196,11 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       handleSelfEvolutionEvent(context, runtime);
     };
 
+    const loginTokenEventHandler = (context: any) => {
+      log(`[MONITOR] Received login-token-event, dispatching to handler...`);
+      handleLoginTokenEvent(context, runtime);
+    };
+
     const cleanup = () => {
       log("XY gateway: cleaning up...");
 
@@ -216,6 +222,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       wsManager.off("error", errorHandler);
       wsManager.off("trigger-event", triggerEventHandler);
       wsManager.off("self-evolution-event", selfEvolutionHandler);
+      wsManager.off("login-token-event", loginTokenEventHandler);
 
       // ✅ Disconnect the wsManager to prevent connection leaks
       // This is safe because each gateway lifecycle should have clean connections
@@ -255,6 +262,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
     wsManager.on("error", errorHandler);
     wsManager.on("trigger-event", triggerEventHandler);
     wsManager.on("self-evolution-event", selfEvolutionHandler);
+    wsManager.on("login-token-event", loginTokenEventHandler);
 
     // Start periodic health check (every 6 hours)
     console.log("🏥 Starting periodic health check (every 6 hours)...");

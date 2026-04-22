@@ -16,6 +16,8 @@ import {
   MAX_TEXT_LENGTH,
   STEER_ABORT_MESSAGE,
 } from "./src/cspl/constants.js";
+import { createBeforePromptBuildHandler } from "./src/skill-retriever/hooks.js";
+import { normalizeToolRetrieverConfig } from "./src/skill-retriever/config.js";
 
 const SELF_EVOLUTION_NUDGE_MESSAGE =
   `[系统消息，非用户发送] 当前任务已经调用了较多工具。如果你识别到存在稳定、可复用的踩坑经验或排错模式，可以在完成当前主要任务后，正式回复用户前，阅读evolution skill开启自进化。注意，不要打断当前主任务，已完成任务为最高优先级。`;
@@ -117,6 +119,18 @@ const plugin = {
         api.logger.error(`[SENTINEL HOOK] after_tool_call error: ${err}`);
       }
     });
+
+    // SKILL RETRIEVER HOOK: before_prompt_build hook
+    const pluginConfig = (api as { pluginConfig?: unknown }).pluginConfig as Record<string, unknown> || {};
+    const skillRetrieverConfig = normalizeToolRetrieverConfig({
+      enabled: pluginConfig.skillRetrieverEnabled ?? true,
+      maxTools: pluginConfig.skillRetrieverMaxTools ?? 2,
+      includeUninstalledOnly: true,
+      envFilePath: "~/.openclaw/.xiaoyienv",
+      timeoutMs: pluginConfig.skillRetrieverTimeoutMs ?? 1000,
+    });
+    const beforePromptBuildHandler = createBeforePromptBuildHandler(skillRetrieverConfig);
+    api.on("before_prompt_build", beforePromptBuildHandler);
   },
 };
 

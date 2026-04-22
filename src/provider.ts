@@ -40,6 +40,22 @@ function isCronTriggered(messages: Array<{ role: string; content?: string | Arra
   return /^\[cron:/i.test(text.trim());
 }
 
+/** Extract cron title from first user message matching `[cron:<uuid> <title>]`. */
+function extractCronTitle(messages: Array<{ role: string; content?: string | Array<{ type: string; text?: string }> }> | undefined): string | undefined {
+  if (!messages) return undefined;
+  const firstUser = messages.find(m => m.role === "user");
+  if (!firstUser) return undefined;
+  let text = "";
+  if (typeof firstUser.content === "string") {
+    text = firstUser.content;
+  } else if (Array.isArray(firstUser.content)) {
+    const block = firstUser.content.find(b => b.type === "text" && typeof b.text === "string");
+    if (block) text = block.text;
+  }
+  const match = text.trim().match(/^\[cron:[^\s]+\s+(.+)\]$/);
+  return match ? match[1] : undefined;
+}
+
 /** Compute retry delay in ms for the given 1-based attempt, with up to 10s jitter. */
 function getRetryDelayMs(attempt: number, isCron = false): number {
   if (isCron) {
@@ -231,6 +247,8 @@ function createRetryingStream(
 const HEADER_TRACE_ID = "x-hag-trace-id";
 const HEADER_SESSION_ID = "x-session-id";
 const HEADER_INTERACTION_ID = "x-interaction-id";
+/** Internal key for passing fallback uid prefix from prepareExtraParams to wrapStreamFn. */
+const FALLBACK_PREFIX_KEY = "_xiaoyi_fallback_prefix";
 
 const SELF_EVOLUTION_PROMPT_BEGIN = "<self_evolution_prompt>";
 const SELF_EVOLUTION_PROMPT_END = "</self_evolution_prompt>";
@@ -312,19 +330,15 @@ export const xiaoyiProvider: ProviderPlugin = {
       };
     }
 
-    // Fallback: uid-based values
+    // Fallback: store uid prefix for lazy timestamp generation in wrapStreamFn.
+    // This ensures each model call gets a fresh timestamp instead of reusing
+    // the same one across tool-use loops and retries.
     const uid = getUidFromConfig(ctx.config);
     if (!uid) return undefined;
 
-    const prefix = encodeUid(uid);
-    const ts = Date.now();
-    const fallbackValue = `${prefix}_${ts}`;
-
     return {
       ...ctx.extraParams,
-      [HEADER_TRACE_ID]: fallbackValue,
-      [HEADER_SESSION_ID]: fallbackValue,
-      [HEADER_INTERACTION_ID]: fallbackValue,
+      [FALLBACK_PREFIX_KEY]: encodeUid(uid),
     };
   },
 
@@ -346,16 +360,37 @@ export const xiaoyiProvider: ProviderPlugin = {
       const dynamicHeaders: Record<string, string> = {};
 
       if (ctx.extraParams) {
-        const traceId = ctx.extraParams[HEADER_TRACE_ID];
-        const sessionId = ctx.extraParams[HEADER_SESSION_ID];
-        const interactionId = ctx.extraParams[HEADER_INTERACTION_ID];
+        const fallbackPrefix = ctx.extraParams[FALLBACK_PREFIX_KEY];
 
-        if (typeof traceId === "string") {
+        if (typeof fallbackPrefix === "string") {
+          // Fallback mode: generate fresh timestamp per request
           const isCron = isCronTriggered(context.messages);
-          dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}` : traceId;
+          const fallbackValue = `${fallbackPrefix}_${Date.now()}`;
+          dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${fallbackValue}` : fallbackValue;
+          dynamicHeaders[HEADER_SESSION_ID] = fallbackValue;
+          dynamicHeaders[HEADER_INTERACTION_ID] = fallbackValue;
+          if (isCron) {
+            const cronTitle = extractCronTitle(context.messages);
+            if (cronTitle) dynamicHeaders["x-cron-title"] = cronTitle;
+          }
+        } else {
+          // Session mode: use pre-resolved session headers + fresh timestamp
+          const traceId = ctx.extraParams[HEADER_TRACE_ID];
+          const sessionId = ctx.extraParams[HEADER_SESSION_ID];
+          const interactionId = ctx.extraParams[HEADER_INTERACTION_ID];
+          const ts = `_${Date.now()}`;
+
+          if (typeof traceId === "string") {
+            const isCron = isCronTriggered(context.messages);
+            dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}${ts}` : `${traceId}${ts}`;
+            if (isCron) {
+              const cronTitle = extractCronTitle(context.messages);
+              if (cronTitle) dynamicHeaders["x-cron-title"] = cronTitle;
+            }
+          }
+          if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
+          if (typeof interactionId === "string") dynamicHeaders[HEADER_INTERACTION_ID] = interactionId;
         }
-        if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
-        if (typeof interactionId === "string") dynamicHeaders[HEADER_INTERACTION_ID] = interactionId;
       }
 
       // 记录输入
