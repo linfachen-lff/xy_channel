@@ -230,6 +230,8 @@ function createRetryingStream(
 const HEADER_TRACE_ID = "x-hag-trace-id";
 const HEADER_SESSION_ID = "x-session-id";
 const HEADER_INTERACTION_ID = "x-interaction-id";
+/** Internal key for passing fallback uid prefix from prepareExtraParams to wrapStreamFn. */
+const FALLBACK_PREFIX_KEY = "_xiaoyi_fallback_prefix";
 
 /**
  * Encode uid via SHA-256 and take first 32 hex chars.
@@ -276,19 +278,15 @@ export const xiaoyiProvider: ProviderPlugin = {
       };
     }
 
-    // Fallback: uid-based values
+    // Fallback: store uid prefix for lazy timestamp generation in wrapStreamFn.
+    // This ensures each model call gets a fresh timestamp instead of reusing
+    // the same one across tool-use loops and retries.
     const uid = getUidFromConfig(ctx.config);
     if (!uid) return undefined;
 
-    const prefix = encodeUid(uid);
-    const ts = Date.now();
-    const fallbackValue = `${prefix}_${ts}`;
-
     return {
       ...ctx.extraParams,
-      [HEADER_TRACE_ID]: fallbackValue,
-      [HEADER_SESSION_ID]: fallbackValue,
-      [HEADER_INTERACTION_ID]: fallbackValue,
+      [FALLBACK_PREFIX_KEY]: encodeUid(uid),
     };
   },
 
@@ -310,16 +308,28 @@ export const xiaoyiProvider: ProviderPlugin = {
       const dynamicHeaders: Record<string, string> = {};
 
       if (ctx.extraParams) {
-        const traceId = ctx.extraParams[HEADER_TRACE_ID];
-        const sessionId = ctx.extraParams[HEADER_SESSION_ID];
-        const interactionId = ctx.extraParams[HEADER_INTERACTION_ID];
+        const fallbackPrefix = ctx.extraParams[FALLBACK_PREFIX_KEY];
 
-        if (typeof traceId === "string") {
+        if (typeof fallbackPrefix === "string") {
+          // Fallback mode: generate fresh timestamp per request
           const isCron = isCronTriggered(context.messages);
-          dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}` : traceId;
+          const fallbackValue = `${fallbackPrefix}_${Date.now()}`;
+          dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${fallbackValue}` : fallbackValue;
+          dynamicHeaders[HEADER_SESSION_ID] = fallbackValue;
+          dynamicHeaders[HEADER_INTERACTION_ID] = fallbackValue;
+        } else {
+          // Session mode: use pre-resolved session headers
+          const traceId = ctx.extraParams[HEADER_TRACE_ID];
+          const sessionId = ctx.extraParams[HEADER_SESSION_ID];
+          const interactionId = ctx.extraParams[HEADER_INTERACTION_ID];
+
+          if (typeof traceId === "string") {
+            const isCron = isCronTriggered(context.messages);
+            dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}` : traceId;
+          }
+          if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
+          if (typeof interactionId === "string") dynamicHeaders[HEADER_INTERACTION_ID] = interactionId;
         }
-        if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
-        if (typeof interactionId === "string") dynamicHeaders[HEADER_INTERACTION_ID] = interactionId;
       }
 
       // 记录输入
