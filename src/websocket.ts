@@ -417,7 +417,7 @@ export class XYWebSocketManager extends EventEmitter {
 
       const parsed = JSON.parse(messageStr);
 
-      console.log(`[WS-RECV] Raw message content: ${parsed}`);
+      console.log(`[WS-RECV] Raw message content: ${JSON.stringify(parsed)}`);
 
       // 提取并打印消息内容（只显示 text，data 只打印提示）
       const parts = parsed.params?.message?.parts;
