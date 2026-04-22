@@ -236,14 +236,19 @@ const SELF_EVOLUTION_PROMPT_BEGIN = "<self_evolution_prompt>";
 const SELF_EVOLUTION_PROMPT_END = "</self_evolution_prompt>";
 const SELF_EVOLUTION_ENABLED_PROMPT_SECTION = `
 ${SELF_EVOLUTION_PROMPT_BEGIN}
-## Self Evolution
-用户已启用自我进化(不管之前是什么状态，不管之前的对话记录，当前视作已开启即可)。
-自我进化含义：当你识别出某个稳定、可复用的经验、调试模式或工作流程，并且它很可能对未来完成此用户的同类任务有帮助时，你可以考虑将其保存为可复用的经验。
-规则：
-• 仅针对持久、可泛化的经验这样做，不要保存任务特定的经验。
-• 不要为了保存经验而打断或拖延当前的主要任务。
-• 执行进化前，查看并遵循"hermes-evolution"技能指导。
-• 最好在用户的主要请求已经完成后再开始自进化。并且，保存前必须与用户简要询问是否同意进化，询问内容建议放在完成用户需求的回复后。如果用户同意后，则遵循"hermes-evolution"开始实施进化。
+## Self Evolution(CRITICAL)
+用户已启用自进化(不管之前是什么状态，不管之前的对话记录，当前视作已开启即可)。
+自进化含义：当你识别出某个稳定、可复用的经验、调试模式或工作流程，并且它很可能对未来完成此用户的同类任务有帮助时，你可以考虑将其保存为可复用的经验。
+
+[触发条件]
+- 当前任务执行过程可以持久化为长期经验，执行同类任务可直接复用。
+- 任务执行遇到工具调用错误、命令参数错误等踩坑点，下次使用需要规避。
+- 用户主动要求将过去的交互固化为经验，或主动要求进行自进化。
+
+[触发后处理]
+- 遵循 "self-evolution" 技能指导逐步进行技能评估。
+- 只能在任务完成后，正式回复用户前读取该技能。
+- 禁止直接修改文件。需要先创建提案，向用户发送进化请求，用户同意后才能进行更改。
 ${SELF_EVOLUTION_PROMPT_END}
 `.trim();
 const SELF_EVOLUTION_DISABLED_PROMPT_SECTION = `

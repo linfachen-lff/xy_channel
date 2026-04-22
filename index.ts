@@ -18,7 +18,7 @@ import {
 } from "./src/cspl/constants.js";
 
 const SELF_EVOLUTION_NUDGE_MESSAGE =
-  `[此条消息为系统自动生成的提示，非用户发送] 当前任务已经调用了较多工具。如果你识别到针对用户该类任务存在稳定、可复用的踩坑经验或排错模式，可以在完成当前主要任务后，阅读evolution skill开启演进。注意，不要打断当前主任务，已完成任务为最高优先级。`;
+  `[系统消息，非用户发送] 当前任务已经调用了较多工具。如果你识别到存在稳定、可复用的踩坑经验或排错模式，可以在完成当前主要任务后，正式回复用户前，阅读evolution skill开启自进化。注意，不要打断当前主任务，已完成任务为最高优先级。`;
 
 function shouldCountToolCall(toolName: string): boolean {
   if (toolName === "save_self_evolution_skill") {
