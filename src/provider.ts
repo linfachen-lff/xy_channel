@@ -39,6 +39,22 @@ function isCronTriggered(messages: Array<{ role: string; content?: string | Arra
   return /^\[cron:/i.test(text.trim());
 }
 
+/** Extract cron title from first user message matching `[cron:<uuid> <title>]`. */
+function extractCronTitle(messages: Array<{ role: string; content?: string | Array<{ type: string; text?: string }> }> | undefined): string | undefined {
+  if (!messages) return undefined;
+  const firstUser = messages.find(m => m.role === "user");
+  if (!firstUser) return undefined;
+  let text = "";
+  if (typeof firstUser.content === "string") {
+    text = firstUser.content;
+  } else if (Array.isArray(firstUser.content)) {
+    const block = firstUser.content.find(b => b.type === "text" && typeof b.text === "string");
+    if (block) text = block.text;
+  }
+  const match = text.trim().match(/^\[cron:[^\s]+\s+(.+)\]$/);
+  return match ? match[1] : undefined;
+}
+
 /** Compute retry delay in ms for the given 1-based attempt, with up to 10s jitter. */
 function getRetryDelayMs(attempt: number, isCron = false): number {
   if (isCron) {
@@ -317,6 +333,10 @@ export const xiaoyiProvider: ProviderPlugin = {
           dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${fallbackValue}` : fallbackValue;
           dynamicHeaders[HEADER_SESSION_ID] = fallbackValue;
           dynamicHeaders[HEADER_INTERACTION_ID] = fallbackValue;
+          if (isCron) {
+            const cronTitle = extractCronTitle(context.messages);
+            if (cronTitle) dynamicHeaders["x-cron-title"] = cronTitle;
+          }
         } else {
           // Session mode: use pre-resolved session headers + fresh timestamp
           const traceId = ctx.extraParams[HEADER_TRACE_ID];
@@ -327,6 +347,10 @@ export const xiaoyiProvider: ProviderPlugin = {
           if (typeof traceId === "string") {
             const isCron = isCronTriggered(context.messages);
             dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}${ts}` : `${traceId}${ts}`;
+            if (isCron) {
+              const cronTitle = extractCronTitle(context.messages);
+              if (cronTitle) dynamicHeaders["x-cron-title"] = cronTitle;
+            }
           }
           if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
           if (typeof interactionId === "string") dynamicHeaders[HEADER_INTERACTION_ID] = interactionId;
