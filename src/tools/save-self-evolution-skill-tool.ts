@@ -4,7 +4,7 @@ import path from "node:path";
 import { getCurrentSessionContext } from "./session-manager.js";
 import { selfEvolutionManager } from "../utils/self-evolution-manager.js";
 
-const SELF_EVOLVED_SKILL_ROOT = "/home/sandbox/.openclaw/skills/self-evolved";
+const SELF_EVOLVED_SKILL_ROOT = "/home/sandbox/.openclaw/skills/self_evolving_skills";
 
 function slugifyTitle(title: string): string {
   return title
