@@ -450,12 +450,11 @@ export class XYWebSocketManager extends EventEmitter {
         const a2aRequest: A2AJsonRpcRequest = parsed;
 
         // Extract sessionId from params
-        // const sessionId = a2aRequest.params?.sessionId;
-        // if (!sessionId) {
-        //   console.error("[XY] Message missing sessionId");
-        //   return;
-        // }
-        const sessionId = "111111"
+        const sessionId = a2aRequest.params?.sessionId;
+        if (!sessionId) {
+          console.error("[XY] Message missing sessionId");
+          return;
+        }
 
         // Check if message contains only data parts (tool results)
         const dataParts = a2aRequest.params?.message?.parts?.filter((p): p is { kind: "data"; data: any } => p.kind === "data");
