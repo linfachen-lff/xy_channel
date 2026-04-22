@@ -8,8 +8,8 @@ type RecordToolCallResult = {
   shouldNudge: boolean;
 };
 
-// 暂时调低，便于测试
-const DEFAULT_TOOL_CALL_NUDGE_THRESHOLD = 2;
+
+const DEFAULT_TOOL_CALL_NUDGE_THRESHOLD = 5;
 
 class ToolCallNudgeManager {
   private readonly threshold: number;
