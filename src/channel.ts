@@ -98,7 +98,6 @@ export const xyPlugin: ChannelPlugin = {
       hint: "<sessionId>",
     },
   },
-
   bindings: {
     compileConfiguredBinding: ({ conversationId }) => {
       const sessionId = conversationId.trim();
