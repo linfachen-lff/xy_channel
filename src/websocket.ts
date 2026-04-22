@@ -455,6 +455,7 @@ export class XYWebSocketManager extends EventEmitter {
         //   console.error("[XY] Message missing sessionId");
         //   return;
         // }
+        const sessionId = "111111"
 
         // Check if message contains only data parts (tool results)
         const dataParts = a2aRequest.params?.message?.parts?.filter((p): p is { kind: "data"; data: any } => p.kind === "data");
