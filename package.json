@@ -59,8 +59,7 @@
   "dependencies": {
     "ws": "^8.14.2",
     "uuid": "^9.0.0",
-    "node-fetch": "^3.3.2",
-    "openclaw": "2026.3.24"
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@types/ws": "^8.5.8",
