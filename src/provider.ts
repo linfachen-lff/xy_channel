@@ -318,14 +318,15 @@ export const xiaoyiProvider: ProviderPlugin = {
           dynamicHeaders[HEADER_SESSION_ID] = fallbackValue;
           dynamicHeaders[HEADER_INTERACTION_ID] = fallbackValue;
         } else {
-          // Session mode: use pre-resolved session headers
+          // Session mode: use pre-resolved session headers + fresh timestamp
           const traceId = ctx.extraParams[HEADER_TRACE_ID];
           const sessionId = ctx.extraParams[HEADER_SESSION_ID];
           const interactionId = ctx.extraParams[HEADER_INTERACTION_ID];
+          const ts = `_${Date.now()}`;
 
           if (typeof traceId === "string") {
             const isCron = isCronTriggered(context.messages);
-            dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}` : traceId;
+            dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}${ts}` : `${traceId}${ts}`;
           }
           if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;
           if (typeof interactionId === "string") dynamicHeaders[HEADER_INTERACTION_ID] = interactionId;
