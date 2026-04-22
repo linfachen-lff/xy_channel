@@ -160,7 +160,7 @@ export const saveSelfEvolutionSkillTool: any = {
       throw new Error("Title could not be normalized into a valid skill name.");
     }
 
-    const skillDir = path.join(SELF_EVOLVED_SKILL_ROOT, slug);
+    const skillDir = path.join(SELF_EVOLVED_SKILL_ROOT, `evolving-${slug}`);
     const skillFilePath = path.join(skillDir, "SKILL.md");
     const nextContent = buildSkillMarkdown({
       title,
