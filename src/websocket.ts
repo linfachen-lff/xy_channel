@@ -416,9 +416,6 @@ export class XYWebSocketManager extends EventEmitter {
       console.log(`[WS-RECV] Raw message frame, size: ${messageStr.length} characters`);
 
       const parsed = JSON.parse(messageStr);
-
-      console.log(`[WS-RECV] Raw message content: ${JSON.stringify(parsed)}`);
-
       // 提取并打印消息内容（只显示 text，data 只打印提示）
       const parts = parsed.params?.message?.parts;
       if (parts && Array.isArray(parts) && parts.length > 0) {
@@ -453,11 +450,11 @@ export class XYWebSocketManager extends EventEmitter {
         const a2aRequest: A2AJsonRpcRequest = parsed;
 
         // Extract sessionId from params
-        const sessionId = a2aRequest.params?.sessionId;
-        if (!sessionId) {
-          console.error("[XY] Message missing sessionId");
-          return;
-        }
+        // const sessionId = a2aRequest.params?.sessionId;
+        // if (!sessionId) {
+        //   console.error("[XY] Message missing sessionId");
+        //   return;
+        // }
 
         // Check if message contains only data parts (tool results)
         const dataParts = a2aRequest.params?.message?.parts?.filter((p): p is { kind: "data"; data: any } => p.kind === "data");
