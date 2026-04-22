@@ -121,7 +121,6 @@ export async function searchTools(options: SearchToolsOptions): Promise<ToolSear
   const envConfig = readEnvFile(envFilePath);
 
   const hasRequiredConfig = !!envConfig.SERVICE_URL && !!envConfig.PERSONAL_API_KEY && !!envConfig.PERSONAL_UID;
-  console.log(`${PLUGIN_LOG_PREFIX} Env file loaded: ${hasRequiredConfig}, keys: ${Object.keys(envConfig).join(", ")}`);
 
   const serviceUrl = configServiceUrl ?? envConfig.SERVICE_URL;
   const apiKey = configApiKey ?? envConfig.PERSONAL_API_KEY;
@@ -133,8 +132,6 @@ export async function searchTools(options: SearchToolsOptions): Promise<ToolSear
     );
     return null;
   }
-
-  console.log(`${PLUGIN_LOG_PREFIX} Configuration loaded - serviceUrl: ${serviceUrl}, uid: ${uid}`);
 
   const traceId = crypto.randomUUID();
   const apiUrl = `${serviceUrl}/celia-claw/v1/rest-api/skill/execute`;
@@ -150,8 +147,6 @@ export async function searchTools(options: SearchToolsOptions): Promise<ToolSear
 
 
   const payload = { query };
-
-  console.log(`${PLUGIN_LOG_PREFIX} [USER_REQUEST] origin-query:${query}, payload:${JSON.stringify(payload)}`);
 
   try {
     const response = await fetch(apiUrl, {
@@ -178,16 +173,12 @@ export async function searchTools(options: SearchToolsOptions): Promise<ToolSear
       responseData.content.skills
     ) {
       const rawSkills = responseData.content.skills;
-      console.log(`${PLUGIN_LOG_PREFIX} [DEBUG] Raw skills from API: ${rawSkills.length}, ids: ${rawSkills.map((s: RawSkill) => s.skillId).join(", ")}`);
 
       const installedSkills = getInstalledSkills();
-      console.log(`${PLUGIN_LOG_PREFIX} [DEBUG] Installed skills: ${installedSkills.length}, ids: ${installedSkills.join(", ")}`);
 
       const formattedData = formatSkillData(rawSkills, installedSkills);
-      console.log(`${PLUGIN_LOG_PREFIX} [DEBUG] Formatted skills: ${formattedData.length}, statuses: ${formattedData.map((t: FormattedSkill) => `${t.skillId}:${t.status}`).join(", ")}`);
 
       const topTools = formattedData.slice(0, 2);
-      console.log(`${PLUGIN_LOG_PREFIX} [DEBUG] Top 2 skills: ${topTools.length}, statuses: ${topTools.map((t: FormattedSkill) => `${t.skillId}:${t.status}`).join(", ")}`);
 
       const allInstalled = topTools.every((tool) => tool.status === "已安装");
       if (allInstalled) {

@@ -76,37 +76,27 @@ export function createBeforePromptBuildHandler(config: ToolRetrieverConfig) {
     const userPrompt = event.prompt;
 
     if (ctx?.sessionKey?.includes(":subagent:")) {
-      console.log(`${PLUGIN_LOG_PREFIX} [SKIP] Sub-agent detected, skipping search`);
       return undefined;
     }
 
     if (!config.enabled) {
-      console.log(`${PLUGIN_LOG_PREFIX} [SKIP] Plugin disabled, original query: "${userPrompt}"`);
       return undefined;
     }
 
     if (!userPrompt || userPrompt.trim().length === 0) {
-      console.log(`${PLUGIN_LOG_PREFIX} [SKIP] Empty query`);
       return undefined;
     }
 
-    console.log(`${PLUGIN_LOG_PREFIX} [RECEIVED] Original user query (len=${userPrompt.length}): "${userPrompt}"`);
-
     const extractedQuery = extractUserQuery(userPrompt);
-    console.log(`${PLUGIN_LOG_PREFIX} [EXTRACTED] Extracted user query: "${extractedQuery}"`);
 
     if (!extractedQuery || extractedQuery.length === 0) {
-      console.log(`${PLUGIN_LOG_PREFIX} [SKIP] No valid user query after extraction, skipping search`);
       return undefined;
     }
 
     const skipReason = shouldSkipSearch(extractedQuery);
     if (skipReason) {
-      console.log(`${PLUGIN_LOG_PREFIX} [SKIP] ${skipReason}, extracted query: "${extractedQuery}"`);
       return undefined;
     }
-
-    console.log(`${PLUGIN_LOG_PREFIX} [PROCEED] Calling skill search API (timeout=${config.timeoutMs}ms) for query: "${extractedQuery}"`);
 
     try {
       const searchResult = await searchTools({
@@ -121,7 +111,6 @@ export function createBeforePromptBuildHandler(config: ToolRetrieverConfig) {
       });
 
       if (!searchResult || searchResult.tools.length === 0) {
-        console.log(`${PLUGIN_LOG_PREFIX} [RESULT] No skills found for query: "${extractedQuery}"`);
         return undefined;
       }
 
@@ -129,11 +118,9 @@ export function createBeforePromptBuildHandler(config: ToolRetrieverConfig) {
       const toolsContext = formatToolsForContext(searchResult, config.includeUninstalledOnly);
 
       if (!toolsContext) {
-        console.log(`${PLUGIN_LOG_PREFIX} [ERROR] Failed to format skills context for query: "${extractedQuery}"`);
+        console.log(`${PLUGIN_LOG_PREFIX} [ERROR] Failed to format skills context`);
         return undefined;
       }
-
-      console.log(`${PLUGIN_LOG_PREFIX} [SUCCESS] Built context with ${searchResult.tools.length} skills for query: "${extractedQuery}"`);
 
       return {
         prependContext: TOOL_RETRIEVER_HEADER + toolsContext + TOOL_RETRIEVER_FOOTER,
