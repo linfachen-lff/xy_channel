@@ -95,7 +95,7 @@ export const saveSelfEvolutionSkillTool: any = {
     properties: {
       title: {
         type: "string",
-        description: "所学技能的简短、可复用标题。",
+        description: "所学技能的简短标题。**必须为英文，可用下划线或中划线分割。**",
       },
       summary: {
         type: "string",
@@ -103,7 +103,7 @@ export const saveSelfEvolutionSkillTool: any = {
       },
       when_to_use: {
         type: "string",
-        description: "描述在未来任务中什么情况/哪些条件下使用此技能。",
+        description: "描述在未来任务中什么情况/哪些条件下使用此技能，描述尽量精准。",
       },
       rules: {
         type: "array",
@@ -113,7 +113,7 @@ export const saveSelfEvolutionSkillTool: any = {
       examples: {
         type: "array",
         items: { type: "string" },
-        description: "陷阱示例以及正确模式示例，可选",
+        description: "陷阱示例或正确模式示例，可选",
       },
       tags: {
         type: "array",

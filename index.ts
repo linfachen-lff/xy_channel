@@ -28,9 +28,9 @@ import { createBeforePromptBuildHandler } from "./src/skill-retriever/hooks.js";
 import { normalizeToolRetrieverConfig } from "./src/skill-retriever/config.js";
 
 const SELF_EVOLUTION_NUDGE_MESSAGE =
-  "[系统消息，非用户发言，不需要告知用户] 当前任务已经调用了较多工具。如果你识别到其中存在稳定、可复用的踩坑经验或排错模式，可以在完成当前主要任务后，正式回复用户前，阅读xiaoyi-self-evolution技能了解自进化规则。注意，不要打断当前主任务，已完成任务为最高优先级。";
+  "[系统消息，非用户发言，无需主动告知用户] 当前任务已经调用了较多工具。如果你识别到其中存在稳定、可复用的踩坑经验或排错模式，可以在完成当前主要任务后，正式回复用户前，阅读xiaoyi-self-evolution技能了解自进化规则。注意，不要打断当前主任务，以完成任务为最高优先级。";
 const SELF_EVOLUTION_KEYWORD_NUDGE_MESSAGE =
-  "[系统消息，非用户发言，不需要告知用户] 当前用户请求中可能包含希望沉淀经验、避免重复踩坑的意图。如果你已经从当前问题中识别出稳定、可复用的处理规则或排错经验，可以在完成当前主要任务后，正式回复用户前，阅读xiaoyi-self-evolution技能了解自进化规则。注意，不要打断当前主任务，已完成任务为最高优先级。";
+  "[系统消息，非用户发言，无需主动告知用户] 当前用户请求中可能包含希望沉淀经验、避免重复踩坑的意图。如果你已经从当前问题中识别出稳定、可复用的处理规则或排错经验，可以在完成当前主要任务后，正式回复用户前，阅读xiaoyi-self-evolution技能了解自进化规则。注意，不要打断当前主任务，以完成任务为最高优先级。";
 const SELF_EVOLUTION_KEYWORD_PATTERNS = [
   /进化/u,
   /记住/u,
