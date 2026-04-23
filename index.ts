@@ -6,9 +6,17 @@ import { xiaoyiProvider } from "./src/provider.js";
 import { setXYRuntime } from "./src/runtime.js";
 import { tryInjectSteer } from "./src/steer-injector.js";
 import { callCsplApi } from "./src/cspl/call-api.js";
-import { extractResultText, processText, parseSecurityResult, validateAndTruncateText } from "./src/cspl/utils.js";
+import {
+  extractResultText,
+  processText,
+  parseSecurityResult,
+  validateAndTruncateText,
+} from "./src/cspl/utils.js";
 import { selfEvolutionManager } from "./src/utils/self-evolution-manager.js";
-import { TOOL_CALL_NUDGE_THRESHOLD, toolCallNudgeManager } from "./src/utils/tool-call-nudge-manager.js";
+import {
+  TOOL_CALL_NUDGE_THRESHOLD,
+  toolCallNudgeManager,
+} from "./src/utils/tool-call-nudge-manager.js";
 import {
   ALLOWED_TOOLS,
   MIN_TEXT_LENGTH,
@@ -20,7 +28,16 @@ import { createBeforePromptBuildHandler } from "./src/skill-retriever/hooks.js";
 import { normalizeToolRetrieverConfig } from "./src/skill-retriever/config.js";
 
 const SELF_EVOLUTION_NUDGE_MESSAGE =
-  `[系统消息，非用户发送] 当前任务已经调用了较多工具。如果你识别到存在稳定、可复用的踩坑经验或排错模式，可以在完成当前主要任务后，正式回复用户前，阅读xiaoyi-self-evolution skill开启自进化。注意，不要打断当前主任务，已完成任务为最高优先级。`;
+  "[系统消息，非用户发言] 当前任务已经调用了较多工具。如果你识别到其中存在稳定、可复用的踩坑经验或排错模式，可以在完成当前主任务后，再考虑调用 save_self_evolution_skill 进行沉淀。不要为了保存 skill 打断当前主任务。";
+const SELF_EVOLUTION_KEYWORD_NUDGE_MESSAGE =
+  "[系统消息，非用户发言] 当前用户请求中可能包含希望沉淀经验、避免重复踩坑的意图。如果你已经从当前问题中识别出稳定、可复用的处理规则或排错经验，可以在完成当前主任务后，再考虑调用 save_self_evolution_skill 进行沉淀。不要为了保存 skill 打断当前主任务。";
+const SELF_EVOLUTION_KEYWORD_PATTERNS = [
+  /进化/u,
+  /下次必须/u,
+  /以后(?:不要再犯|别再犯|必须)/u,
+  /记住这个坑/u,
+  /避免下次/u,
+];
 
 function shouldCountToolCall(toolName: string): boolean {
   if (toolName === "save_self_evolution_skill") {
@@ -38,11 +55,18 @@ function shouldCountToolCall(toolName: string): boolean {
   return true;
 }
 
-/**
- * Xiaoyi Channel Plugin Entry Point.
- * Exports the plugin for OpenClaw to load.
- * Located at root level following feishu pattern for proper plugin registration.
- */
+function getUserMessageForKeywordDetection(event: { body?: string; content: string }): string {
+  return event.body?.trim() || event.content.trim();
+}
+
+function shouldNudgeForSelfEvolutionKeyword(text: string): boolean {
+  if (!text) {
+    return false;
+  }
+
+  return SELF_EVOLUTION_KEYWORD_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 const plugin = {
   id: "xiaoyi-channel",
   name: "Xiaoyi Channel",
@@ -53,12 +77,37 @@ const plugin = {
     api.registerChannel({ plugin: xyPlugin });
     api.registerProvider(xiaoyiProvider);
 
-    // SENTINEL HOOK after_tool_call hook: 监听工具结果，发送至安全检测 API 进行安全检测
-    // 如果响应为 REJECT，注入 steer 消息中止当前对话
+    api.on("before_dispatch", async (event, ctx) => {
+      if (!ctx.sessionKey || !selfEvolutionManager.isEnabled()) {
+        return;
+      }
+
+      const userText = getUserMessageForKeywordDetection(event);
+      if (!shouldNudgeForSelfEvolutionKeyword(userText)) {
+        return;
+      }
+
+      try {
+        const shouldNudge = toolCallNudgeManager.tryMarkKeywordNudge(ctx.sessionKey);
+        api.logger.debug?.(
+          `[SELF_EVOLUTION] Keyword check hit: sessionKey=${ctx.sessionKey}, shouldNudge=${shouldNudge}`,
+        );
+
+        if (shouldNudge) {
+          api.logger.info?.(
+            `[SELF_EVOLUTION] Keyword-triggered nudge injected: sessionKey=${ctx.sessionKey}`,
+          );
+          await tryInjectSteer(ctx.sessionKey, SELF_EVOLUTION_KEYWORD_NUDGE_MESSAGE);
+        }
+      } catch (err) {
+        api.logger.error(`[SELF_EVOLUTION] before_dispatch keyword nudge error: ${err}`);
+      }
+    });
+
     api.on("after_tool_call", async (event, ctx) => {
       if (
         ctx.sessionKey &&
-        await selfEvolutionManager.isEnabled() &&
+        selfEvolutionManager.isEnabled() &&
         shouldCountToolCall(event.toolName)
       ) {
         try {
@@ -82,7 +131,9 @@ const plugin = {
         return;
       }
 
-      console.log(`[SENTINEL HOOK] after_tool_call triggered: toolName=${event.toolName}, sessionKey=${ctx.sessionKey ?? "none"}`);
+      console.log(
+        `[SENTINEL HOOK] after_tool_call triggered: toolName=${event.toolName}, sessionKey=${ctx.sessionKey ?? "none"}`,
+      );
 
       try {
         const resultText = extractResultText(event, event.toolName);
@@ -92,18 +143,21 @@ const plugin = {
           return;
         }
 
-        // 构造 sentinel_hook 格式的 payload: { tool, output: [{ content }] }
         const questionText = {
-          subSceneID: 'TOOL_OUTPUT',
+          subSceneID: "TOOL_OUTPUT",
           tool: event.toolName,
           output: [{ content: "" }],
         };
         const originText = processText(resultText);
         questionText.output[0].content = originText;
+
         let finalJson = JSON.stringify(questionText);
         if (finalJson.length > MAX_TEXT_LENGTH) {
           const diff = finalJson.length - MAX_TEXT_LENGTH;
-          const { text: trimmed } = validateAndTruncateText(originText, MAX_TEXT_LENGTH - diff);
+          const { text: trimmed } = validateAndTruncateText(
+            originText,
+            MAX_TEXT_LENGTH - diff,
+          );
           questionText.output[0].content = trimmed;
           finalJson = JSON.stringify(questionText);
         }
@@ -120,8 +174,8 @@ const plugin = {
       }
     });
 
-    // SKILL RETRIEVER HOOK: before_prompt_build hook
-    const pluginConfig = (api as { pluginConfig?: unknown }).pluginConfig as Record<string, unknown> || {};
+    const pluginConfig =
+      ((api as { pluginConfig?: unknown }).pluginConfig as Record<string, unknown>) || {};
     const skillRetrieverConfig = normalizeToolRetrieverConfig({
       enabled: pluginConfig.skillRetrieverEnabled ?? true,
       maxTools: pluginConfig.skillRetrieverMaxTools ?? 2,

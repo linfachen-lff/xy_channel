@@ -7,8 +7,6 @@ type RecordToolCallResult = {
   count: number;
   shouldNudge: boolean;
 };
-
-
 const DEFAULT_TOOL_CALL_NUDGE_THRESHOLD = 5;
 
 class ToolCallNudgeManager {
@@ -19,7 +17,7 @@ class ToolCallNudgeManager {
     this.threshold = threshold;
   }
 
-  recordToolCall(sessionKey: string): RecordToolCallResult {
+  private getSessionState(sessionKey: string): ToolCallNudgeState {
     let state = this.sessions.get(sessionKey);
     if (!state) {
       state = {
@@ -28,6 +26,11 @@ class ToolCallNudgeManager {
       };
       this.sessions.set(sessionKey, state);
     }
+    return state;
+  }
+
+  recordToolCall(sessionKey: string): RecordToolCallResult {
+    const state = this.getSessionState(sessionKey);
 
     state.count += 1;
 
@@ -43,6 +46,16 @@ class ToolCallNudgeManager {
       count: state.count,
       shouldNudge: false,
     };
+  }
+
+  tryMarkKeywordNudge(sessionKey: string): boolean {
+    const state = this.getSessionState(sessionKey);
+    if (state.nudged) {
+      return false;
+    }
+
+    state.nudged = true;
+    return true;
   }
 
   clearSession(sessionKey: string): void {
