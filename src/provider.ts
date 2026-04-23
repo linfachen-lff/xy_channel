@@ -22,6 +22,7 @@ function isRetryableProviderError(message: string | undefined): boolean {
   const lower = message.toLowerCase();
   if (lower.includes("the server had an error while processing your request")) return true;
   if (lower.includes("rate limit reached for requests")) return true;
+  if (lower.includes("现在访问有点拥挤，稍等一下再试会更顺畅哦～")) return true;
   return false;
 }
 
