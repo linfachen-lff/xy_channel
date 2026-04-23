@@ -177,7 +177,6 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       log(`[BOT] 📱 Extracted deviceType from user message: ${deviceType}`);
     }
 
-
     // 保存 runtime 信息到 .xiaoyiruntime 文件（异步，不阻塞主流程）
     saveRuntimeInfo(
       webSocketSessionId || parsed.sessionId, // SESSION_ID (WebSocket 层级，如果没有则 fallback)
@@ -228,7 +227,6 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     // Extract text and files from parts
     const text = extractTextFromParts(parsed.parts);
-    const augmentedText = text;
     const fileParts = extractFileParts(parsed.parts);
 
     // Download files to local disk
@@ -240,7 +238,7 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     const envelopeOptions = core.channel.reply.resolveEnvelopeFormatOptions(cfg);
 
     // Build message body with speaker prefix (following feishu pattern)
-    let messageBody = augmentedText || "";
+    let messageBody = text || "";
 
     // Add speaker prefix for clarity
     const speaker = parsed.sessionId;
@@ -259,8 +257,8 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     // Use route.accountId and route.sessionKey instead of parsed fields
     const ctxPayload = core.channel.reply.finalizeInboundContext({
       Body: body,
-      RawBody: augmentedText || "",
-      CommandBody: augmentedText || "",
+      RawBody: text || "",
+      CommandBody: text || "",
       From: parsed.sessionId,
       To: parsed.sessionId,  // ✅ Simplified: use sessionId as target (context is managed by SessionKey)
       SessionKey: route.sessionKey,  // ✅ Use route.sessionKey
