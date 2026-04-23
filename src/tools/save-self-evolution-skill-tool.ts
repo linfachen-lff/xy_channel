@@ -5,6 +5,7 @@ import { getCurrentSessionContext } from "./session-manager.js";
 import { selfEvolutionManager } from "../utils/self-evolution-manager.js";
 
 const SELF_EVOLVED_SKILL_ROOT = "/home/sandbox/.openclaw/workspace/skills";
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/u;
 
 function slugifyTitle(title: string): string {
   return title
@@ -27,43 +28,228 @@ function normalizeStringArray(value: unknown): string[] {
   return [];
 }
 
-function containsSensitiveContent(text: string): boolean {
-  const lower = text.toLowerCase();
-  const sensitivePatterns = [
-    /api[_ -]?key/u,
-    /access[_ -]?token/u,
-    /bearer\s+[a-z0-9._-]+/iu,
-    /password/u,
-    /secret/u,
-    /\/home\/sandbox\//u,
-    /\/tmp\//u,
-    /[a-z]:\\/iu,
+function normalizeWhitespace(text: string): string {
+  return text.replace(/\s+/gu, " ").trim();
+}
+
+function normalizeForFingerprint(text: string): string {
+  return normalizeWhitespace(text)
+    .toLowerCase()
+    .replace(/[`"'()[\]{}:;,.!?]/gu, "")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function normalizeForComparison(items: string[]): string[] {
+  return items
+    .map((item) => normalizeForFingerprint(item))
+    .filter(Boolean)
+    .sort();
+}
+
+function sanitizeLine(text: string): { value: string; changed: boolean } {
+  let value = text;
+  let changed = false;
+
+  const replacements: Array<[RegExp, string]> = [
+    [/(bearer\s+)[a-z0-9._=-]{12,}/giu, "$1[REDACTED_TOKEN]"],
+    [/((?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|secret)\s*[:=]\s*)([^\s,;]+)/giu, "$1[REDACTED_SECRET]"],
+    [/(-----BEGIN [A-Z ]*PRIVATE KEY-----)[\s\S]*?(-----END [A-Z ]*PRIVATE KEY-----)/gu, "$1\n[REDACTED_PRIVATE_KEY]\n$2"],
+    [/\b(?:[a-zA-Z]:\\(?:[^\\\r\n]+\\)*[^\\\r\n\s]+|\/(?:home|Users|tmp|var|private|etc)\/[^\s"'`<>]+)/gu, "[REDACTED_PATH]"],
+    [/\b(sk-[a-zA-Z0-9]{16,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z\-_]{20,})\b/gu, "[REDACTED_SECRET]"],
   ];
-  return sensitivePatterns.some((pattern) => pattern.test(lower));
+
+  for (const [pattern, replacement] of replacements) {
+    const next = value.replace(pattern, replacement);
+    if (next !== value) {
+      value = next;
+      changed = true;
+    }
+  }
+
+  return { value, changed };
+}
+
+function sanitizeStringArray(values: string[]): { values: string[]; changed: boolean } {
+  let changed = false;
+  const sanitized = values.map((value) => {
+    const result = sanitizeLine(value);
+    changed = changed || result.changed;
+    return result.value;
+  });
+  return { values: sanitized, changed };
+}
+
+function sanitizeSkillContent(params: {
+  title: string;
+  summary: string;
+  whenToUse: string;
+  supplement: string;
+  rules: string[];
+  examples: string[];
+  tags: string[];
+}): {
+  title: string;
+  summary: string;
+  whenToUse: string;
+  supplement: string;
+  rules: string[];
+  examples: string[];
+  tags: string[];
+  changed: boolean;
+} {
+  const titleResult = sanitizeLine(params.title);
+  const summaryResult = sanitizeLine(params.summary);
+  const whenToUseResult = sanitizeLine(params.whenToUse);
+  const supplementResult = sanitizeLine(params.supplement);
+  const rulesResult = sanitizeStringArray(params.rules);
+  const examplesResult = sanitizeStringArray(params.examples);
+  const tagsResult = sanitizeStringArray(params.tags);
+
+  return {
+    title: titleResult.value,
+    summary: summaryResult.value,
+    whenToUse: whenToUseResult.value,
+    supplement: supplementResult.value,
+    rules: rulesResult.values,
+    examples: examplesResult.values,
+    tags: tagsResult.values,
+    changed:
+      titleResult.changed ||
+      summaryResult.changed ||
+      whenToUseResult.changed ||
+      supplementResult.changed ||
+      rulesResult.changed ||
+      examplesResult.changed ||
+      tagsResult.changed,
+  };
+}
+
+function containsHighlySensitiveContent(text: string): boolean {
+  const highRiskPatterns = [
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----/u,
+    /bearer\s+[a-z0-9._=-]{12,}/iu,
+    /\b(?:sk-[a-zA-Z0-9]{16,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z\-_]{20,})\b/u,
+    /(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|secret)\s*[:=]\s*[^\s,;]{8,}/iu,
+  ];
+  return highRiskPatterns.some((pattern) => pattern.test(text));
+}
+
+function buildSkillFingerprint(params: {
+  title: string;
+  summary: string;
+  whenToUse: string;
+  supplement: string;
+  rules: string[];
+  examples: string[];
+  tags: string[];
+}): string {
+  const normalized = {
+    title: normalizeForFingerprint(params.title),
+    summary: normalizeForFingerprint(params.summary),
+    whenToUse: normalizeForFingerprint(params.whenToUse),
+    supplement: normalizeForFingerprint(params.supplement),
+    rules: normalizeForComparison(params.rules),
+    examples: normalizeForComparison(params.examples),
+    tags: normalizeForComparison(params.tags),
+  };
+
+  return createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
+}
+
+function parseFrontmatterValue(content: string, key: string): string | null {
+  const match = content.match(new RegExp(`^${key}:\\s*"([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"`, "m"));
+  if (match) {
+    return match[1].replace(/\\"/g, '"').replace(/\\n/g, "\n");
+  }
+  return null;
+}
+
+function parseTimestampFromExistingSkill(content: string, key: "created_at" | "updated_at"): string | null {
+  const value = parseFrontmatterValue(content, key);
+  if (!value) {
+    return null;
+  }
+  return ISO_DATE_PATTERN.test(value) ? value : null;
+}
+
+async function findDuplicateSkillByFingerprint(
+  targetFingerprint: string,
+): Promise<{ path: string; slug: string } | null> {
+  try {
+    const entries = await fs.readdir(SELF_EVOLVED_SKILL_ROOT, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !entry.name.startsWith("evolving-")) {
+        continue;
+      }
+
+      const skillFilePath = path.join(SELF_EVOLVED_SKILL_ROOT, entry.name, "SKILL.md");
+      try {
+        const existingContent = await fs.readFile(skillFilePath, "utf-8");
+        const fingerprint = parseFrontmatterValue(existingContent, "fingerprint");
+        if (fingerprint && fingerprint === targetFingerprint) {
+          return {
+            path: skillFilePath,
+            slug: entry.name.replace(/^evolving-/u, ""),
+          };
+        }
+      } catch (error: any) {
+        if (error?.code !== "ENOENT") {
+          throw error;
+        }
+      }
+    }
+  } catch (error: any) {
+    if (error?.code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  return null;
 }
 
 function buildSkillMarkdown(params: {
   title: string;
   summary: string;
   whenToUse: string;
+  supplement: string;
   rules: string[];
   examples: string[];
   tags: string[];
+  fingerprint: string;
+  createdAt: string;
+  updatedAt?: string;
 }): string {
-const description = `${params.summary}\n\nWhen to use: ${params.whenToUse}`
-  .replace(/"/g, '\\"')
-  .replace(/\r?\n/g, "\\n");
+  const description = `${params.summary}\n\nWhen to use: ${params.whenToUse}`
+    .replace(/"/g, '\\"')
+    .replace(/\r?\n/g, "\\n");
 
-const lines: string[] = [
-  "---",
-  `name: "${params.title.replace(/"/g, '\\"')}"`,
-  `description: "${description}"`,
-  "---",
-  "",
-  `# ${params.title}`,
-  "",
-  "## Rules",
-];
+  const lines: string[] = [
+    "---",
+    `name: "${params.title.replace(/"/g, '\\"')}"`,
+    `description: "${description}"`,
+    `fingerprint: "${params.fingerprint}"`,
+    `created_at: "${params.createdAt}"`,
+  ];
+
+  if (params.updatedAt) {
+    lines.push(`updated_at: "${params.updatedAt}"`);
+  }
+
+  lines.push(
+    "---",
+    "",
+    `# ${params.title}`,
+    "",
+    "## Metadata",
+    `- Created At: ${params.createdAt}`,
+  );
+
+  if (params.updatedAt) {
+    lines.push(`- Updated At: ${params.updatedAt}`);
+  }
+
+  lines.push("", "## Rules");
 
 
   for (const rule of params.rules) {
@@ -75,6 +261,10 @@ const lines: string[] = [
     for (const example of params.examples) {
       lines.push(`- ${example}`);
     }
+  }
+
+  if (params.supplement) {
+    lines.push("", "## Supplement", params.supplement);
   }
 
   if (params.tags.length > 0) {
@@ -120,6 +310,10 @@ export const saveSelfEvolutionSkillTool: any = {
         items: { type: "string" },
         description: "用于未来发现的标签，可选。",
       },
+      supplement: {
+        type: "string",
+        description: "补充说明。将其他想补充但不属于固定字段的内容放在这里。可选。",
+      },
     },
     required: ["title", "summary", "when_to_use", "rules"],
   },
@@ -138,11 +332,13 @@ export const saveSelfEvolutionSkillTool: any = {
     const summary = typeof params.summary === "string" ? params.summary.trim() : "";
     const whenToUse =
       typeof params.when_to_use === "string" ? params.when_to_use.trim() : "";
-    const rules = normalizeStringArray(params.rules);
-    const examples = normalizeStringArray(params.examples);
-    const tags = normalizeStringArray(params.tags);
+    const supplement =
+      typeof params.supplement === "string" ? params.supplement.trim() : "";
+    const rawRules = normalizeStringArray(params.rules);
+    const rawExamples = normalizeStringArray(params.examples);
+    const rawTags = normalizeStringArray(params.tags);
 
-    if (!title || !summary || !whenToUse || rules.length === 0) {
+    if (!title || !summary || !whenToUse || rawRules.length === 0) {
       throw new Error("Missing required fields. title, summary, when_to_use, and at least one rule are required.");
     }
 
@@ -150,25 +346,111 @@ export const saveSelfEvolutionSkillTool: any = {
       throw new Error("Skill content is too short. Provide a reusable title, summary, and usage guidance.");
     }
 
-    const combinedText = [title, summary, whenToUse, ...rules, ...examples, ...tags].join("\n");
-    if (containsSensitiveContent(combinedText)) {
+    const sanitized = sanitizeSkillContent({
+      title,
+      summary,
+      whenToUse,
+      supplement,
+      rules: rawRules,
+      examples: rawExamples,
+      tags: rawTags,
+    });
+    const combinedText = [
+      sanitized.title,
+      sanitized.summary,
+      sanitized.whenToUse,
+      sanitized.supplement,
+      ...sanitized.rules,
+      ...sanitized.examples,
+      ...sanitized.tags,
+    ].join("\n");
+    if (containsHighlySensitiveContent(combinedText)) {
       throw new Error("Skill content appears to contain sensitive or environment-specific data and was rejected.");
     }
 
-    const slug = slugifyTitle(title);
+    const slug = slugifyTitle(sanitized.title);
     if (!slug) {
       throw new Error("Title could not be normalized into a valid skill name.");
     }
 
     const skillDir = path.join(SELF_EVOLVED_SKILL_ROOT, `evolving-${slug}`);
     const skillFilePath = path.join(skillDir, "SKILL.md");
+    const fingerprint = buildSkillFingerprint({
+      title: sanitized.title,
+      summary: sanitized.summary,
+      whenToUse: sanitized.whenToUse,
+      supplement: sanitized.supplement,
+      rules: sanitized.rules,
+      examples: sanitized.examples,
+      tags: sanitized.tags,
+    });
+    const duplicateSkill = await findDuplicateSkillByFingerprint(fingerprint);
+
+    if (duplicateSkill && duplicateSkill.path !== skillFilePath) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              success: true,
+              deduped: true,
+              sanitized: sanitized.changed,
+              skillName: duplicateSkill.slug,
+              path: duplicateSkill.path,
+              message: "A semantically identical self-evolved skill already exists.",
+            }),
+          },
+        ],
+      };
+    }
+
+    const nowIso = new Date().toISOString();
+    let createdAt = nowIso;
+    let updatedAt: string | undefined;
+
+    try {
+      const existingContent = await fs.readFile(skillFilePath, "utf-8");
+      const existingFingerprint = parseFrontmatterValue(existingContent, "fingerprint");
+      const existingCreatedAt = parseTimestampFromExistingSkill(existingContent, "created_at");
+      createdAt = existingCreatedAt ?? nowIso;
+
+      if (existingFingerprint === fingerprint) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                success: true,
+                deduped: true,
+                sanitized: sanitized.changed,
+                skillName: slug,
+                path: skillFilePath,
+                createdAt,
+                message: "An identical self-evolved skill already exists.",
+              }),
+            },
+          ],
+        };
+      }
+
+      updatedAt = nowIso;
+    } catch (error: any) {
+      if (error?.code !== "ENOENT") {
+        throw error;
+      }
+    }
+
     const nextContent = buildSkillMarkdown({
-      title,
-      summary,
-      whenToUse,
-      rules,
-      examples,
-      tags,
+      title: sanitized.title,
+      summary: sanitized.summary,
+      whenToUse: sanitized.whenToUse,
+      supplement: sanitized.supplement,
+      rules: sanitized.rules,
+      examples: sanitized.examples,
+      tags: sanitized.tags,
+      fingerprint,
+      createdAt,
+      updatedAt,
     });
     const nextHash = createHash("sha256").update(nextContent).digest("hex");
 
@@ -185,15 +467,16 @@ export const saveSelfEvolutionSkillTool: any = {
               text: JSON.stringify({
                 success: true,
                 deduped: true,
+                sanitized: sanitized.changed,
                 skillName: slug,
                 path: skillFilePath,
+                createdAt,
                 message: "An identical self-evolved skill already exists.",
               }),
             },
           ],
         };
       }
-      throw new Error(`A different skill with the same title already exists: ${skillFilePath}`);
     } catch (error: any) {
       if (error?.code !== "ENOENT") {
         throw error;
@@ -207,15 +490,20 @@ export const saveSelfEvolutionSkillTool: any = {
         {
           type: "text",
           text: JSON.stringify({
-            success: true,
-            deduped: false,
-            skillName: slug,
-            path: skillFilePath,
-            sessionId: sessionContext.sessionId,
-            message: "Self-evolved skill saved successfully.",
-          }),
-        },
-      ],
-    };
+              success: true,
+              deduped: false,
+              sanitized: sanitized.changed,
+              skillName: slug,
+              path: skillFilePath,
+              sessionId: sessionContext.sessionId,
+              createdAt,
+              updatedAt,
+              message: updatedAt
+                ? "Self-evolved skill updated successfully."
+                : "Self-evolved skill saved successfully.",
+            }),
+          },
+        ],
+      };
   },
 };
