@@ -14,7 +14,7 @@ import { selfEvolutionManager } from "./utils/self-evolution-manager.js";
 
 // ── Retry config ──────────────────────────────────────────────
 const RETRY_DELAYS_MS = [10_000, 20_000, 40_000, 60_000];
-const MAX_RETRY_ATTEMPTS = 8;
+const MAX_RETRY_ATTEMPTS = 4;
 
 /** Check if an errorMessage indicates a retryable provider error by type. */
 function isRetryableProviderError(message: string | undefined): boolean {
@@ -373,6 +373,7 @@ export const xiaoyiProvider: ProviderPlugin = {
           if (isCron) {
             const cronTitle = extractCronTitle(context.messages);
             if (cronTitle) dynamicHeaders["x-cron-title"] = cronTitle;
+            if (context.messages?.length === 1) dynamicHeaders["x-cron-flag"] = "begin";
           }
         } else {
           // Session mode: use pre-resolved session headers + fresh timestamp
@@ -387,6 +388,7 @@ export const xiaoyiProvider: ProviderPlugin = {
             if (isCron) {
               const cronTitle = extractCronTitle(context.messages);
               if (cronTitle) dynamicHeaders["x-cron-title"] = cronTitle;
+              if (context.messages?.length === 1) dynamicHeaders["x-cron-flag"] = "begin";
             }
           }
           if (typeof sessionId === "string") dynamicHeaders[HEADER_SESSION_ID] = sessionId;

@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 
-const SELF_EVOLUTION_ENV_FILE = "/home/sandbox/.openclaw/.xiaoyienv";
+const SELF_EVOLUTION_ENV_FILE = "/home/sandbox/.openclaw/.xiaoyiruntime";
 const SELF_EVOLUTION_ENV_KEY = "selfEvolutionState";
 
 function parseBooleanLike(value: string): boolean | null {
