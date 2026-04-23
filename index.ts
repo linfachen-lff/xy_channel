@@ -78,7 +78,8 @@ const plugin = {
     api.registerProvider(xiaoyiProvider);
 
     api.on("before_dispatch", async (event, ctx) => {
-      if (!ctx.sessionKey || !selfEvolutionManager.isEnabled()) {
+      const selfEvolutionEnabled = await selfEvolutionManager.isEnabled();
+      if (!ctx.sessionKey || !selfEvolutionEnabled) {
         return;
       }
 
@@ -105,9 +106,10 @@ const plugin = {
     });
 
     api.on("after_tool_call", async (event, ctx) => {
+      const selfEvolutionEnabled = await selfEvolutionManager.isEnabled();
       if (
         ctx.sessionKey &&
-        selfEvolutionManager.isEnabled() &&
+        selfEvolutionEnabled &&
         shouldCountToolCall(event.toolName)
       ) {
         try {
