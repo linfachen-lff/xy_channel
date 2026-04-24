@@ -7,11 +7,17 @@ import { parseA2AMessage, extractTextFromParts, extractFileParts, extractPushId,
 import { downloadFilesFromParts } from "./file-download.js";
 import { resolveXYConfig } from "./config.js";
 import { sendStatusUpdate, sendClearContextResponse, sendTasksCancelResponse, sendA2AResponse } from "./formatter.js";
+import {
+  appendSelfEvolutionKeywordNudge,
+  shouldNudgeForSelfEvolutionKeyword,
+} from "./self-evolution-keyword.js";
 import { registerSession, unregisterSession, runWithSessionContext } from "./tools/session-manager.js";
 import { configManager } from "./utils/config-manager.js";
 import { addPushId } from "./utils/pushid-manager.js";
 import { getPushDataById } from "./utils/pushdata-manager.js";
+import { selfEvolutionManager } from "./utils/self-evolution-manager.js";
 import { saveRuntimeInfo } from "./utils/runtime-manager.js";
+import { toolCallNudgeManager } from "./utils/tool-call-nudge-manager.js";
 import {
   registerTaskId,
   incrementTaskIdRef,
@@ -227,6 +233,31 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     // Extract text and files from parts
     const text = extractTextFromParts(parsed.parts);
+    let textForAgent = text || "";
+    if (route.sessionKey && textForAgent) {
+      try {
+        const selfEvolutionEnabled = await selfEvolutionManager.isEnabled();
+        if (selfEvolutionEnabled && shouldNudgeForSelfEvolutionKeyword(textForAgent)) {
+          const shouldNudge = toolCallNudgeManager.tryMarkKeywordNudge(route.sessionKey);
+          log(
+            `[SELF_EVOLUTION] Keyword check hit during inbound build: sessionKey=${route.sessionKey}, shouldNudge=${shouldNudge}`,
+          );
+          if (shouldNudge) {
+            const augmented = appendSelfEvolutionKeywordNudge(textForAgent);
+            textForAgent = augmented.text;
+            if (augmented.appended) {
+              log(
+                `[SELF_EVOLUTION] Keyword-triggered inline nudge appended: sessionKey=${route.sessionKey}`,
+              );
+            }
+          }
+        }
+      } catch (selfEvolutionError) {
+        error(
+          `[SELF_EVOLUTION] Failed to append inline keyword nudge: ${String(selfEvolutionError)}`,
+        );
+      }
+    }
     const fileParts = extractFileParts(parsed.parts);
 
     // Download files to local disk
@@ -238,7 +269,7 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     const envelopeOptions = core.channel.reply.resolveEnvelopeFormatOptions(cfg);
 
     // Build message body with speaker prefix (following feishu pattern)
-    let messageBody = text || "";
+    let messageBody = textForAgent;
 
     // Add speaker prefix for clarity
     const speaker = parsed.sessionId;
@@ -257,8 +288,8 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
     // Use route.accountId and route.sessionKey instead of parsed fields
     const ctxPayload = core.channel.reply.finalizeInboundContext({
       Body: body,
-      RawBody: text || "",
-      CommandBody: text || "",
+      RawBody: textForAgent,
+      CommandBody: textForAgent,
       From: parsed.sessionId,
       To: parsed.sessionId,  // ✅ Simplified: use sessionId as target (context is managed by SessionKey)
       SessionKey: route.sessionKey,  // ✅ Use route.sessionKey
