@@ -77,7 +77,7 @@ export const xyPlugin: ChannelPlugin = {
 
   outbound: xyOutbound,
   agentTools: () => {
-    const allTools = [locationTool, callDeviceTool, getNoteToolSchemaTool, getCalendarToolSchemaTool, getContactToolSchemaTool, getPhotoToolSchemaTool, xiaoyiGuiTool, getDeviceFileToolSchemaTool, getAlarmToolSchemaTool, getCollectionToolSchemaTool, sendFileToUserTool, viewPushResultTool, imageReadingTool, timestampToUtc8Tool, saveSelfEvolutionSkillTool, getEmailToolSchemaTool, queryAppMessageTool, queryMemoryDataTool, queryTodoTaskTool, loginTokenTool];
+    const allTools = [locationTool, callDeviceTool, getNoteToolSchemaTool, getCalendarToolSchemaTool, getContactToolSchemaTool, getPhotoToolSchemaTool, xiaoyiGuiTool, getDeviceFileToolSchemaTool, getAlarmToolSchemaTool, getCollectionToolSchemaTool, sendFileToUserTool, viewPushResultTool, imageReadingTool, timestampToUtc8Tool, saveSelfEvolutionSkillTool];
     const ctx = getCurrentSessionContext();
     const filtered = filterToolsByDevice(allTools, ctx?.deviceType);
     logger.log(`[DEVICE-FILTER] deviceType=${ctx?.deviceType ?? "(none)"}, tools: ${allTools.length} → ${filtered.length} (${filtered.map(t => t.name).join(", ")})`);
