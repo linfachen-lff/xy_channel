@@ -26,7 +26,7 @@ import {
 } from "./src/utils/tool-call-nudge-manager.js";
 
 const SELF_EVOLUTION_NUDGE_MESSAGE =
-  "[系统消息，非用户发言，无需主动告知用户] 当前任务已经调用了较多次数的工具。如果你识别到其中存在可复用的解决方法或踩坑经验等，可以在完成当前主要任务后，正式回复用户前，阅读 xiaoyi-self-evolution 技能了解自进化规则。注意，不要打断当前主任务，以完成任务为最高优先级。";
+  "[系统消息，非用户发言，无需主动告知用户] 当前任务已经调用了较多次数的工具。请先完成用户主要任务。完成后，如果这些工具调用暴露出稳定、通用、可复用的流程、排错经验或踩坑点，再考虑阅读 xiaoyi-self-evolution 技能进行评估；如果没有高价值候选经验，请忽略本提醒。";
 
 function shouldCountToolCall(toolName: string): boolean {
   if (toolName === "save_self_evolution_skill") {
