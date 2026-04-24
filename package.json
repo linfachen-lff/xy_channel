@@ -1,6 +1,6 @@
 {
   "name": "@ynhcj/xiaoyi-channel",
-  "version": "0.0.79-dev",
+  "version": "0.0.80-dev",
   "description": "OpenClaw Xiaoyi Channel plugin - Xiaoyi A2A protocol integration",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,6 +13,7 @@
   },
   "files": [
     "dist",
+    "skills",
     "openclaw.plugin.json"
   ],
   "scripts": {
