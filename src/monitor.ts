@@ -198,7 +198,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
 
     const selfEvolutionStateGetHandler = (context: any) => {
       log(`[MONITOR] Received self-evolution-state-get-event, dispatching to handler...`);
-      handleSelfEvolutionStateGetEvent(context, cfg, runtime).catch((err) => {
+      handleSelfEvolutionStateGetEvent(context, cfg, runtime, wsManager).catch((err) => {
         error(`[MONITOR] Failed to handle self-evolution-state-get-event:`, err);
       });
     };

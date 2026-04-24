@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from "fs";
 import { v4 as uuidv4 } from "uuid";
-import { sendCommand } from "./formatter.js";
+import type { XYWebSocketManager } from "./websocket.js";
+import type { OutboundWebSocketMessage } from "./types.js";
 
 const XIAOYIRUNTIME_PATH = "/home/sandbox/.openclaw/.xiaoyiruntime";
 
@@ -55,9 +56,15 @@ export function handleSelfEvolutionEvent(context: any, runtime: any): void {
 }
 
 /**
- * 读取 .xiaoyiruntime 中的 selfEvolutionState 并通过 sendCommand 下发指令回复设备
+ * 读取 .xiaoyiruntime 中的 selfEvolutionState 并直接通过 wsManager 下发指令回复设备
+ * 参考trigger实现：直接使用当前已连接的 wsManager 发送消息，避免 getXYWebSocketManager 返回未连接实例
  */
-export async function handleSelfEvolutionStateGetEvent(context: any, cfg: any, runtime: any): Promise<void> {
+export async function handleSelfEvolutionStateGetEvent(
+  context: any,
+  cfg: any,
+  runtime: any,
+  wsManager: XYWebSocketManager
+): Promise<void> {
   const log = runtime?.log ?? console.log;
   const error = runtime?.error ?? console.error;
 
@@ -114,14 +121,38 @@ export async function handleSelfEvolutionStateGetEvent(context: any, cfg: any, r
       },
     };
 
-    await sendCommand({
-      config: cfg,
+    // 构造 artifact update 消息，直接通过当前 wsManager 发送
+    const jsonRpcResponse = {
+      jsonrpc: "2.0",
+      id: messageId,
+      result: {
+        taskId,
+        kind: "artifact-update",
+        append: false,
+        lastChunk: true,
+        final: false,
+        artifact: {
+          artifactId: uuidv4(),
+          parts: [{
+            kind: "data",
+            data: {
+              commands: [command],
+            },
+          }],
+        },
+      },
+    };
+
+    const outboundMessage: OutboundWebSocketMessage = {
+      msgType: "agent_response",
+      agentId: cfg.agentId,
       sessionId,
       taskId,
-      messageId,
-      command,
-    });
+      msgDetail: JSON.stringify(jsonRpcResponse),
+    };
 
+    log(`[A2A_COMMAND] 📤 Sending A2A command: taskId: ${taskId}`);
+    await wsManager.sendMessage(sessionId, outboundMessage);
     log(`[SELF_EVOLUTION_GET] command sent successfully`);
   } catch (err) {
     error("[SELF_EVOLUTION_GET] failed to handle event:", err);
