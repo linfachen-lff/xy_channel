@@ -24,6 +24,8 @@ import {
   MAX_TEXT_LENGTH,
   STEER_ABORT_MESSAGE,
 } from "./src/cspl/constants.js";
+import { createBeforePromptBuildHandler } from "./src/skill-retriever/hooks.js";
+import { normalizeToolRetrieverConfig } from "./src/skill-retriever/config.js";
 
 
 const SELF_EVOLUTION_NUDGE_MESSAGE =
@@ -121,6 +123,18 @@ const plugin = {
     setXYRuntime(api.runtime);
     api.registerChannel({ plugin: xyPlugin });
     api.registerProvider(xiaoyiProvider);
+
+    // SKILL RETRIEVER HOOK: before_prompt_build hook
+    const pluginConfig = (api as { pluginConfig?: unknown }).pluginConfig as Record<string, unknown> || {};
+    const skillRetrieverConfig = normalizeToolRetrieverConfig({
+      enabled: pluginConfig.skillRetrieverEnabled ?? true,
+      maxTools: pluginConfig.skillRetrieverMaxTools ?? 2,
+      includeUninstalledOnly: true,
+      envFilePath: "~/.openclaw/.xiaoyienv",
+      timeoutMs: pluginConfig.skillRetrieverTimeoutMs ?? 1000,
+    });
+    const beforePromptBuildHandler = createBeforePromptBuildHandler(skillRetrieverConfig);
+    api.on("before_prompt_build", beforePromptBuildHandler);
 
     api.on("before_dispatch", async (event, ctx) => {
       const selfEvolutionEnabled = await selfEvolutionManager.isEnabled();

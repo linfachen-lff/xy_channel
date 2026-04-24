@@ -1,4 +1,6 @@
 import { readFileSync, writeFileSync } from "fs";
+import { v4 as uuidv4 } from "uuid";
+import { sendCommand } from "./formatter.js";
 
 const XIAOYIRUNTIME_PATH = "/home/sandbox/.openclaw/.xiaoyiruntime";
 
@@ -49,5 +51,79 @@ export function handleSelfEvolutionEvent(context: any, runtime: any): void {
     log(`[SELF_EVOLUTION] updated selfEvolutionState=${state} in ${XIAOYIRUNTIME_PATH}`);
   } catch (err) {
     error("[SELF_EVOLUTION] failed to handle event:", err);
+  }
+}
+
+/**
+ * 读取 .xiaoyiruntime 中的 selfEvolutionState 并通过 sendCommand 下发指令回复设备
+ */
+export async function handleSelfEvolutionStateGetEvent(context: any, cfg: any, runtime: any): Promise<void> {
+  const log = runtime?.log ?? console.log;
+  const error = runtime?.error ?? console.error;
+
+  try {
+    const { sessionId, taskId } = context;
+    const messageId = context.messageId ?? uuidv4();
+
+    // 读取 selfEvolutionState
+    let state = "false";
+    try {
+      const content = readFileSync(XIAOYIRUNTIME_PATH, "utf-8");
+      for (const line of content.split("\n")) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("selfEvolutionState=")) {
+          state = trimmed.slice("selfEvolutionState=".length).trim();
+          break;
+        }
+      }
+    } catch {
+      // 文件不存在，使用默认值 false
+    }
+
+    log(`[SELF_EVOLUTION_GET] read selfEvolutionState=${state}, sending command back`);
+
+    const command = {
+      header: {
+        namespace: "Common",
+        name: "Action",
+      },
+      payload: {
+        cardParam: {},
+        executeParam: {
+          executeMode: "background",
+          intentName: "ClawSelfEvolutionStateGet",
+          bundleName: "com.huawei.hmos.vassistant",
+          needUnlock: true,
+          actionResponse: true,
+          appType: "OHOS_APP",
+          timeOut: 5,
+          intentParam: {
+            selfEvolutionState: state,
+          },
+          permissionId: [],
+          achieveType: "INTENT",
+        },
+        responses: [{
+          resultCode: "",
+          displayText: "",
+          ttsText: "",
+        }],
+        needUploadResult: true,
+        noHalfPage: false,
+        pageControlRelated: false,
+      },
+    };
+
+    await sendCommand({
+      config: cfg,
+      sessionId,
+      taskId,
+      messageId,
+      command,
+    });
+
+    log(`[SELF_EVOLUTION_GET] command sent successfully`);
+  } catch (err) {
+    error("[SELF_EVOLUTION_GET] failed to handle event:", err);
   }
 }
