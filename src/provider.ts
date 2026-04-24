@@ -380,11 +380,10 @@ export const xiaoyiProvider: ProviderPlugin = {
           const traceId = ctx.extraParams[HEADER_TRACE_ID];
           const sessionId = ctx.extraParams[HEADER_SESSION_ID];
           const interactionId = ctx.extraParams[HEADER_INTERACTION_ID];
-          const ts = `_${Date.now()}`;
 
           if (typeof traceId === "string") {
             const isCron = isCronTriggered(context.messages);
-            dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}${ts}` : `${traceId}${ts}`;
+            dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}_${Date.now()}` : traceId;
             if (isCron) {
               const cronTitle = extractCronTitle(context.messages);
               if (cronTitle) dynamicHeaders["x-cron-title"] = cronTitle;
