@@ -13,8 +13,8 @@ import { getCurrentSessionContext } from "./tools/session-manager.js";
 import { selfEvolutionManager } from "./utils/self-evolution-manager.js";
 
 // ── Retry config ──────────────────────────────────────────────
-const RETRY_DELAYS_MS = [10_000, 20_000, 40_000, 60_000];
-const MAX_RETRY_ATTEMPTS = 4;
+const RETRY_DELAYS_MS = [10_000, 20_000, 40_000, 60_000, 60_000];
+const MAX_RETRY_ATTEMPTS = 5;
 
 /** Check if an errorMessage indicates a retryable provider error by type. */
 function isRetryableProviderError(message: string | undefined): boolean {
