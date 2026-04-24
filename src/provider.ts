@@ -331,6 +331,7 @@ ${SELF_EVOLUTION_PROMPT_BEGIN}
 ## Self Evolution
 用户当前已禁用自我进化功能。
 你不得执行自进化相关行为，并且应将此功能视为不可用(不管之前是什么状态，不管之前的对话记录，当前视作已关闭即可)。
+不允许调用save_self_evolution_skill工具，如果用户询问自进化功能相关的事情，则回复用户可在右上角设置里查看自进化功能介绍并手动开启。
 ${SELF_EVOLUTION_PROMPT_END}
 `.trim();
 
