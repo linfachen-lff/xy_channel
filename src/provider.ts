@@ -11,6 +11,7 @@ import { createHash } from "crypto";
 import type { ProviderPlugin } from "openclaw/plugin-sdk/provider-models";
 import { getCurrentSessionContext } from "./tools/session-manager.js";
 import { selfEvolutionManager } from "./utils/self-evolution-manager.js";
+import { logger } from "./utils/logger.js";
 
 // ── Retry config ──────────────────────────────────────────────
 const RETRY_DELAYS_MS = [10_000, 20_000, 40_000, 60_000, 60_000];
@@ -441,6 +442,8 @@ export const xiaoyiProvider: ProviderPlugin = {
       }
 
       const selfEvolutionEnabled = await selfEvolutionManager.isEnabled();
+
+      logger.log(`[selfEvolution] selfEvolution flag: ${selfEvolutionEnabled}`);
       const prompt = stripSelfEvolutionPrompt(context.systemPrompt ?? "");
       context.systemPrompt = [
         prompt,
