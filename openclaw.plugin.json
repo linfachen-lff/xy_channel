@@ -2,7 +2,7 @@
   "id": "xiaoyi-channel",
   "channels": ["xiaoyi-channel"],
   "providers": ["xiaoyiprovider"],
-  "skills": ["./skills/self-evolution"],
+  "skills": [],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

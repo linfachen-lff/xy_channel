@@ -7,11 +7,6 @@ dist/
 
 # Documentation
 *.md
-!skills/
-!skills/self-evolution/
-!skills/self-evolution/self-evolution/
-!skills/self-evolution/self-evolution/SKILL.md
-skills/self-evolution/evolving-*/
 
 # IDE
 .claude/

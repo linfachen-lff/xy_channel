@@ -3,9 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { getCurrentSessionContext } from "./session-manager.js";
 import { selfEvolutionManager } from "../utils/self-evolution-manager.js";
-import { resolveSelfEvolutionSkillRoot } from "../utils/self-evolution-skill-paths.js";
 
-const SELF_EVOLVED_SKILL_ROOT = resolveSelfEvolutionSkillRoot(import.meta.url);
+const SELF_EVOLVED_SKILL_ROOT = "/home/sandbox/.openclaw/workspace/skills";
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/u;
 
 function slugifyTitle(title: string): string {
