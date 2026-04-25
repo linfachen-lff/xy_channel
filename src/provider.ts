@@ -445,7 +445,7 @@ export const xiaoyiProvider: ProviderPlugin = {
           dynamicHeaders[HEADER_INTERACTION_ID] = fallbackValue;
           if (isCron) {
             const cronTitle = extractCronTitle(context.messages);
-            if (cronTitle) dynamicHeaders["x-cron-title"] = cronTitle;
+            if (cronTitle) dynamicHeaders["x-cron-title"] = encodeURIComponent(cronTitle);
             if (context.messages?.length === 1) dynamicHeaders["x-cron-flag"] = "begin";
           }
         } else {
@@ -459,7 +459,7 @@ export const xiaoyiProvider: ProviderPlugin = {
             dynamicHeaders[HEADER_TRACE_ID] = isCron ? `cron_${traceId}_${Date.now()}` : traceId;
             if (isCron) {
               const cronTitle = extractCronTitle(context.messages);
-              if (cronTitle) dynamicHeaders["x-cron-title"] = cronTitle;
+              if (cronTitle) dynamicHeaders["x-cron-title"] = encodeURIComponent(cronTitle);
               if (context.messages?.length === 1) dynamicHeaders["x-cron-flag"] = "begin";
             }
           }
