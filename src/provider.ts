@@ -27,34 +27,30 @@ function isRetryableProviderError(message: string | undefined): boolean {
   return false;
 }
 
+/** Extract text content from the first user message. */
+function getFirstUserText(messages: Array<{ role: string; content?: string | Array<{ type: string; text?: string }> }> | undefined): string {
+  if (!messages) return "";
+  const firstUser = messages.find(m => m.role === "user");
+  if (!firstUser) return "";
+  if (typeof firstUser.content === "string") return firstUser.content;
+  if (Array.isArray(firstUser.content)) {
+    const block = firstUser.content.find(b => b.type === "text" && typeof b.text === "string");
+    if (block) return block.text;
+  }
+  return "";
+}
+
+/** Regex to match `[cron:<uuid> <title>]` anywhere in text. */
+const CRON_TAG_RE = /\[cron:[^\s\]]+\s+([^\]]+)\]/;
+
 /** Check if the request is triggered by a cron job by inspecting the first user message. */
 function isCronTriggered(messages: Array<{ role: string; content?: string | Array<{ type: string; text?: string }> }> | undefined): boolean {
-  if (!messages) return false;
-  const firstUser = messages.find(m => m.role === "user");
-  if (!firstUser) return false;
-  let text = "";
-  if (typeof firstUser.content === "string") {
-    text = firstUser.content;
-  } else if (Array.isArray(firstUser.content)) {
-    const block = firstUser.content.find(b => b.type === "text" && typeof b.text === "string");
-    if (block) text = block.text;
-  }
-  return /^\[cron:/i.test(text.trim());
+  return /\[cron:/i.test(getFirstUserText(messages));
 }
 
 /** Extract cron title from first user message matching `[cron:<uuid> <title>]`. */
 function extractCronTitle(messages: Array<{ role: string; content?: string | Array<{ type: string; text?: string }> }> | undefined): string | undefined {
-  if (!messages) return undefined;
-  const firstUser = messages.find(m => m.role === "user");
-  if (!firstUser) return undefined;
-  let text = "";
-  if (typeof firstUser.content === "string") {
-    text = firstUser.content;
-  } else if (Array.isArray(firstUser.content)) {
-    const block = firstUser.content.find(b => b.type === "text" && typeof b.text === "string");
-    if (block) text = block.text;
-  }
-  const match = text.trim().match(/^\[cron:[^\s]+\s+(.+)\]$/);
+  const match = getFirstUserText(messages).match(CRON_TAG_RE);
   return match ? match[1] : undefined;
 }
 
