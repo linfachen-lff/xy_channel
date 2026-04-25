@@ -4,7 +4,7 @@ import path from "node:path";
 import { getCurrentSessionContext } from "./session-manager.js";
 import { selfEvolutionManager } from "../utils/self-evolution-manager.js";
 
-const SELF_EVOLVED_SKILL_ROOT = "/home/sandbox/.openclaw/workspace/skills";
+const SELF_EVOLVED_SKILL_ROOT = "/home/sandbox/.openclaw/.agents/skills";
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/u;
 
 function slugifyTitle(title: string): string {
@@ -279,13 +279,13 @@ export const saveSelfEvolutionSkillTool: any = {
   name: "save_self_evolution_skill",
   label: "Save Self Evolution Skill",
   description:
-    "将可复用的经验/脚本/教训等保存为skill技能，供下次执行类似任务时参考。仅用于通用、可复用的场景。",
+    "将可复用的经验/脚本/教训等保存为skill技能，供下次执行类似任务时参考。仅用于通用、可复用的场景。仅当自进化开启时可调用本工具。",
   parameters: {
     type: "object",
     properties: {
       title: {
         type: "string",
-        description: "所学技能的简短标题。**必须为英文，可用下划线或中划线分割。**",
+        description: "所学技能的简短标题。**必须为小写字母/数字/中划线。**",
       },
       summary: {
         type: "string",

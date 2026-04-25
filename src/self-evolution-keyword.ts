@@ -112,8 +112,26 @@ export const SELF_EVOLUTION_KEYWORD_PATTERNS = [
   /(?:这个|这种|上述|当前)(?:工具|skill|技能|命令|脚本|流程|方法)(?:以后|下次|后续|之后)(?:优先|默认|固定|继续)(?:用|使用|调用)/u,
 ] as const;
 
+export const SELF_EVOLUTION_MECHANISM_DISCUSSION_PATTERNS = [
+  /自进化(?:机制|功能|流程|原理|实现|设计|架构|链路|优化点|改进点)/u,
+  /(?:分析|讨论|了解|解释|看看|研究|检查|梳理|优化|改进|评估)(?:.{0,12})自进化/u,
+  /自进化(?:.{0,12})(?:怎么|如何|是否|能否|有没有|为什么)/u,
+  /自进化(?:是啥|是什么|的)/u,
+  /什么是自进化/u,
+  /啥是自进化/u,
+  /xiaoyi-self-evolution(?:-skill)?(?:.{0,12})(?:机制|功能|流程|原理|实现|设计|优化点|改进点)/iu,
+] as const;
+
+export function isSelfEvolutionMechanismDiscussion(text: string): boolean {
+  return SELF_EVOLUTION_MECHANISM_DISCUSSION_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 export function shouldNudgeForSelfEvolutionKeyword(text: string): boolean {
   if (!text) {
+    return false;
+  }
+
+  if (isSelfEvolutionMechanismDiscussion(text)) {
     return false;
   }
 
