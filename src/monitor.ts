@@ -7,7 +7,7 @@ import { handleXYMessage } from "./bot.js";
 import { parseA2AMessage } from "./parser.js";
 import { hasActiveTask } from "./task-manager.js";
 import { handleTriggerEvent } from "./trigger-handler.js";
-import { handleSelfEvolutionEvent } from "./self-evolution-handler.js";
+import { handleSelfEvolutionEvent, handleSelfEvolutionStateGetEvent } from "./self-evolution-handler.js";
 import { handleLoginTokenEvent } from "./login-token-handler.js";
 import { cleanupStaleTempFiles } from "./reply-dispatcher.js";
 
@@ -196,6 +196,13 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       handleSelfEvolutionEvent(context, runtime);
     };
 
+    const selfEvolutionStateGetHandler = (context: any) => {
+      log(`[MONITOR] Received self-evolution-state-get-event, dispatching to handler...`);
+      handleSelfEvolutionStateGetEvent(context, cfg, runtime, wsManager).catch((err) => {
+        error(`[MONITOR] Failed to handle self-evolution-state-get-event:`, err);
+      });
+    };
+
     const loginTokenEventHandler = (context: any) => {
       log(`[MONITOR] Received login-token-event, dispatching to handler...`);
       handleLoginTokenEvent(context, runtime);
@@ -222,6 +229,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       wsManager.off("error", errorHandler);
       wsManager.off("trigger-event", triggerEventHandler);
       wsManager.off("self-evolution-event", selfEvolutionHandler);
+      wsManager.off("self-evolution-state-get-event", selfEvolutionStateGetHandler);
       wsManager.off("login-token-event", loginTokenEventHandler);
 
       // ✅ Disconnect the wsManager to prevent connection leaks
@@ -262,6 +270,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
     wsManager.on("error", errorHandler);
     wsManager.on("trigger-event", triggerEventHandler);
     wsManager.on("self-evolution-event", selfEvolutionHandler);
+    wsManager.on("self-evolution-state-get-event", selfEvolutionStateGetHandler);
     wsManager.on("login-token-event", loginTokenEventHandler);
 
     // Start periodic health check (every 6 hours)

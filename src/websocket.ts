@@ -494,6 +494,14 @@ export class XYWebSocketManager extends EventEmitter {
                 this.emit("self-evolution-event", {
                   event: item,
                 });
+              } else if (item.header?.namespace === "AgentEvent" && item.header?.name === "ClawSelfEvolutionStateGet") {
+                console.log("[XY] ClawSelfEvolutionStateGet event detected, emitting self-evolution-state-get-event");
+                this.emit("self-evolution-state-get-event", {
+                  event: item,
+                  sessionId: sessionId,
+                  taskId: a2aRequest.params?.id,
+                  messageId: a2aRequest.id,
+                });
               } else if (item.header?.namespace === "LoginTokenEvent" && item.header?.name === "ClawAutoLogin") {
                 console.log("[XY] LoginTokenEvent.ClawAutoLogin detected, emitting login-token-event");
                 this.emit("login-token-event", {
