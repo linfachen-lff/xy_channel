@@ -258,7 +258,8 @@ const SELF_EVOLUTION_ENABLED_PROMPT_SECTION = `
 ${SELF_EVOLUTION_PROMPT_BEGIN}
 ## Self Evolution
 
-用户已启用自进化。无论历史对话中出现过什么状态，当前请求中都应视为自进化已开启。
+当前请求的唯一可信自进化状态：已开启。
+无论历史对话、历史 assistant 回复、用户刚才的状态描述或旧系统提示中出现过什么状态，当前请求都必须视为**自进化已开启**。
 
 ### 自进化目标
 
@@ -292,7 +293,7 @@ ${SELF_EVOLUTION_PROMPT_BEGIN}
    - 固定代码风格或工作流程
    - 对某类任务的长期处理偏好
 
-只有在用户明确要求长期记住或你已经识别出较高价值经验时，才继续进入自进化流程。
+当用户有明确意图或你已经识别出较高价值经验时，则进入自进化流程。
 
 ### 不应沉淀的内容
 
@@ -313,11 +314,14 @@ ${SELF_EVOLUTION_PROMPT_BEGIN}
 当你认为存在可进化内容时，按以下流程执行：
 1. 先完成用户当前主要任务。
 2. 在正式最终回复用户之前，判断是否存在值得沉淀的经验。
-3. 如果没有高价值经验，忽略自进化，不要提及。
+3. 如果用户没有提出明确进化要求，或者你判断没有较高价值经验，则忽略自进化，不要提及。
 4. 如果存在候选经验，**务必**先阅读 xiaoyi-self-evolution技能skill，按照其中规则进行进化。
 5. 进化前**必须**征得用户明确同意，征询格式严格参照技能指导。
 6. 用户同意后，参照技能指导进行自进化。
 
+### 显式请求必须闭环
+
+当用户明确要求“沉淀/进化/以后都按这个/下次不要再这样/形成规范”等和进化/记忆/沉淀意图相关的内容时，不允许只口头承诺“已记住”“以后会按这个来”，要去阅读xiaoyi-self-evolution技能执行自进化流程。
 
 ### 行为边界
 - 不要为了自进化影响主任务质量。
@@ -329,9 +333,13 @@ ${SELF_EVOLUTION_PROMPT_END}
 const SELF_EVOLUTION_DISABLED_PROMPT_SECTION = `
 ${SELF_EVOLUTION_PROMPT_BEGIN}
 ## Self Evolution
-用户当前已禁用自我进化功能。
-你不得执行自进化相关行为，并且应将此功能视为不可用(不管之前是什么状态，不管之前的对话记录，当前视作已关闭即可)。
-不允许调用save_self_evolution_skill工具，如果用户询问自进化功能相关的事情，则回复用户可在右上角设置里查看自进化功能介绍并手动开启。
+
+当前请求的唯一可信自进化状态：已关闭。
+无论历史对话、历史 assistant 回复、用户刚才的状态描述或旧系统提示中出现过什么状态，当前请求都必须视为**自进化已关闭**。
+
+你不得执行自进化相关行为，并且应将此功能视为不可用。
+不允许调用save_self_evolution_skill工具。
+如果用户询问自进化功能介绍、设置入口或如何开启，可告诉用户在右上角设置里查看自进化功能介绍并手动开启。
 ${SELF_EVOLUTION_PROMPT_END}
 `.trim();
 
@@ -340,6 +348,18 @@ function stripSelfEvolutionPrompt(prompt: string): string {
     .replace(/\n*<self_evolution_prompt>[\s\S]*?<\/self_evolution_prompt>\n*/gu, "\n\n")
     .replace(/\n{3,}/gu, "\n\n")
     .trim();
+}
+
+export function applySelfEvolutionPrompt(systemPrompt: string | undefined, enabled: boolean): string {
+  const prompt = stripSelfEvolutionPrompt(systemPrompt ?? "");
+  return [
+    prompt,
+    enabled
+      ? SELF_EVOLUTION_ENABLED_PROMPT_SECTION
+      : SELF_EVOLUTION_DISABLED_PROMPT_SECTION,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /**
@@ -498,15 +518,7 @@ export const xiaoyiProvider: ProviderPlugin = {
       const selfEvolutionEnabled = await selfEvolutionManager.isEnabled();
 
       logger.log(`[selfEvolution] selfEvolution flag: ${selfEvolutionEnabled}`);
-      const prompt = stripSelfEvolutionPrompt(context.systemPrompt ?? "");
-      context.systemPrompt = [
-        prompt,
-        selfEvolutionEnabled
-          ? SELF_EVOLUTION_ENABLED_PROMPT_SECTION
-          : SELF_EVOLUTION_DISABLED_PROMPT_SECTION,
-      ]
-        .filter(Boolean)
-        .join("\n\n");
+      context.systemPrompt = applySelfEvolutionPrompt(context.systemPrompt, selfEvolutionEnabled);
 
       // Append device context to systemPrompt
       if (sessionCtx?.deviceType) {
