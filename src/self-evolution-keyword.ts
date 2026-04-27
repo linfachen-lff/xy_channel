@@ -4,6 +4,8 @@ export const SELF_EVOLUTION_KEYWORD_PATTERNS = [
   /进化/u,
   /沉淀/u,
   /记住/u,
+  /固化/u,
+  /下次都/u,
   /记下来/u,
   /记一个/u,
   /记一下/u,
