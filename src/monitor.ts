@@ -5,7 +5,8 @@ import { resolveXYConfig } from "./config.js";
 import { getXYWebSocketManager, diagnoseAllManagers, cleanupOrphanConnections, removeXYWebSocketManager } from "./client.js";
 import { handleXYMessage } from "./bot.js";
 import { parseA2AMessage } from "./parser.js";
-import { hasActiveTask } from "./task-manager.js";
+import { hasActiveTask, getAllActiveTaskBindings } from "./task-manager.js";
+import { sendA2AResponse } from "./formatter.js";
 import { handleTriggerEvent } from "./trigger-handler.js";
 import { handleSelfEvolutionEvent, handleSelfEvolutionStateGetEvent } from "./self-evolution-handler.js";
 import { handleLoginTokenEvent } from "./login-token-handler.js";
@@ -248,8 +249,40 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       diagnoseAllManagers();
     };
 
-    const handleAbort = () => {
-      log("XY gateway: abort signal received, stopping");
+    const handleAbort = async () => {
+      log("XY gateway: abort signal received, sending notifications before stopping");
+
+      // 📤 Send restart notification to all active sessions before disconnecting
+      try {
+        const activeBindings = getAllActiveTaskBindings();
+        if (activeBindings.length > 0) {
+          const config = resolveXYConfig(cfg);
+          const notificationText = "Gateway即将重启，重启期间可能短暂出现\u201c环境异常\u201d提示，请稍候并耐心重试~";
+
+          log(`[MONITOR] 📤 Sending restart notifications to ${activeBindings.length} active session(s)`);
+          const sendPromises = activeBindings.map(binding =>
+            sendA2AResponse({
+              config,
+              sessionId: binding.sessionId,
+              taskId: binding.currentTaskId,
+              messageId: binding.currentMessageId,
+              text: notificationText,
+              append: false,
+              final: true,
+            }).catch(err => {
+              error(`[MONITOR] Failed to send restart notification to session ${binding.sessionId}: ${String(err)}`);
+            })
+          );
+
+          await Promise.all(sendPromises);
+          log(`[MONITOR] ✅ Restart notifications sent to ${activeBindings.length} session(s)`);
+        } else {
+          log(`[MONITOR] No active sessions, skipping restart notifications`);
+        }
+      } catch (err) {
+        error(`[MONITOR] Error sending restart notifications: ${String(err)}`);
+      }
+
       cleanup();
       log("XY gateway stopped");
       resolve();
