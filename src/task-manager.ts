@@ -160,6 +160,13 @@ export function getTaskIdBinding(sessionId: string): TaskIdBinding | null {
 }
 
 /**
+ * 获取所有活跃的 task bindings（用于 gateway_stop 通知等场景）
+ */
+export function getAllActiveTaskBindings(): TaskIdBinding[] {
+  return Array.from(activeTaskIds.values());
+}
+
+/**
  * 强制清理（错误恢复用）
  */
 export function forceCleanTaskId(sessionId: string): void {

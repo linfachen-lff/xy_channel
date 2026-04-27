@@ -3,6 +3,7 @@ import WebSocket from "ws";
 import { EventEmitter } from "events";
 import type { RuntimeEnv } from "openclaw/plugin-sdk";
 import { HeartbeatManager } from "./heartbeat.js";
+import { MessageQueue } from "./message-queue.js";
 import type {
   XYChannelConfig,
   ServerConnectionState,
@@ -63,6 +64,11 @@ export class XYWebSocketManager extends EventEmitter {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private isShuttingDown = false;
 
+  // Message queue for buffering during disconnection/reconnection
+  private messageQueue: MessageQueue;
+  private isBuffering = false;
+  private reconnectBufferTimer: NodeJS.Timeout | null = null;
+
   // Logging functions
   private log: (msg: string, ...args: any[]) => void;
   private error: (msg: string, ...args: any[]) => void;
@@ -77,6 +83,7 @@ export class XYWebSocketManager extends EventEmitter {
     super();
     this.log = runtime?.log ?? console.log;
     this.error = runtime?.error ?? console.error;
+    this.messageQueue = new MessageQueue(this.log);
   }
 
   /**
@@ -132,6 +139,14 @@ export class XYWebSocketManager extends EventEmitter {
       this.reconnectTimer = null;
     }
 
+    // Clear message queue on explicit disconnect (not during reconnection)
+    if (this.reconnectBufferTimer) {
+      clearTimeout(this.reconnectBufferTimer);
+      this.reconnectBufferTimer = null;
+    }
+    this.messageQueue.clear();
+    this.isBuffering = false;
+
     this.cleanupConnection();
 
     this.log("Disconnected from XY WebSocket server");
@@ -141,6 +156,11 @@ export class XYWebSocketManager extends EventEmitter {
    * Send a message to the server.
    */
   async sendMessage(sessionId: string, message: OutboundWebSocketMessage): Promise<void> {
+
+    if (this.isBuffering) {
+      this.messageQueue.enqueue(message);
+      return;
+    }
 
     if (!this.ws || !this.state.ready || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error("WebSocket not ready");
@@ -247,6 +267,12 @@ export class XYWebSocketManager extends EventEmitter {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+
+    // Clear reconnect buffer timer (but keep message queue for reconnection)
+    if (this.reconnectBufferTimer) {
+      clearTimeout(this.reconnectBufferTimer);
+      this.reconnectBufferTimer = null;
     }
 
     // Clean up WebSocket
@@ -363,6 +389,25 @@ export class XYWebSocketManager extends EventEmitter {
     // Mark as ready after init
     this.state.ready = true;
     this.emit("ready");
+
+    // Start 10-second buffer period after reconnection
+    if (this.isBuffering) {
+      this.log("[MessageQueue] Reconnected, starting 10s buffer period before flushing queue");
+      // Clear any existing buffer timer
+      if (this.reconnectBufferTimer) {
+        clearTimeout(this.reconnectBufferTimer);
+      }
+      this.reconnectBufferTimer = setTimeout(() => {
+        this.reconnectBufferTimer = null;
+        this.messageQueue.flush((msg) => {
+          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(msg));
+          }
+        });
+        this.isBuffering = false;
+        this.log("[MessageQueue] Buffer period ended, resumed direct sending");
+      }, 10000);
+    }
 
     // Start heartbeat
     this.startHeartbeat();
@@ -609,6 +654,9 @@ export class XYWebSocketManager extends EventEmitter {
 
     this.state.connected = false;
     this.state.ready = false;
+
+    // Start buffering messages during disconnection
+    this.isBuffering = true;
 
     this.emit("disconnected");
 
