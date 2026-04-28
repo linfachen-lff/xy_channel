@@ -4,7 +4,7 @@ import path from "node:path";
 import { getCurrentSessionContext } from "./session-manager.js";
 import { selfEvolutionManager } from "../utils/self-evolution-manager.js";
 
-const SELF_EVOLVED_SKILL_ROOT = "/home/sandbox/.openclaw/.agents/skills";
+const SELF_EVOLVED_SKILL_ROOT = "/home/sandbox/.agents/skills";
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/u;
 
 function slugifyTitle(title: string): string {
