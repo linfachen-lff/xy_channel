@@ -13,11 +13,11 @@ const TIMEOUT_MS = 60000; // 1 minute
 const TOKEN_VALIDITY_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
- * get_login_token 工具
+ * huawei_id_tool 工具
  * 当 skill 依赖用户获取鉴权信息时，此工具协助用户快速获取鉴权信息。
  */
 export const loginTokenTool: any = {
-  name: "get_login_token",
+  name: "huawei_id_tool",
   label: "Get Login Token",
   description: "获取用户授权信息。当skill需要用户鉴权时调用此工具，工具会向用户端发送授权请求，等待用户完成授权后返回结果。请勿重复调用此工具。",
   parameters: {

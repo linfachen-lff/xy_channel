@@ -102,7 +102,6 @@ export async function handleSelfEvolutionStateGetEvent(
           bundleName: "com.huawei.hmos.vassistant",
           needUnlock: true,
           actionResponse: true,
-          appType: "OHOS_APP",
           timeOut: 5,
           intentParam: {
             selfEvolutionState: state,
