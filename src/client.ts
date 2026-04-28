@@ -37,8 +37,8 @@ export function getXYWebSocketManager(config: XYChannelConfig): XYWebSocketManag
   // Create new manager
   const log = runtime?.log ?? console.log;
   log(`[WS-MANAGER-CACHE] 🆕 Creating new WebSocket manager: ${cacheKey}, total managers before: ${wsManagerCache.size}`);
-  wsManagerCache.set(cacheKey, cached);
   cached = new XYWebSocketManager(config, runtime);
+  wsManagerCache.set(cacheKey, cached);
   log(`[WS-MANAGER-CACHE] 📊 Total managers after creation: ${wsManagerCache.size}`);
 
   return cached;
