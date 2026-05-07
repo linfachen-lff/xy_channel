@@ -20,7 +20,6 @@
           "uid": { "type": "string", "description": "User ID for file upload" },
           "agentId": { "type": "string", "description": "Agent ID for this bot instance" },
           "apiId": { "type": "string", "description": "API ID for push messages" },
-          "pushId": { "type": "string", "description": "Push ID for push messages" },
           "fileUploadUrl": { "type": "string", "description": "Base URL for file upload service" },
           "pushUrl": { "type": "string", "description": "URL for push message service" }
         },
