@@ -24,7 +24,7 @@
           "fileUploadUrl": { "type": "string", "description": "Base URL for file upload service" },
           "pushUrl": { "type": "string", "description": "URL for push message service" }
         },
-        "required": ["apiKey", "agentId", "uid", "apiId", "pushId"]
+        "required": []
       },
       "label": "Xiaoyi Channel",
       "description": "Xiaoyi A2A protocol integration"
