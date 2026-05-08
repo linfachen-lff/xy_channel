@@ -18,8 +18,14 @@ export function setClientRuntime(rt: RuntimeEnv | undefined): void {
 /**
  * Global cache for WebSocket managers.
  * Key format: `${apiKey}-${agentId}`
+ * Uses globalThis to ensure a single cache across all module copies
+ * (same fix as session-manager.ts for openclaw multi-instance loading).
  */
-const wsManagerCache = new Map<string, XYWebSocketManager>();
+const _g = globalThis as Record<string, unknown>;
+if (!_g.__xyWsManagerCache) {
+  _g.__xyWsManagerCache = new Map<string, XYWebSocketManager>();
+}
+const wsManagerCache = _g.__xyWsManagerCache as Map<string, XYWebSocketManager>;
 
 /**
  * Get or create a WebSocket manager for the given configuration.

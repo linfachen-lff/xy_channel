@@ -15,8 +15,13 @@ interface TaskIdBinding {
  * Session到活跃TaskId的映射
  * Key: sessionId (注意：这里用sessionId，不是sessionKey)
  * Value: TaskIdBinding
+ * Uses globalThis to ensure a single Map across all module copies.
  */
-const activeTaskIds = new Map<string, TaskIdBinding>();
+const _g = globalThis as Record<string, unknown>;
+if (!_g.__xyActiveTaskIds) {
+  _g.__xyActiveTaskIds = new Map<string, TaskIdBinding>();
+}
+const activeTaskIds = _g.__xyActiveTaskIds as Map<string, TaskIdBinding>;
 
 /**
  * 注册或更新session的活跃taskId
