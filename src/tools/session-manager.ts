@@ -56,16 +56,20 @@ export function registerSession(sessionKey: string, context: SessionContext): vo
  * Should be called when message processing is complete.
  */
 export function unregisterSession(sessionKey: string): void {
+  console.log(`[SESSION-MGR] unregisterSession: key=${sessionKey}, Map instance=${(activeSessions as any).__debugId ?? "unknown"}, current size=${activeSessions.size}`);
 
   const existing = activeSessions.get(sessionKey);
   if (!existing) {
+    console.log(`[SESSION-MGR] unregisterSession: key=${sessionKey} NOT FOUND in map`);
     return;
   }
 
   existing.refCount--;
+  console.log(`[SESSION-MGR] unregisterSession: key=${sessionKey}, refCount after decrement=${existing.refCount}`);
 
   if (existing.refCount <= 0) {
     activeSessions.delete(sessionKey);
+    console.log(`[SESSION-MGR] unregisterSession: key=${sessionKey} DELETED from map, new size=${activeSessions.size}`);
     configManager.clearSession(existing.sessionId);
     toolCallNudgeManager.clearSession(sessionKey);
   }
