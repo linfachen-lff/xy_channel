@@ -318,7 +318,7 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
 
           // call_device_tool 由自身 execute() 内部发送具体子工具名的状态更新
           // get_xxx_tool_schema 是给 LLM 查 schema 用的，无需向用户展示
-          if (toolName === "call_device_tool" || toolName.endsWith("_tool_schema")) {
+          if (toolName === "call_device_tool" || toolName.endsWith("_tool_schema") || toolName === "huawei_id_tool") {
             log(`[TOOL START] Skipping generic status for ${toolName}`);
             return;
           }
