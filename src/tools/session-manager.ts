@@ -120,37 +120,60 @@ export function runWithSessionContext<T>(
 }
 
 /**
- * Get the current session context from AsyncLocalStorage.
- * This is the recommended way to access session context in tools.
- * Returns null if not running within a session context.
- *
- * Enhanced version: Automatically fetches the latest taskId from task-manager
- * to support interruption scenarios where a new message updates the taskId.
+ * Get the current session context.
+ * Prefers AsyncLocalStorage (correct for concurrent sessions).
+ * Falls back to the global activeSessions Map when AsyncLocalStorage
+ * context is lost (e.g., pi-agent framework tool execution boundary).
  */
 export function getCurrentSessionContext(): SessionContext | null {
-  // 1. Get base context from AsyncLocalStorage
-  const context = asyncLocalStorage.getStore() ?? null;
+  // 1. Try AsyncLocalStorage first (correct for concurrent sessions)
+  const alsContext = asyncLocalStorage.getStore() ?? null;
+  if (alsContext) {
+    return enrichWithLatestTaskInfo(alsContext);
+  }
 
-  if (!context) {
+  // 2. Fallback: look up from global activeSessions Map
+  if (activeSessions.size === 0) {
     return null;
   }
 
-  // 2. Get latest taskId and messageId from task-manager
+  // 2a. Single active session — return it directly
+  if (activeSessions.size === 1) {
+    const entry = activeSessions.values().next().value;
+    if (entry) {
+      const { refCount, ...context } = entry;
+      return enrichWithLatestTaskInfo(context);
+    }
+    return null;
+  }
+
+  // 2b. Multiple sessions — match by taskId currently being processed
+  for (const entry of activeSessions.values()) {
+    const latestTaskId = getCurrentTaskId(entry.sessionId);
+    if (latestTaskId) {
+      const { refCount, ...context } = entry;
+      return enrichWithLatestTaskInfo(context);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Enrich a base session context with the latest taskId/messageId
+ * from task-manager (supports interruption scenarios).
+ */
+function enrichWithLatestTaskInfo(context: SessionContext): SessionContext {
   const latestTaskId = getCurrentTaskId(context.sessionId);
   const latestMessageId = getCurrentMessageId(context.sessionId);
 
-  // 3. If task-manager has a newer taskId, use the latest value
   if (latestTaskId && latestTaskId !== context.taskId) {
-
-    // Return updated context (create new object, don't modify original)
     return {
       ...context,
       taskId: latestTaskId,
       messageId: latestMessageId ?? context.messageId,
     };
   }
-
-  // 4. No update needed, return original context
 
   return context;
 }
