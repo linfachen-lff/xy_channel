@@ -23,7 +23,7 @@ interface SessionContextWithRef extends SessionContext {
 // Map of sessionKey -> SessionContextWithRef
 const activeSessions = new Map<string, SessionContextWithRef>();
 (activeSessions as any).__debugId = `map-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-logger.log(`[SESSION-MGR] activeSessions Map created: ${(activeSessions as any).__debugId}`);
+console.log(`[SESSION-MGR] activeSessions Map created: ${(activeSessions as any).__debugId}`);
 
 // AsyncLocalStorage for thread-safe session context isolation
 const asyncLocalStorage = new AsyncLocalStorage<SessionContext>();
@@ -34,7 +34,7 @@ const asyncLocalStorage = new AsyncLocalStorage<SessionContext>();
  */
 export function registerSession(sessionKey: string, context: SessionContext): void {
 
-  logger.log(`[SESSION-MGR] registerSession: key=${sessionKey}, Map instance=${(activeSessions as any).__debugId ?? "unknown"}, current size=${activeSessions.size}`);
+  console.log(`[SESSION-MGR] registerSession: key=${sessionKey}, Map instance=${(activeSessions as any).__debugId ?? "unknown"}, current size=${activeSessions.size}`);
   const existing = activeSessions.get(sessionKey);
   if (existing) {
     // 更新上下文，增加引用计数
@@ -137,7 +137,7 @@ export function getCurrentSessionContext(): SessionContext | null {
 
   // 2. Fallback: look up from global activeSessions Map
   if (activeSessions.size === 0) {
-    logger.log(`[SESSION-MGR] ⚠️ getCurrentSessionContext: ALS lost, activeSessions.size=0 (Map instance=${(activeSessions as any).__debugId ?? "unknown"})`);
+    console.log(`[SESSION-MGR] ⚠️ getCurrentSessionContext: ALS lost, activeSessions.size=0 (Map instance=${(activeSessions as any).__debugId ?? "unknown"})`);
     return null;
   }
 
