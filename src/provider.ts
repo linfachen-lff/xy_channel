@@ -396,6 +396,32 @@ function getUidFromConfig(config: any): string | undefined {
   return config?.channels?.["xiaoyi-channel"]?.uid;
 }
 
+/**
+ * Trim user message metadata:
+ * 1. In "Conversation info (untrusted metadata)" JSON, keep only timestamp
+ * 2. Remove "Sender (untrusted metadata)" section entirely
+ */
+function trimUserMetadata(text: string): string {
+  // 1. Conversation info: keep only timestamp
+  text = text.replace(
+    /(Conversation info \(untrusted metadata\):\n```json\n)([\s\S]*?)(\n```)/,
+    (_match, prefix: string, json: string, suffix: string) => {
+      const tsMatch = json.match(/"timestamp"\s*:\s*"([^"]+)"/);
+      return tsMatch
+        ? `${prefix}{\n  "timestamp": "${tsMatch[1]}"\n}\n${suffix}`
+        : _match;
+    },
+  );
+
+  // 2. Sender: remove entirely
+  text = text.replace(
+    /\n*Sender \(untrusted metadata\):\n```json\n[\s\S]*?\n```\n*/,
+    "\n",
+  );
+
+  return text.replace(/\n{3,}/g, "\n\n");
+}
+
 export const xiaoyiProvider: ProviderPlugin = {
   id: "xiaoyiprovider",
   label: "Xiaoyi Provider",
@@ -546,6 +572,22 @@ export const xiaoyiProvider: ProviderPlugin = {
         const displayDevice = (rawDevice === "2in1") ? "鸿蒙PC" : rawDevice;
         const deviceSection = `\n\n## Current User Device Context\nThe current user is using the following device: ${displayDevice}\nYou need to be aware of the user's current device and provide guidance accordingly. If the response involves device-related tools or actions, you must tailor the reply based on the user's current device, using device-specific references such as "saved to the Notes/Calendar on your {deviceType}.\n"`;
         context.systemPrompt = (context.systemPrompt ?? "") + deviceSection;
+      }
+
+      // ── Trim user message metadata ──────────────────────
+      if (context.messages) {
+        for (const msg of context.messages) {
+          if (msg.role !== "user" || !msg.content) continue;
+          if (typeof msg.content === "string") {
+            msg.content = trimUserMetadata(msg.content);
+          } else if (Array.isArray(msg.content)) {
+            for (const block of msg.content) {
+              if (block.type === "text" && typeof block.text === "string") {
+                block.text = trimUserMetadata(block.text);
+              }
+            }
+          }
+        }
       }
 
       // ── Retry-capable streaming ──────────────────────────────

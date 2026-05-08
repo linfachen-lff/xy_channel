@@ -27,7 +27,7 @@ class ToolInputError extends Error {
 export const saveFileToPhoneTool: any = {
   name: "save_file_to_file_manager",
   label: "Save File to Phone",
-  description: `将文件保存到手机文件管理器。
+  description: `将文件保存到用户设备的文件管理器中，通常用户表述为'帮我保存到文管','保存到文件管理'。
 
   注意:
   a. 操作超时时间为60秒,请勿重复调用此工具

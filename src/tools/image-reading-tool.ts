@@ -284,7 +284,7 @@ d. 返回图像理解的文本描述内容`,
       },
       remoteUrl: {
         type: "string",
-        description: "公网图片地址（可选）,公网图片地址（HTTP/HTTPS URL）",
+        description: "公网图片地址（可选）,公网图片地址（HTTP/HTTPS URL），注意不要对原始url做任何截断（例如裁减掉链接后面的鉴权信息或者修改域名后缀），必须使用上下文中完整的图片地址",
       },
       prompt: {
         type: "string",
