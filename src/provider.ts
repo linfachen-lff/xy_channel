@@ -8,7 +8,7 @@
 //   models.providers.xiaoyiprovider.api = "openai-completions"
 //   models.providers.xiaoyiprovider.models = [...]
 import { createHash } from "crypto";
-import type { ProviderPlugin } from "openclaw/plugin-sdk/provider-models";
+import type { ProviderPlugin } from "openclaw/plugin-sdk/provider-model-shared";
 import { getCurrentSessionContext } from "./tools/session-manager.js";
 import { selfEvolutionManager } from "./utils/self-evolution-manager.js";
 import { logger } from "./utils/logger.js";

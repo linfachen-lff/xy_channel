@@ -1,7 +1,6 @@
 // ChannelPlugin main implementation
 // Following feishu/channel.ts pattern
 import type { ChannelPlugin } from "openclaw/plugin-sdk";
-import { setXYRuntime } from "./runtime.js";
 import { resolveXYConfig, listXYAccountIds, getDefaultXYAccountId } from "./config.js";
 import { xyConfigSchema } from "./config-schema.js";
 import { xyOutbound } from "./outbound.js";

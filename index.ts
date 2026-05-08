@@ -1,6 +1,6 @@
 // Plugin registration entry point
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import { emptyPluginConfigSchema } from "openclaw/plugin-sdk";
+import { defineChannelPluginEntry } from "openclaw/plugin-sdk/core";
 import { xiaoyiProvider } from "./src/provider.js";
 import { xyPlugin } from "./src/channel.js";
 import { callCsplApi } from "./src/cspl/call-api.js";
@@ -23,14 +23,13 @@ import { registerSelfEvolutionToolResultNudge } from "./src/self-evolution-tool-
 import { createBeforePromptBuildHandler } from "./src/skill-retriever/hooks.js";
 import { normalizeToolRetrieverConfig } from "./src/skill-retriever/config.js";
 
-const plugin = {
+export default defineChannelPluginEntry({
   id: "xiaoyi-channel",
   name: "Xiaoyi Channel",
   description: "Xiaoyi channel plugin - Xiaoyi A2A protocol integration",
-  configSchema: emptyPluginConfigSchema(),
-  register(api: OpenClawPluginApi) {
-    setXYRuntime(api.runtime);
-    api.registerChannel({ plugin: xyPlugin });
+  plugin: xyPlugin,
+  setRuntime: setXYRuntime,
+  registerFull(api: OpenClawPluginApi) {
     api.registerProvider(xiaoyiProvider);
 
     // SKILL RETRIEVER HOOK: before_prompt_build hook
@@ -91,6 +90,4 @@ const plugin = {
       }
     });
   },
-};
-
-export default plugin;
+});
