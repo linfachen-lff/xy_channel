@@ -37,6 +37,14 @@ if (!_g.__xyActiveSessions) {
 }
 const activeSessions = _g.__xyActiveSessions as Map<string, SessionContextWithRef>;
 
+// Track the most recently registered sessionKey for reliable fallback
+// when AsyncLocalStorage context is lost across openclaw's embedded runner boundary.
+if (!_g.__xyLastRegisteredSessionKey) {
+  _g.__xyLastRegisteredSessionKey = "";
+}
+const getLastRegisteredKey = () => _g.__xyLastRegisteredSessionKey as string;
+const setLastRegisteredKey = (key: string) => { _g.__xyLastRegisteredSessionKey = key; };
+
 // AsyncLocalStorage for thread-safe session context isolation
 const asyncLocalStorage = new AsyncLocalStorage<SessionContext>();
 
@@ -45,6 +53,8 @@ const asyncLocalStorage = new AsyncLocalStorage<SessionContext>();
  * Should be called when starting to process a message.
  */
 export function registerSession(sessionKey: string, context: SessionContext): void {
+  // Track last registered session for reliable ALS-miss fallback
+  setLastRegisteredKey(sessionKey);
 
   const existing = activeSessions.get(sessionKey);
   if (existing) {
@@ -190,33 +200,33 @@ export function getCurrentSessionContext(sessionKey?: string): SessionContext | 
     return null;
   }
 
-  // 2c. Multiple sessions — find the most recently active one by task-manager activity
-  // Prefer sessions whose taskId matches the current active task (from task-manager),
-  // with recency as tiebreaker.
-  let bestMatch: { context: SessionContext; recency: number } | null = null;
-  const now = Date.now();
+  // 2c. Multiple sessions — prefer the last registered session.
+  // This is the most reliable heuristic when ALS is lost across openclaw's
+  // embedded runner boundary: registerSession() is called just before
+  // runWithSessionContext(), and agentTools() is called during tool
+  // compilation shortly after. The last registered session is always the
+  // one currently being set up.
+  const lastKey = getLastRegisteredKey();
+  if (lastKey) {
+    const lastEntry = activeSessions.get(lastKey);
+    if (lastEntry) {
+      console.log(`[SESSION-MGR] 🎯 using lastRegistered session: ${lastKey}`);
+      const { refCount, createdAt, ...context } = lastEntry;
+      return enrichWithLatestTaskInfo(context);
+    }
+  }
 
+  // 2d. Fallback: find any non-stale session
+  const now = Date.now();
   for (const [key, entry] of activeSessions) {
-    // Skip stale sessions
     if (now - entry.createdAt > SESSION_TTL_MS) {
-      logger.log(`[SESSION-MGR] stale session detected, cleaning up: ${key}`);
       configManager.clearSession(entry.sessionId);
       toolCallNudgeManager.clearSession(key);
       activeSessions.delete(key);
       continue;
     }
-
-    const latestTaskId = getCurrentTaskId(entry.sessionId);
-    const recency = latestTaskId ? 2 : 1; // sessions with active task get higher priority
-
-    if (!bestMatch || recency > bestMatch.recency) {
-      const { refCount, createdAt, ...context } = entry;
-      bestMatch = { context, recency };
-    }
-  }
-
-  if (bestMatch) {
-    return enrichWithLatestTaskInfo(bestMatch.context);
+    const { refCount, createdAt, ...context } = entry;
+    return enrichWithLatestTaskInfo(context);
   }
 
   return null;
