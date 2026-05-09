@@ -128,6 +128,7 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
           text: pushDataItem.dataDetail,
           append: false,
           final: true,
+          runtime,
         });
 
         log(`[BOT] ✅ Trigger response sent successfully, exiting early`);

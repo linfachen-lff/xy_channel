@@ -276,6 +276,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
               text: notificationText,
               append: false,
               final: true,
+              runtime,
             }).catch(err => {
               error(`[MONITOR] Failed to send restart notification to session ${binding.sessionId}: ${String(err)}`);
             })

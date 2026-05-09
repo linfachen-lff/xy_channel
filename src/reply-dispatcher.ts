@@ -253,6 +253,7 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
               text: accumulatedText,
               append: false,
               final: true,
+              runtime,
             });
             finalSent = true;
             log(`[ON_IDLE] ✅ Sent final response with taskId=${currentTaskId}`);
@@ -284,6 +285,7 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
               final: true,
               errorCode: 99921111,
               errorMessage: "任务执行异常，请重试",
+              runtime,
             });
             finalSent = true;
             log(`[ON_IDLE] ✅ Sent error response with code: 99921111`);
