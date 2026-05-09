@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
@@ -22,7 +22,9 @@ class ToolInputError extends Error {
 /**
  * XY delete collection tool - deletes data from user's XiaoYi collection.
  */
-export const xiaoyiDeleteCollectionTool: any = {
+export function createXiaoyiDeleteCollectionTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "delete_collection",
   label: "Delete XiaoYi Collection",
   description: `从小艺收藏中删除之前已保存的公共知识数据。任何用户希望删除已保存到个人知识库的数据都可以调用本技能。如果用户想更新之前的收藏数据，需要先query获取itemId然后再delete，最后执行Add，按照这个步骤完成收藏数据更新。
@@ -81,15 +83,6 @@ export const xiaoyiDeleteCollectionTool: any = {
     if (!itemIds || itemIds.length === 0) {
       throw new ToolInputError("itemIds array cannot be empty");
     }
-
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. DeleteCollection tool can only be used during an active conversation.");
-    }
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
@@ -182,3 +175,4 @@ export const xiaoyiDeleteCollectionTool: any = {
     });
   },
 };
+}

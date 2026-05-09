@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
@@ -23,7 +23,9 @@ class ToolInputError extends Error {
  * XY collection tool - retrieves user's collection data from XiaoYi.
  * Returns personalized knowledge data saved in user's collection.
  */
-export const xiaoyiCollectionTool: any = {
+export function createXiaoyiCollectionTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "query_collection",
   label: "XiaoYi Collection",
   description: `检索用户在小艺收藏中记下来的公共知识数据，本技能支持查询用户收藏的公共知识数据，也可以根据特定语义化描述进行特定内容的检索，通过参数进行控制。本技能返回结果中，linkTitle是收藏内容的标题，description是对收藏内容的总结，label是收藏内容的标签，linkUrl是可以直接访问的原始内容链接。如果你认为某条数据对用户交互有用，可以通过linkUrl抓取更加丰富的原始数据。
@@ -59,16 +61,6 @@ export const xiaoyiCollectionTool: any = {
     if (queryAll !== "true" && (!query || typeof query !== "string")) {
       throw new ToolInputError("queryAll不为true时，query参数必填");
     }
-
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. XiaoYi collection tool can only be used during an active conversation.");
-    }
-
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
@@ -169,3 +161,4 @@ export const xiaoyiCollectionTool: any = {
     });
   },
 };
+}

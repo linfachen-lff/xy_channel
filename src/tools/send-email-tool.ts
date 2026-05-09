@@ -1,7 +1,7 @@
 // Send Email tool implementation
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import type { A2ADataEvent } from "../types.js";
 
 class ToolInputError extends Error {
@@ -15,7 +15,9 @@ class ToolInputError extends Error {
 /**
  * XY send email tool - sends an email via 花瓣邮箱 on user's device.
  */
-export const sendEmailTool: any = {
+export function createSendEmailTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "send_email",
   label: "Send Email",
   description: `在用户设备上通过花瓣邮箱发送邮件。
@@ -55,12 +57,6 @@ c. 调用工具前需认真检查调用参数是否满足工具要求
       throw new ToolInputError("缺少必填参数 body（邮件内容）");
     }
 
-    const sessionContext = getCurrentSessionContext();
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Send email tool can only be used during an active conversation.");
-    }
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
     const wsManager = getXYWebSocketManager(config);
 
     const command = {
@@ -143,3 +139,4 @@ c. 调用工具前需认真检查调用参数是否满足工具要求
     });
   },
 };
+}

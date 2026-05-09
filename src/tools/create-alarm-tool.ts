@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
@@ -19,11 +19,13 @@ const DAYS_OF_WEEK_VALUES = ["Mon", "Tues", "Wed", "Thur", "Fri", "Sat", "Sun"];
  *
  * Time format: YYYYMMDD hhmmss (e.g., 20240315 143000)
  */
-export const createAlarmTool: any = {
+export function makeAlarmTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "create_alarm",
   label: "Create Alarm",
   description: `在用户设备上创建闹钟。
- 
+
 注意事项：
 a. 操作超时时间为60秒，请勿重复调用此工具，如果超时或失败，最多重试一次。
 b. 使用该工具之前需获取当前真实时间
@@ -188,16 +190,6 @@ b. 使用该工具之前需获取当前真实时间
       daysOfWeek = [];
     }
 
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Create alarm tool can only be used during an active conversation.");
-    }
-
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
-
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
 
@@ -306,6 +298,7 @@ b. 使用该工具之前需获取当前真实时间
     });
   },
 };
+}
 
 /**
  * Parse alarmTime string (YYYYMMDD hhmmss) to timestamp in milliseconds

@@ -16,8 +16,15 @@ export interface SessionContext {
   deviceType?: string;
 }
 
+/** 最大 session 存活时间（毫秒），超过此时间且无新消息的 session 视为僵尸。
+ *  仅用于全局 Map 回退路径的清理，不影响 ALS 路径。
+ *  工具已改为闭包捕获 ctx，此 TTL 仅作为防止 session 泄漏的最后防线。
+ *  正常对话中 registerSession 会刷新 createdAt，所以长对话不受影响。 */
+const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
+
 interface SessionContextWithRef extends SessionContext {
   refCount: number;  // 引用计数
+  createdAt: number;  // 创建时间戳，用于过期检查
 }
 
 // Use globalThis to ensure a single Map instance across all module copies.
@@ -41,15 +48,17 @@ export function registerSession(sessionKey: string, context: SessionContext): vo
 
   const existing = activeSessions.get(sessionKey);
   if (existing) {
-    // 更新上下文，增加引用计数
+    // 更新上下文，增加引用计数，刷新存活时间
     existing.taskId = context.taskId;
     existing.messageId = context.messageId;
     existing.refCount++;
+    existing.createdAt = Date.now();  // 刷新存活时间，长对话不受 TTL 影响
   } else {
     // 新建
     activeSessions.set(sessionKey, {
       ...context,
       refCount: 1,
+      createdAt: Date.now(),
     });
   }
 
@@ -86,7 +95,7 @@ export function getSessionContext(sessionKey: string): SessionContext | null {
 
   if (contextWithRef) {
     // 返回时去掉refCount字段
-    const { refCount, ...context } = contextWithRef;
+    const { refCount, createdAt, ...context } = contextWithRef;
     return context;
   }
 
@@ -111,7 +120,7 @@ export function getLatestSessionContext(): SessionContext | null {
 
 
   // 返回时去掉refCount字段
-  const { refCount, ...latestSession } = latestSessionWithRef;
+  const { refCount, createdAt, ...latestSession } = latestSessionWithRef;
   return latestSession;
 }
 
@@ -131,8 +140,12 @@ export function runWithSessionContext<T>(
  * Prefers AsyncLocalStorage (correct for concurrent sessions).
  * Falls back to the global activeSessions Map when AsyncLocalStorage
  * context is lost (e.g., pi-agent framework tool execution boundary).
+ *
+ * @param sessionKey - Optional exact sessionKey for precise lookup.
+ *   When provided and AsyncLocalStorage is unavailable, this avoids
+ *   ambiguous multi-session matching.
  */
-export function getCurrentSessionContext(): SessionContext | null {
+export function getCurrentSessionContext(sessionKey?: string): SessionContext | null {
   // 1. Try AsyncLocalStorage first (correct for concurrent sessions)
   const alsContext = asyncLocalStorage.getStore() ?? null;
   if (alsContext) {
@@ -144,26 +157,104 @@ export function getCurrentSessionContext(): SessionContext | null {
     return null;
   }
 
-  // 2a. Single active session — return it directly
+  // 2a. Exact sessionKey match (highest confidence fallback)
+  if (sessionKey) {
+    const exact = activeSessions.get(sessionKey);
+    if (exact) {
+      const { refCount, createdAt, ...context } = exact;
+      return enrichWithLatestTaskInfo(context);
+    }
+    // sessionKey provided but not found — don't fall back to heuristics
+    logger.log(`[SESSION-MGR] sessionKey "${sessionKey}" not found in activeSessions (size=${activeSessions.size})`);
+    return null;
+  }
+
+  // 2b. Single active session — return it directly (but check TTL)
   if (activeSessions.size === 1) {
     const entry = activeSessions.values().next().value;
     if (entry) {
-      const { refCount, ...context } = entry;
+      // Check if session is stale
+      if (Date.now() - entry.createdAt > SESSION_TTL_MS) {
+        logger.log(`[SESSION-MGR] single session expired, createdAt=${entry.createdAt}, cleaning up`);
+        activeSessions.clear();
+        return null;
+      }
+      const { refCount, createdAt, ...context } = entry;
       return enrichWithLatestTaskInfo(context);
     }
     return null;
   }
 
-  // 2b. Multiple sessions — match by taskId currently being processed
-  for (const entry of activeSessions.values()) {
+  // 2c. Multiple sessions — find the most recently active one by task-manager activity
+  // Prefer sessions whose taskId matches the current active task (from task-manager),
+  // with recency as tiebreaker.
+  let bestMatch: { context: SessionContext; recency: number } | null = null;
+  const now = Date.now();
+
+  for (const [key, entry] of activeSessions) {
+    // Skip stale sessions
+    if (now - entry.createdAt > SESSION_TTL_MS) {
+      logger.log(`[SESSION-MGR] stale session detected, cleaning up: ${key}`);
+      configManager.clearSession(entry.sessionId);
+      toolCallNudgeManager.clearSession(key);
+      activeSessions.delete(key);
+      continue;
+    }
+
     const latestTaskId = getCurrentTaskId(entry.sessionId);
-    if (latestTaskId) {
-      const { refCount, ...context } = entry;
-      return enrichWithLatestTaskInfo(context);
+    const recency = latestTaskId ? 2 : 1; // sessions with active task get higher priority
+
+    if (!bestMatch || recency > bestMatch.recency) {
+      const { refCount, createdAt, ...context } = entry;
+      bestMatch = { context, recency };
     }
   }
 
+  if (bestMatch) {
+    return enrichWithLatestTaskInfo(bestMatch.context);
+  }
+
   return null;
+}
+
+/**
+ * Force-clean all active sessions. Used during gateway shutdown/reload.
+ */
+export function cleanupAllSessions(): void {
+  for (const [key, entry] of activeSessions) {
+    configManager.clearSession(entry.sessionId);
+    toolCallNudgeManager.clearSession(key);
+  }
+  activeSessions.clear();
+  logger.log("[SESSION-MGR] all sessions cleaned up");
+}
+
+/**
+ * Clean up sessions that have exceeded TTL.
+ * Returns the number of cleaned sessions.
+ */
+export function cleanupStaleSessions(): number {
+  const now = Date.now();
+  let cleaned = 0;
+  for (const [key, entry] of activeSessions) {
+    if (now - entry.createdAt > SESSION_TTL_MS) {
+      configManager.clearSession(entry.sessionId);
+      toolCallNudgeManager.clearSession(key);
+      activeSessions.delete(key);
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) {
+    logger.log(`[SESSION-MGR] cleaned ${cleaned} stale session(s)`);
+  }
+  return cleaned;
+}
+
+/**
+ * Get the current number of active sessions (for diagnostics).
+ */
+export function getActiveSessionCount(): number {
+  return activeSessions.size;
 }
 
 /**

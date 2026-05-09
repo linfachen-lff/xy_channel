@@ -1,14 +1,16 @@
 // Search Email tool implementation
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import type { A2ADataEvent } from "../types.js";
 
 /**
  * XY search email tool - searches emails on user's device (花瓣邮箱).
  * Returns matching emails based on query text and search type.
  */
-export const searchEmailTool: any = {
+export function createSearchEmailTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "search_email",
   label: "Search Email",
   description: `检索用户花瓣邮箱中的邮件。根据查询语料和搜索类型检索邮件。
@@ -51,14 +53,6 @@ b. 使用该工具之前需获取当前真实时间
     if (typeof searchType !== "number" || ![0, 1, 2, 3].includes(searchType)) {
       throw new Error("type 必须是 0-3 的整数：0=全部，1=主题，2=发件人，3=收件人");
     }
-
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Search email tool can only be used during an active conversation.");
-    }
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
@@ -145,5 +139,6 @@ b. 使用该工具之前需获取当前真实时间
           reject(error);
         });
     });
-  },
-};
+    },
+  };
+}

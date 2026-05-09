@@ -247,6 +247,8 @@ const HEADER_SESSION_ID = "x-session-id";
 const HEADER_INTERACTION_ID = "x-interaction-id";
 /** Internal key for passing fallback uid prefix from prepareExtraParams to wrapStreamFn. */
 const FALLBACK_PREFIX_KEY = "_xiaoyi_fallback_prefix";
+/** Internal key for passing deviceType from prepareExtraParams to wrapStreamFn. */
+const DEVICE_TYPE_KEY = "_xiaoyi_device_type";
 
 const SELF_EVOLUTION_PROMPT_BEGIN = "<self_evolution_prompt>";
 const SELF_EVOLUTION_PROMPT_END = "</self_evolution_prompt>";
@@ -450,6 +452,7 @@ export const xiaoyiProvider: ProviderPlugin = {
         [HEADER_TRACE_ID]: taskId,
         [HEADER_SESSION_ID]: sessionId,
         [HEADER_INTERACTION_ID]: interactionId,
+        [DEVICE_TYPE_KEY]: sessionCtx.deviceType ?? "",
       };
     }
 
@@ -522,7 +525,9 @@ export const xiaoyiProvider: ProviderPlugin = {
       if (context.systemPrompt) {
         console.log(`[xiaoyiprovider] system prompt length: ${context.systemPrompt.length}`);
       }
-      const sessionCtx = getCurrentSessionContext();
+      // Reuse deviceType from extraParams instead of calling getCurrentSessionContext()
+      // again (which may be ambiguous in multi-session or async scenarios).
+      const deviceType = (ctx.extraParams?.[DEVICE_TYPE_KEY] as string) || undefined;
 
       // 在发送给模型前，优化 systemPrompt 结构
       if (context.systemPrompt) {
@@ -566,10 +571,9 @@ export const xiaoyiProvider: ProviderPlugin = {
       logger.log(`[selfEvolution] selfEvolution flag: ${selfEvolutionEnabled}`);
       context.systemPrompt = applySelfEvolutionPrompt(context.systemPrompt, selfEvolutionEnabled);
 
-      // Append device context to systemPrompt
-      if (sessionCtx?.deviceType) {
-        const rawDevice = sessionCtx.deviceType;
-        const displayDevice = (rawDevice === "2in1") ? "鸿蒙PC" : rawDevice;
+      // Append device context to systemPrompt (using pre-captured deviceType from prepareExtraParams)
+      if (deviceType) {
+        const displayDevice = (deviceType === "2in1") ? "鸿蒙PC" : deviceType;
         const deviceSection = `\n\n## Current User Device Context\nThe current user is using the following device: ${displayDevice}\nYou need to be aware of the user's current device and provide guidance accordingly. If the response involves device-related tools or actions, you must tailor the reply based on the user's current device, using device-specific references such as "saved to the Notes/Calendar on your {deviceType}.\n"`;
         context.systemPrompt = (context.systemPrompt ?? "") + deviceSection;
       }

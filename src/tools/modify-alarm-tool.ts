@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
@@ -21,7 +21,9 @@ const DAYS_OF_WEEK_VALUES = ["Mon", "Tues", "Wed", "Thur", "Fri", "Sat", "Sun"];
  * 1. Call search_alarm or create_alarm tool first to get entityId
  * 2. Use the entityId to identify which alarm to modify
  */
-export const modifyAlarmTool: any = {
+export function createModifyAlarmTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "modify_alarm",
   label: "Modify Alarm",
   description: `修改用户设备上已存在的闹钟。
@@ -219,16 +221,6 @@ export const modifyAlarmTool: any = {
       }
     }
 
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Modify alarm tool can only be used during an active conversation.");
-    }
-
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
-
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
 
@@ -319,6 +311,7 @@ export const modifyAlarmTool: any = {
     });
   },
 };
+}
 
 // Enum for alarm state
 const ALARM_STATE_VALUES = [0, 1];

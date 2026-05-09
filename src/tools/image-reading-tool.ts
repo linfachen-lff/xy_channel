@@ -1,6 +1,6 @@
 // Image Reading tool implementation
 import { XYFileUploadService } from "../file-upload.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import fetch from "node-fetch";
 import fs from "fs/promises";
@@ -246,7 +246,9 @@ async function callImageUnderstandingAPI(
  * XY Image Reading tool - performs image understanding using local or remote image URLs.
  * Supports both local file paths and remote URLs.
  */
-export const imageReadingTool: any = {
+export function createImageReadingTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "image_reading",
   label: "Image Reading",
   description: `
@@ -302,15 +304,6 @@ d. 返回图像理解的文本描述内容`,
 
     // Get prompt (default to "描述这张图片内容")
     const prompt = params.prompt || "描述这张图片内容";
-
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Image reading tool can only be used during an active conversation.");
-    }
-
-    const { config } = sessionContext;
 
     // Create upload service
     const uploadService = new XYFileUploadService(
@@ -393,3 +386,4 @@ d. 返回图像理解的文本描述内容`,
     }
   },
 };
+}

@@ -1,7 +1,7 @@
 // QueryMemoryData tool implementation
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import type { A2ADataEvent } from "../types.js";
 
 class ToolInputError extends Error {
@@ -31,7 +31,9 @@ const VALID_SUB_CATEGORIES: Record<string, string[]> = {
 /**
  * 查询存储在设备本地的结构化记忆数据。
  */
-export const queryMemoryDataTool: any = {
+export function createQueryMemoryDataTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "query_memory_data",
   label: "Query Memory Data",
   description: `查询存储在设备本地的结构化记忆数据。适用于获取特定类别的个人信息，如重要日子、证件卡证、服务订单或日程事件。支持按分类、子分类进行过滤。
@@ -84,12 +86,6 @@ c. 调用工具前需认真检查调用参数是否满足工具要求
       }
     }
 
-    const sessionContext = getCurrentSessionContext();
-    if (!sessionContext) {
-      throw new Error("No active XY session found.");
-    }
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
     const wsManager = getXYWebSocketManager(config);
 
     const intentParam: Record<string, any> = {};
@@ -170,5 +166,6 @@ c. 调用工具前需认真检查调用参数是否满足工具要求
           reject(error);
         });
     });
-  },
-};
+    },
+  };
+}

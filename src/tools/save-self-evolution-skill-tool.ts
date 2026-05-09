@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { selfEvolutionManager } from "../utils/self-evolution-manager.js";
 
 const SELF_EVOLVED_SKILL_ROOT = "/home/sandbox/.agents/skills";
@@ -275,7 +275,9 @@ function buildSkillMarkdown(params: {
   return lines.join("\n");
 }
 
-export const saveSelfEvolutionSkillTool: any = {
+export function createSaveSelfEvolutionSkillTool(ctx: SessionContext): any {
+  const { sessionId } = ctx;
+  return {
   name: "save_self_evolution_skill",
   label: "Save Self Evolution Skill",
   description:
@@ -321,11 +323,6 @@ export const saveSelfEvolutionSkillTool: any = {
   async execute(_toolCallId: string, params: any) {
     if (!(await selfEvolutionManager.isEnabled())) {
       throw new Error("Self-evolution is currently disabled by the user.");
-    }
-
-    const sessionContext = getCurrentSessionContext();
-    if (!sessionContext) {
-      throw new Error("No active XY session found. This tool can only run during an active conversation.");
     }
 
     const title = typeof params.title === "string" ? params.title.trim() : "";
@@ -495,7 +492,7 @@ export const saveSelfEvolutionSkillTool: any = {
               sanitized: sanitized.changed,
               skillName: slug,
               path: skillFilePath,
-              sessionId: sessionContext.sessionId,
+              sessionId,
               createdAt,
               updatedAt,
               message: updatedAt
@@ -505,5 +502,6 @@ export const saveSelfEvolutionSkillTool: any = {
           },
         ],
       };
-  },
-};
+    },
+  };
+}

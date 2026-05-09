@@ -1,7 +1,7 @@
 // XiaoYi GUI tool implementation - simulates phone screen interactions
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -9,7 +9,9 @@ import { logger } from "../utils/logger.js";
  * Simulates user interactions on phone screen (click, swipe, input, navigation, etc.)
  * to complete tasks that cannot be done through internet APIs.
  */
-export const xiaoyiGuiTool: any = {
+export function createXiaoyiGuiTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "xiaoyi_gui_agent",
   label: "XiaoYi GUI Agent",
   description: `通过模拟人在手机屏幕上的交互行为（点击、滑动、输入、页面导航等），自动完成手机APP中的各类任务。
@@ -46,16 +48,6 @@ export const xiaoyiGuiTool: any = {
     if (!params.query || typeof params.query !== "string") {
       throw new Error("Missing or invalid required parameter: query must be a non-empty string");
     }
-
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. XiaoYi GUI tool can only be used during an active conversation.");
-    }
-
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
@@ -137,3 +129,4 @@ export const xiaoyiGuiTool: any = {
     });
   },
 };
+}

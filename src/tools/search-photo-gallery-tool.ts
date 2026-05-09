@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
@@ -13,7 +13,9 @@ import type { A2ADataEvent } from "../types.js";
  * IMPORTANT: The returned mediaUris are LOCAL URIs that cannot be downloaded directly.
  * To get publicly accessible URLs, use the upload_photo tool with these URIs.
  */
-export const searchPhotoGalleryTool: any = {
+export function createSearchPhotoGalleryTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "search_photo_gallery",
   label: "Search Photo Gallery",
   description: `插件功能描述：搜索用户设备图库中的照片
@@ -76,16 +78,6 @@ export const searchPhotoGalleryTool: any = {
       throw new Error("Missing required parameter: query is required");
     }
 
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Search photo gallery tool can only be used during an active conversation.");
-    }
-
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
-
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
 
@@ -103,6 +95,7 @@ export const searchPhotoGalleryTool: any = {
     };
   },
 };
+}
 
 /**
  * Search for photos using query description

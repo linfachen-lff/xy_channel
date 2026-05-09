@@ -1,7 +1,7 @@
 // QueryTodoTask tool implementation
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import type { A2ADataEvent } from "../types.js";
 
 class ToolInputError extends Error {
@@ -15,7 +15,9 @@ class ToolInputError extends Error {
 /**
  * 获取指定时间范围内的全局待办任务列表。
  */
-export const queryTodoTaskTool: any = {
+export function createQueryTodoTaskTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "query_todo_task",
   label: "Query Todo Task",
   description: `获取指定时间范围内的全局待办任务列表。适用于需要查询历史任务、按完成状态筛选、或仅查看待处理任务的场景。支持按时间范围、任务状态进行过滤。
@@ -52,12 +54,6 @@ d. 当只传入 startTime 时，返回该时间点之后的所有任务；当只
       throw new ToolInputError('status 参数只能为 "all"、"completed" 或 "pending"');
     }
 
-    const sessionContext = getCurrentSessionContext();
-    if (!sessionContext) {
-      throw new Error("No active XY session found.");
-    }
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
     const wsManager = getXYWebSocketManager(config);
 
     const intentParam: Record<string, any> = {};
@@ -139,5 +135,6 @@ d. 当只传入 startTime 时，返回该时间点之后的所有任务；当只
           reject(error);
         });
     });
-  },
-};
+    },
+  };
+}

@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
@@ -10,7 +10,9 @@ import type { A2ADataEvent } from "../types.js";
  * XY call phone tool - makes a phone call on user's device.
  * Requires phoneNumber parameter and optional slotId (0 for primary SIM, 1 for secondary SIM).
  */
-export const callPhoneTool: any = {
+export function createCallPhoneTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "call_phone",
   label: "Call Phone",
   description: "拨打电话。需要提供要拨打的电话号码。slotId参数可选，默认为0（主卡），如果用户明确要求使用副卡则设置为1。注意:操作超时时间为60秒,请勿重复调用此工具,如果超时或失败,最多重试一次。回复约束：如果工具返回没有授权或者其他报错，只需要完整描述没有授权或者其他报错内容即可，不需要主动给用户提供解决方案，例如告诉用户如何授权，如何解决报错等都是不需要的，请严格遵守。",
@@ -45,16 +47,6 @@ export const callPhoneTool: any = {
       throw new Error("Invalid slotId: must be 0 (primary SIM) or 1 (secondary SIM)");
     }
 
-
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Call phone tool can only be used during an active conversation.");
-    }
-
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
@@ -149,3 +141,4 @@ export const callPhoneTool: any = {
     });
   },
 };
+}

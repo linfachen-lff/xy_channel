@@ -1,7 +1,7 @@
 // Login Token tool - 自动获取用户授权信息
 import { v4 as uuidv4 } from "uuid";
 import { getXYWebSocketManager } from "../client.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { getCurrentTaskId, getCurrentMessageId } from "../task-manager.js";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { logger } from "../utils/logger.js";
@@ -16,7 +16,9 @@ const TOKEN_VALIDITY_MS = 5 * 60 * 1000; // 5 minutes
  * huawei_id_tool 工具
  * 当 skill 依赖用户获取鉴权信息时，此工具协助用户快速获取鉴权信息。
  */
-export const loginTokenTool: any = {
+export function createLoginTokenTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "huawei_id_tool",
   label: "Get Login Token",
   description: "获取用户授权信息。当skill需要用户鉴权时调用此工具，工具会向用户端发送授权请求，等待用户完成授权后返回结果。请勿重复调用此工具。",
@@ -45,12 +47,6 @@ export const loginTokenTool: any = {
       throw new Error("Missing required parameter: skillName must be a non-empty string");
     }
 
-    const sessionContext = getCurrentSessionContext();
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Login token tool can only be used during an active conversation.");
-    }
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
     const currentTaskId = getCurrentTaskId(sessionId) ?? taskId;
     const currentMessageId = getCurrentMessageId(sessionId) ?? messageId;
 
@@ -148,3 +144,4 @@ export const loginTokenTool: any = {
     });
   },
 };
+}

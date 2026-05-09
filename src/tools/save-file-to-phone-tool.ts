@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 import { XYFileUploadService } from "../file-upload.js";
@@ -24,7 +24,9 @@ class ToolInputError extends Error {
  * XY save file to phone tool - saves files to user's device file manager.
  * Supports local file paths (auto-uploaded to get public URL) and public URLs.
  */
-export const saveFileToPhoneTool: any = {
+export function createSaveFileToPhoneTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "save_file_to_file_manager",
   label: "Save File to Phone",
   description: `将文件保存到用户设备的文件管理器中，通常用户表述为'帮我保存到文管','保存到文件管理'。
@@ -71,15 +73,6 @@ export const saveFileToPhoneTool: any = {
     if (!suffix || typeof suffix !== "string") {
       throw new ToolInputError("缺少必填参数: suffix");
     }
-
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. SaveFileToFileManager tool can only be used during an active conversation.");
-    }
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
@@ -194,5 +187,6 @@ export const saveFileToPhoneTool: any = {
           reject(error);
         });
     });
-  },
-};
+    },
+  };
+}

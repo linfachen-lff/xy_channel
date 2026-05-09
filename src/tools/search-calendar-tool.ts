@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
@@ -17,7 +17,9 @@ import type { A2ADataEvent } from "../types.js";
  * - For evening: 18:00:00 to 24:00:00
  * - For a specific time: use ±1 hour range (e.g., for 3PM, use 14:00:00 to 16:00:00)
  */
-export const searchCalendarTool: any = {
+export function createSearchCalendarTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "search_calendar_event",
   label: "Search Calendar Event",
   description: `检索用户日历中的日程安排。根据时间范围和可选的日程标题进行检索。时间格式必须为：YYYYMMDD hhmmss（例如：20240115 143000）。
@@ -107,16 +109,6 @@ d. 如果查询结果返回-303，代表查询结果为空
       throw new Error("Invalid time format. Required format: YYYYMMDD hhmmss (e.g., 20240115 143000)");
     }
 
-
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Search calendar tool can only be used during an active conversation.");
-    }
-
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
@@ -217,5 +209,6 @@ d. 如果查询结果返回-303，代表查询结果为空
           reject(error);
         });
     });
-  },
-};
+    },
+  };
+}

@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
@@ -16,7 +16,9 @@ import type { A2ADataEvent } from "../types.js";
  *
  * Supports deleting single or multiple alarms in one call.
  */
-export const deleteAlarmTool: any = {
+export function createDeleteAlarmTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "delete_alarm",
   label: "Delete Alarm",
   description: `删除用户设备上的闹钟。使用前必须先调用 search_alarm 或 create_alarm 工具获取闹钟的 entityId。
@@ -91,16 +93,6 @@ export const deleteAlarmTool: any = {
       }
     }
 
-
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Delete alarm tool can only be used during an active conversation.");
-    }
-
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
@@ -194,3 +186,4 @@ export const deleteAlarmTool: any = {
     });
   },
 };
+}

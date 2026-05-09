@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { XYFileUploadService } from "../file-upload.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { OutboundWebSocketMessage } from "../types.js";
 import fetch from "node-fetch";
@@ -111,7 +111,9 @@ async function downloadRemoteFile(url: string): Promise<string> {
  * XY send file to user tool - sends local files or remote files to user's device.
  * Supports both local file paths and remote URLs.
  */
-export const sendFileToUserTool: any = {
+export function createSendFileToUserTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "send_file_to_user",
   label: "Send File to User",
   description: `工具能力描述：帮助用户把本地的文件或者公网地址的文件传到用户设备。
@@ -175,16 +177,6 @@ b. 操作超时时间为2分钟（120秒），请勿重复调用此工具，如�
       }
 
     }
-
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Send file to user tool can only be used during an active conversation.");
-    }
-
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
@@ -326,3 +318,4 @@ b. 操作超时时间为2分钟（120秒），请勿重复调用此工具，如�
     }
   },
 };
+}

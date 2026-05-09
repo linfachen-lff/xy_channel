@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 
@@ -18,7 +18,9 @@ import type { A2ADataEvent } from "../types.js";
  * - After getting public URLs, if further processing is needed, download the file first
  * - URLs returned are publicly accessible
  */
-export const uploadFileTool: any = {
+export function createUploadFileTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "upload_file",
   label: "Upload File",
   description: `工具能力描述：将用户本地设备文件上传并获取可公网访问的 URL。
@@ -103,16 +105,6 @@ export const uploadFileTool: any = {
     }
 
 
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. Upload file tool can only be used during an active conversation.");
-    }
-
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
-
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
 
@@ -134,6 +126,7 @@ export const uploadFileTool: any = {
     };
   },
 };
+}
 
 /**
  * Get public URLs for files using fileInfos

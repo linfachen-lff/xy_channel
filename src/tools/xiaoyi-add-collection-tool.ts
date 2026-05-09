@@ -2,7 +2,7 @@
 import type { ChannelAgentTool } from "openclaw/plugin-sdk";
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
-import { getCurrentSessionContext } from "./session-manager.js";
+import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { A2ADataEvent } from "../types.js";
 import { XYFileUploadService } from "../file-upload.js";
@@ -23,7 +23,9 @@ class ToolInputError extends Error {
 /**
  * XY add collection tool - adds data to user's XiaoYi collection.
  */
-export const xiaoyiAddCollectionTool: any = {
+export function createXiaoyiAddCollectionTool(ctx: SessionContext): any {
+  const { config, sessionId, taskId, messageId } = ctx;
+  return {
   name: "add_collection",
   label: "Add XiaoYi Collection",
   description: `向小艺收藏中添加公共知识数据，可以给用户提供个性化体验。任何用户希望保存到个人化知识库中的数据都可以调用本技能。不同类型的数据对应的数据要求如下：
@@ -90,15 +92,6 @@ export const xiaoyiAddCollectionTool: any = {
     if ((dataType === "IMAGE" || dataType === "FILE") && (!uri || typeof uri !== "string")) {
       throw new ToolInputError(`dataType为${dataType}时，uri字段必填且不能为空`);
     }
-
-    // Get session context
-    const sessionContext = getCurrentSessionContext();
-
-    if (!sessionContext) {
-      throw new Error("No active XY session found. AddCollection tool can only be used during an active conversation.");
-    }
-
-    const { config, sessionId, taskId, messageId } = sessionContext;
 
     // Get WebSocket manager
     const wsManager = getXYWebSocketManager(config);
@@ -222,3 +215,4 @@ export const xiaoyiAddCollectionTool: any = {
     });
   },
 };
+}
