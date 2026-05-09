@@ -477,6 +477,7 @@ export const xiaoyiProvider: ProviderPlugin = {
    * since the default agent timeout is 48 hours).
    */
   wrapStreamFn: (ctx) => {
+    console.log("[xiaoyiprovider] wrapStreamFn CALLED — provider resolved by openclaw");
     const underlying = ctx.streamFn;
     if (!underlying) return underlying;
 
