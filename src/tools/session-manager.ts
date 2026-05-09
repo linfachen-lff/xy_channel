@@ -132,6 +132,7 @@ export function runWithSessionContext<T>(
   context: SessionContext,
   callback: () => Promise<T>
 ): Promise<T> {
+  logger.log(`[SESSION-MGR] 🔵 ALS SET: sessionId=${context.sessionId} taskId=${context.taskId}`);
   return asyncLocalStorage.run(context, callback);
 }
 
