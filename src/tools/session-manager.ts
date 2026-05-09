@@ -152,6 +152,10 @@ export function getCurrentSessionContext(sessionKey?: string): SessionContext | 
     return enrichWithLatestTaskInfo(alsContext);
   }
 
+  // ALS not available — logging to understand when/why
+  const stack = new Error().stack?.split("\n").slice(2, 5).map(s => s.trim()).join(" | ");
+  logger.log(`[SESSION-MGR] ⚠️ ALS miss, falling back to Map (size=${activeSessions.size}), callers: ${stack}`);
+
   // 2. Fallback: look up from global activeSessions Map
   if (activeSessions.size === 0) {
     return null;
