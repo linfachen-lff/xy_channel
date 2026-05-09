@@ -262,7 +262,7 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
 
     // Download files to local disk
     const downloadedFiles = await downloadFilesFromParts(fileParts);
-    console.log("Downloaded files:", JSON.stringify(downloadedFiles, null, 2));
+    log("Downloaded files:", JSON.stringify(downloadedFiles, null, 2));
     const mediaPayload = buildXYMediaPayload(downloadedFiles);
 
     // Resolve envelope format options (following feishu pattern)

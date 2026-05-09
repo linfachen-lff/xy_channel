@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import type { EnvConfig, FormattedSkill, RawSkill, ToolSearchResult } from "./types.js";
+import { logger } from "../utils/logger.js";
 
 const SKILL_ID = "celia_find_skills";
 const PLUGIN_LOG_PREFIX = "[skill-retriever]";
@@ -132,7 +133,7 @@ export async function searchTools(options: SearchToolsOptions): Promise<ToolSear
   const uid = configUid ?? envConfig.PERSONAL_UID;
 
   if (!serviceUrl || !apiKey || !uid) {
-    console.warn(
+    logger.warn(
       `${PLUGIN_LOG_PREFIX} Missing required configuration. serviceUrl: "${serviceUrl}", apiKey: "${apiKey ? '(set)' : '(missing)'} ", uid: "${uid ? '(set)' : '(missing)'}"`,
     );
     return null;
@@ -162,11 +163,11 @@ export async function searchTools(options: SearchToolsOptions): Promise<ToolSear
     });
 
     if (!response.ok) {
-      console.warn(`${PLUGIN_LOG_PREFIX} HTTP error: ${response.status} ${response.statusText}`);
+      logger.warn(`${PLUGIN_LOG_PREFIX} HTTP error: ${response.status} ${response.statusText}`);
       return null;
     }
 
-    console.log(`${PLUGIN_LOG_PREFIX} Received response, status: ${response.status}`);
+    logger.log(`${PLUGIN_LOG_PREFIX} Received response, status: ${response.status}`);
     const responseData = await response.json() as {
       errorCode?: string;
       content?: { skills?: RawSkill[] };
@@ -187,7 +188,7 @@ export async function searchTools(options: SearchToolsOptions): Promise<ToolSear
 
       const allInstalled = topTools.every((tool) => tool.status === "已安装");
       if (allInstalled) {
-        console.log(`${PLUGIN_LOG_PREFIX} [DEBUG] All top 2 skills are installed, returning null`);
+        logger.log(`${PLUGIN_LOG_PREFIX} [DEBUG] All top 2 skills are installed, returning null`);
         return null;
       }
 
@@ -195,15 +196,15 @@ export async function searchTools(options: SearchToolsOptions): Promise<ToolSear
         (tool) => tool.status === "已安装" && (tool.rrfScore ?? 0) >= 0.016
       );
       if (hasInstalledWithHighScore) {
-        console.log(`${PLUGIN_LOG_PREFIX} [DEBUG] Top 2 has installed skill with rrfScore >= 0.016, returning null`);
+        logger.log(`${PLUGIN_LOG_PREFIX} [DEBUG] Top 2 has installed skill with rrfScore >= 0.016, returning null`);
         return null;
       }
 
       let filteredTools = topTools.filter((tool) => tool.status === "未安装" && (tool.rrfScore ?? 0) >= 0.016);
-      console.log(`${PLUGIN_LOG_PREFIX} [DEBUG] After filtering uninstalled with rrfScore >= 0.016: ${filteredTools.length}, details: ${filteredTools.map((t: FormattedSkill) => `${t.skillId}(rrfScore=${t.rrfScore})`).join(", ")}`);
+      logger.log(`${PLUGIN_LOG_PREFIX} [DEBUG] After filtering uninstalled with rrfScore >= 0.016: ${filteredTools.length}, details: ${filteredTools.map((t: FormattedSkill) => `${t.skillId}(rrfScore=${t.rrfScore})`).join(", ")}`);
 
       if (filteredTools.length === 0) {
-        console.log(`${PLUGIN_LOG_PREFIX} [DEBUG] No uninstalled skills with rrfScore >= 0.016, returning null`);
+        logger.log(`${PLUGIN_LOG_PREFIX} [DEBUG] No uninstalled skills with rrfScore >= 0.016, returning null`);
         return null;
       }
 
@@ -214,14 +215,14 @@ export async function searchTools(options: SearchToolsOptions): Promise<ToolSear
       };
     }
 
-    console.warn(`${PLUGIN_LOG_PREFIX} Invalid response format: ${JSON.stringify(responseData).slice(0, 200)}`);
+    logger.warn(`${PLUGIN_LOG_PREFIX} Invalid response format: ${JSON.stringify(responseData).slice(0, 200)}`);
     return null;
   } catch (error) {
     const errorName = error instanceof Error ? error.name : "Unknown";
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorCause = error instanceof Error && error.cause ? JSON.stringify(error.cause) : "N/A";
     const errorStack = error instanceof Error ? error.stack?.split("\n").slice(0, 3).join(" | ") : "N/A";
-    console.warn(`${PLUGIN_LOG_PREFIX} [ERROR] Fetch failed - name: ${errorName}, message: ${errorMessage}, cause: ${errorCause}, stack: ${errorStack}`);
+    logger.warn(`${PLUGIN_LOG_PREFIX} [ERROR] Fetch failed - name: ${errorName}, message: ${errorMessage}, cause: ${errorCause}, stack: ${errorStack}`);
     return null;
   }
 }

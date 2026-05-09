@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import fsp from "node:fs/promises";
+import { logger } from "./logger.js";
 
 const SELF_EVOLUTION_ENV_FILE = "/home/sandbox/.openclaw/.xiaoyiruntime";
 const SELF_EVOLUTION_ENV_KEY = "selfEvolutionState";
@@ -26,7 +27,7 @@ class SelfEvolutionManager {
     } catch (error: unknown) {
       const code = error && typeof error === "object" && "code" in error ? (error as { code?: string }).code : undefined;
       if (code !== "ENOENT") {
-        console.error(`[SELF_EVOLUTION] Failed to read ${SELF_EVOLUTION_ENV_FILE}:`, error);
+        logger.error(`[SELF_EVOLUTION] Failed to read ${SELF_EVOLUTION_ENV_FILE}:`, error);
       }
       return false;
     }
@@ -67,7 +68,7 @@ class SelfEvolutionManager {
     } catch (error: unknown) {
       const code = error && typeof error === "object" && "code" in error ? (error as { code?: string }).code : undefined;
       if (code !== "ENOENT") {
-        console.error(`[SELF_EVOLUTION] Failed to read ${SELF_EVOLUTION_ENV_FILE}:`, error);
+        logger.error(`[SELF_EVOLUTION] Failed to read ${SELF_EVOLUTION_ENV_FILE}:`, error);
       }
       return false;
     }

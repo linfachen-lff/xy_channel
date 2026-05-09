@@ -142,7 +142,7 @@ export function runWithSessionContext<T>(
   context: SessionContext,
   callback: () => Promise<T>
 ): Promise<T> {
-  console.log(`[SESSION-MGR] 🔵 ALS SET: sessionId=${context.sessionId} taskId=${context.taskId}`);
+  logger.log(`[SESSION-MGR] 🔵 ALS SET: sessionId=${context.sessionId} taskId=${context.taskId}`);
   return asyncLocalStorage.run(context, callback);
 }
 
@@ -165,7 +165,7 @@ export function getCurrentSessionContext(sessionKey?: string): SessionContext | 
 
   // ALS not available — logging to understand when/why
   const stack = new Error().stack?.split("\n").slice(2, 5).map(s => s.trim()).join(" | ");
-  console.log(`[SESSION-MGR] ⚠️ ALS miss, falling back to Map (size=${activeSessions.size}), callers: ${stack}`);
+  logger.log(`[SESSION-MGR] ⚠️ ALS miss, falling back to Map (size=${activeSessions.size}), callers: ${stack}`);
 
   // 2. Fallback: look up from global activeSessions Map
   if (activeSessions.size === 0) {
@@ -210,7 +210,7 @@ export function getCurrentSessionContext(sessionKey?: string): SessionContext | 
   if (lastKey) {
     const lastEntry = activeSessions.get(lastKey);
     if (lastEntry) {
-      console.log(`[SESSION-MGR] 🎯 using lastRegistered session: ${lastKey}`);
+      logger.log(`[SESSION-MGR] 🎯 using lastRegistered session: ${lastKey}`);
       const { refCount, createdAt, ...context } = lastEntry;
       return enrichWithLatestTaskInfo(context);
     }

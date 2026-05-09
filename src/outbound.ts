@@ -10,6 +10,7 @@ import { XYPushService } from "./push.js";
 import { getCurrentSessionContext } from "./tools/session-manager.js";
 import { savePushData } from "./utils/pushdata-manager.js";
 import { getAllPushIds } from "./utils/pushid-manager.js";
+import { logger } from "./utils/logger.js";
 
 // Special marker for default push delivery when no target is specified
 const DEFAULT_PUSH_MARKER = "default";
@@ -68,7 +69,7 @@ export const xyOutbound: ChannelOutboundAdapter = {
   resolveTarget: ({ cfg, to, accountId, mode }) => {
     // If no target provided, use default marker for push delivery
     if (!to || to.trim() === "") {
-      console.log(`[xyOutbound.resolveTarget] No target specified, using default push marker`);
+      logger.log(`[xyOutbound.resolveTarget] No target specified, using default push marker`);
       return {
         ok: true,
         to: DEFAULT_PUSH_MARKER,
@@ -79,25 +80,25 @@ export const xyOutbound: ChannelOutboundAdapter = {
 
     // If the target doesn't contain "::", try to enhance it with taskId from session context
     if (!trimmedTo.includes("::")) {
-      console.log(`[xyOutbound.resolveTarget] Target "${trimmedTo}" missing taskId, looking up session context`);
+      logger.log(`[xyOutbound.resolveTarget] Target "${trimmedTo}" missing taskId, looking up session context`);
 
       // Try to get the current session context
       const sessionContext = getCurrentSessionContext();
       if (sessionContext && sessionContext.sessionId === trimmedTo) {
         const enhancedTarget = `${trimmedTo}::${sessionContext.taskId}`;
-        console.log(`[xyOutbound.resolveTarget] Enhanced target: ${enhancedTarget}`);
+        logger.log(`[xyOutbound.resolveTarget] Enhanced target: ${enhancedTarget}`);
         return {
           ok: true,
           to: enhancedTarget,
         };
       } else {
-        console.log(`[xyOutbound.resolveTarget] Could not find matching session context for "${trimmedTo}"`);
+        logger.log(`[xyOutbound.resolveTarget] Could not find matching session context for "${trimmedTo}"`);
         // Still return the original target, but it may fail in sendMedia
       }
     }
 
     // Otherwise, use the provided target (either already in correct format or for sendText)
-    console.log(`[xyOutbound.resolveTarget] Using provided target:`, trimmedTo);
+    logger.log(`[xyOutbound.resolveTarget] Using provided target:`, trimmedTo);
     return {
       ok: true,
       to: trimmedTo,
@@ -112,37 +113,37 @@ export const xyOutbound: ChannelOutboundAdapter = {
     // Handle default push marker (for cron jobs without explicit target)
     let actualTo = to;
     if (to === DEFAULT_PUSH_MARKER) {
-      console.log(`[xyOutbound.sendText] Using default push delivery (no specific target)`);
+      logger.log(`[xyOutbound.sendText] Using default push delivery (no specific target)`);
       // For push notifications, we don't need a specific target
       // The push service will handle it based on config
       actualTo = config.defaultSessionId || "";
     }
 
     // 1. 持久化推送消息内容，获取 pushDataId
-    console.log(`[xyOutbound.sendText] Saving push data to local storage...`);
+    logger.log(`[xyOutbound.sendText] Saving push data to local storage...`);
     let pushDataId: string;
     try {
       pushDataId = await savePushData(text);
-      console.log(`[xyOutbound.sendText] ✅ Push data saved with ID: ${pushDataId.substring(0, 20)}`);
+      logger.log(`[xyOutbound.sendText] ✅ Push data saved with ID: ${pushDataId.substring(0, 20)}`);
     } catch (error) {
-      console.error(`[xyOutbound.sendText] ❌ Failed to save push data:`, error);
+      logger.error(`[xyOutbound.sendText] ❌ Failed to save push data:`, error);
       // 如果持久化失败，仍然继续发送（不阻塞主流程）
       pushDataId = "";
     }
 
     // 2. 读取所有 pushId
-    console.log(`[xyOutbound.sendText] Loading all pushIds...`);
+    logger.log(`[xyOutbound.sendText] Loading all pushIds...`);
     let pushIdList: string[] = [];
     try {
       pushIdList = await getAllPushIds();
-      console.log(`[xyOutbound.sendText] ✅ Loaded ${pushIdList.length} pushIds`);
+      logger.log(`[xyOutbound.sendText] ✅ Loaded ${pushIdList.length} pushIds`);
     } catch (error) {
-      console.error(`[xyOutbound.sendText] ❌ Failed to load pushIds:`, error);
+      logger.error(`[xyOutbound.sendText] ❌ Failed to load pushIds:`, error);
     }
 
     // 3. 如果 pushIdList 为空，回退到原有逻辑（使用 config pushId）
     if (pushIdList.length === 0) {
-      console.log(`[xyOutbound.sendText] ⚠️ No pushIds found, falling back to config pushId`);
+      logger.log(`[xyOutbound.sendText] ⚠️ No pushIds found, falling back to config pushId`);
       pushIdList = [config.pushId];
     }
 
@@ -156,7 +157,7 @@ export const xyOutbound: ChannelOutboundAdapter = {
     const pushText = text.length > 1000 ? text.slice(0, 1000) : text;
 
     // 4. 遍历所有 pushId，依次发送推送通知
-    console.log(`[xyOutbound.sendText] 📤 Broadcasting to ${pushIdList.length} pushId(s)...`);
+    logger.log(`[xyOutbound.sendText] 📤 Broadcasting to ${pushIdList.length} pushId(s)...`);
     let successCount = 0;
     let failureCount = 0;
 
@@ -165,10 +166,10 @@ export const xyOutbound: ChannelOutboundAdapter = {
         // 传入 pushId 和 pushDataId，使用 kind="data" 格式
         await pushService.sendPush(pushText, title, undefined, actualTo, pushDataId, pushId);
         successCount++;
-        console.log(`[xyOutbound.sendText] ✅ Sent successfully to pushId: ${pushId.substring(0, 20)}...`);
+        logger.log(`[xyOutbound.sendText] ✅ Sent successfully to pushId: ${pushId.substring(0, 20)}...`);
       } catch (error) {
         failureCount++;
-        console.error(`[xyOutbound.sendText] ❌ Failed to send to pushId: ${pushId.substring(0, 20)}...`, error);
+        logger.error(`[xyOutbound.sendText] ❌ Failed to send to pushId: ${pushId.substring(0, 20)}...`, error);
         // 单个 pushId 发送失败不影响其他，继续处理下一个
       }
     }
@@ -213,7 +214,7 @@ export const xyOutbound: ChannelOutboundAdapter = {
       throw new Error(`File upload returned empty fileId for: ${mediaUrl}`);
     }
 
-    console.log(`[xyOutbound.sendMedia] File uploaded:`, {
+    logger.log(`[xyOutbound.sendMedia] File uploaded:`, {
       fileId,
       sessionId,
       taskId,
@@ -261,7 +262,7 @@ export const xyOutbound: ChannelOutboundAdapter = {
     const wsManager = getXYWebSocketManager(config);
     await wsManager.sendMessage(sessionId, agentResponse);
 
-    console.log(`[xyOutbound.sendMedia] WebSocket message sent successfully`);
+    logger.log(`[xyOutbound.sendMedia] WebSocket message sent successfully`);
 
     // Return message info
     return {

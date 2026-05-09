@@ -2,7 +2,7 @@
 // Follows feishu/monitor.account.ts and feishu/monitor.transport.ts pattern
 import type { RuntimeEnv } from "openclaw/plugin-sdk";
 import { resolveXYConfig } from "./config.js";
-import { getXYWebSocketManager, diagnoseAllManagers, cleanupOrphanConnections, removeXYWebSocketManager } from "./client.js";
+import { getXYWebSocketManager, setClientRuntime, diagnoseAllManagers, cleanupOrphanConnections, removeXYWebSocketManager } from "./client.js";
 import { handleXYMessage } from "./bot.js";
 import { parseA2AMessage } from "./parser.js";
 import { hasActiveTask, getAllActiveTaskBindings } from "./task-manager.js";
@@ -69,8 +69,11 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       }
     : undefined;
 
+  // ✅ Set runtime for WebSocket manager logging before creating/getting manager
+  setClientRuntime(runtime);
+
   // 🔍 Diagnose WebSocket managers before gateway start
-  console.log("🔍 [DIAGNOSTICS] Checking WebSocket managers before gateway start...");
+  log("🔍 [DIAGNOSTICS] Checking WebSocket managers before gateway start...");
   diagnoseAllManagers();
 
   // Get WebSocket manager (cached)
@@ -171,7 +174,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
     };
 
     const disconnectedHandler = (serverId: string) => {
-      console.warn(`XY gateway: ${serverId} disconnected`);
+      log(`XY gateway: ${serverId} disconnected`);
       loggedServers.delete(serverId);
       // ✅ Report disconnection status (only if all servers disconnected)
       if (loggedServers.size === 0) {
@@ -214,14 +217,14 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       log("XY gateway: cleaning up...");
 
       // 🔍 Diagnose before cleanup
-      console.log("🔍 [DIAGNOSTICS] Checking WebSocket managers before cleanup...");
+      log("🔍 [DIAGNOSTICS] Checking WebSocket managers before cleanup...");
       diagnoseAllManagers();
 
       // Stop health check interval
       if (healthCheckInterval) {
         clearInterval(healthCheckInterval);
         healthCheckInterval = null;
-        console.log("⏸️  Stopped periodic health check");
+        log("⏸️  Stopped periodic health check");
       }
 
       // Remove event handlers to prevent duplicate calls on gateway restart
@@ -249,7 +252,7 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
       log(`[MONITOR-HANDLER] 🧹 Cleanup complete, cleared active messages and sessions`);
 
       // 🔍 Diagnose after cleanup
-      console.log("🔍 [DIAGNOSTICS] Checking WebSocket managers after cleanup...");
+      log("🔍 [DIAGNOSTICS] Checking WebSocket managers after cleanup...");
       diagnoseAllManagers();
     };
 
@@ -311,22 +314,22 @@ export async function monitorXYProvider(opts: MonitorXYOpts = {}): Promise<void>
     wsManager.on("login-token-event", loginTokenEventHandler);
 
     // Start periodic health check (every 6 hours)
-    console.log("🏥 Starting periodic health check (every 6 hours)...");
+    log("🏥 Starting periodic health check (every 6 hours)...");
     healthCheckInterval = setInterval(() => {
-      console.log("🏥 [HEALTH CHECK] Periodic WebSocket diagnostics...");
+      log("🏥 [HEALTH CHECK] Periodic WebSocket diagnostics...");
       diagnoseAllManagers();
 
       // Auto-cleanup orphan connections
       const cleaned = cleanupOrphanConnections();
       if (cleaned > 0) {
-        console.log(`🧹 [HEALTH CHECK] Auto-cleaned ${cleaned} manager(s) with orphan connections`);
+        log(`🧹 [HEALTH CHECK] Auto-cleaned ${cleaned} manager(s) with orphan connections`);
       }
 
       // Cleanup stale sessions (older than 10min TTL)
       const cleanedSessions = cleanupStaleSessions();
       const remainingSessions = getActiveSessionCount();
       if (cleanedSessions > 0 || remainingSessions > 0) {
-        console.log(`🧹 [HEALTH CHECK] Sessions: cleaned=${cleanedSessions}, active=${remainingSessions}`);
+        log(`🧹 [HEALTH CHECK] Sessions: cleaned=${cleanedSessions}, active=${remainingSessions}`);
       }
 
       // Cleanup stale temp files (older than 24 hours)

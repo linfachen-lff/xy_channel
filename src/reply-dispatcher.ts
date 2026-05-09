@@ -7,6 +7,7 @@ import { getCurrentTaskId, getCurrentMessageId } from "./task-manager.js";
 import type { XYChannelConfig } from "./types.js";
 import fs from "fs/promises";
 import path from "path";
+import { logger } from "./utils/logger.js";
 
 export interface CreateXYReplyDispatcherParams {
   cfg: ClawdbotConfig;
@@ -48,10 +49,10 @@ export async function cleanupStaleTempFiles(tempDir: string = "/tmp/xy_channel")
     }
 
     if (cleanedCount > 0) {
-      console.log(`[CLEANUP] 🧹 Cleaned ${cleanedCount} stale files (>${TEMP_FILE_TTL_MS / 1000 / 3600}h) from ${tempDir}`);
+      logger.log(`[CLEANUP] 🧹 Cleaned ${cleanedCount} stale files (>${TEMP_FILE_TTL_MS / 1000 / 3600}h) from ${tempDir}`);
     }
   } catch (err) {
-    console.error(`[CLEANUP] ❌ Failed to cleanup temp dir:`, err);
+    logger.error(`[CLEANUP] ❌ Failed to cleanup temp dir:`, err);
   }
 }
 

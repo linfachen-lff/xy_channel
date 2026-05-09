@@ -2,6 +2,7 @@
 import fetch from "node-fetch";
 import fs from "fs/promises";
 import path from "path";
+import { logger } from "./utils/logger.js";
 
 /**
  * Download a file from URL to local path.
@@ -23,10 +24,10 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.log(`Download timeout (30s) for ${url}`);
+      logger.log(`Download timeout (30s) for ${url}`);
       throw new Error(`Download timeout after 30 seconds`);
     }
-    console.log(`Failed to download file from ${url}:`);
+    logger.log(`Failed to download file from ${url}:`);
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -61,7 +62,7 @@ export async function downloadFilesFromParts(
         mimeType,
       });
     } catch (error) {
-      console.log(`Failed to download file ${name}:`);
+      logger.log(`Failed to download file ${name}:`);
       // Continue with other files
     }
   }

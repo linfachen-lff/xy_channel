@@ -21,6 +21,7 @@ interface PluginHookAgentContext {
 }
 import type { ToolRetrieverConfig } from "./types.js";
 import { searchTools, formatToolsForContext, extractUserQuery } from "./tool-search.js";
+import { logger } from "../utils/logger.js";
 
 const TOOL_RETRIEVER_HEADER = `[系统消息，非用户发言]
 
@@ -108,11 +109,11 @@ export function createBeforePromptBuildHandler(config: ToolRetrieverConfig) {
         return undefined;
       }
 
-      console.log(`${PLUGIN_LOG_PREFIX} [RESULT] Found ${searchResult.tools.length} skills, building context...`);
+      logger.log(`${PLUGIN_LOG_PREFIX} [RESULT] Found ${searchResult.tools.length} skills, building context...`);
       const toolsContext = formatToolsForContext(searchResult, config.includeUninstalledOnly);
 
       if (!toolsContext) {
-        console.log(`${PLUGIN_LOG_PREFIX} [ERROR] Failed to format skills context`);
+        logger.log(`${PLUGIN_LOG_PREFIX} [ERROR] Failed to format skills context`);
         return undefined;
       }
 
@@ -121,7 +122,7 @@ export function createBeforePromptBuildHandler(config: ToolRetrieverConfig) {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`${PLUGIN_LOG_PREFIX} [ERROR] ${errorMessage}, original query: "${extractedQuery}"`);
+      logger.error(`${PLUGIN_LOG_PREFIX} [ERROR] ${errorMessage}, original query: "${extractedQuery}"`);
       return undefined;
     }
   };

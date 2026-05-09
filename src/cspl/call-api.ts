@@ -7,6 +7,7 @@ import type { ClawdbotConfig } from "openclaw/plugin-sdk";
 import { getCsplConfig } from "./config.js";
 import type { HttpHeaders, ApiPayload, ApiResponse } from "./constants.js";
 import { DEFAULT_HTTP_PORT, HTTP_STATUS_BAD_REQUEST } from "./constants.js";
+import { logger } from "../utils/logger.js";
 
 function generateTraceId(): string {
   return randomBytes(16).toString("hex");
@@ -14,7 +15,7 @@ function generateTraceId(): string {
 
 function buildHeaders(config: ReturnType<typeof getCsplConfig>): HttpHeaders {
   const traceId = generateTraceId();
-  console.log(`[SENTINEL HOOK] trace-id: ${traceId}`);
+  logger.log(`[SENTINEL HOOK] trace-id: ${traceId}`);
   return {
     "x-hag-trace-id": traceId,
     "x-uid": config.uid,
@@ -86,21 +87,21 @@ export async function callCsplApi(
       res.on("end", () => {
         try {
           const result = parseResponse(data);
-          console.log(`[SENTINEL HOOK] ✅ 请求成功`);
+          logger.log(`[SENTINEL HOOK] ✅ 请求成功`);
           resolve(result);
         } catch (e) {
-          console.error(`[SENTINEL HOOK] ❌ 请求失败: ${e instanceof Error ? e.message : String(e)}`);
+          logger.error(`[SENTINEL HOOK] ❌ 请求失败: ${e instanceof Error ? e.message : String(e)}`);
           reject(e);
         }
       });
     });
 
     req.on("error", (error) => {
-      console.error(`[SENTINEL HOOK] ❌ 请求错误: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(`[SENTINEL HOOK] ❌ 请求错误: ${error instanceof Error ? error.message : String(error)}`);
       reject(error);
     });
     req.on("timeout", () => {
-      console.error(`[SENTINEL HOOK] ⏰ 请求超时 (${config.api.timeout}ms)`);
+      logger.error(`[SENTINEL HOOK] ⏰ 请求超时 (${config.api.timeout}ms)`);
       req.destroy();
       reject(new Error("[SENTINEL HOOK] Request timeout"));
     });

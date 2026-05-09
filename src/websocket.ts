@@ -1,4 +1,5 @@
 // WebSocket connection manager (Single connection)
+import os from "os";
 import WebSocket from "ws";
 import { EventEmitter } from "events";
 import type { RuntimeEnv } from "openclaw/plugin-sdk";
@@ -376,10 +377,11 @@ export class XYWebSocketManager extends EventEmitter {
       return;
     }
 
+    const hostname = os.hostname();
     const initMessage: OutboundWebSocketMessage = {
       msgType: "clawd_bot_init",
       agentId: this.config.agentId,
-      msgDetail: JSON.stringify({ agentId: this.config.agentId }),
+      msgDetail: JSON.stringify({ agentId: this.config.agentId, hostname }),
     };
 
     const initMessageStr = JSON.stringify(initMessage);
