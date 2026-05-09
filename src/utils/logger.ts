@@ -26,18 +26,18 @@ function getError(): (msg: string, ...args: any[]) => void {
 
 export const logger = {
   log(message: string, ...args: any[]): void {
-    getLog()(`[XY] ${message}`, ...args);
+    getLog()(message, ...args);
   },
 
   warn(message: string, ...args: any[]): void {
-    getWarn()(`[XY] ${message}`, ...args);
+    getWarn()(message, ...args);
   },
 
   error(message: string, ...args: any[]): void {
-    getError()(`[XY] ${message}`, ...args);
+    getError()(message, ...args);
   },
 
   debug(message: string, ...args: any[]): void {
-    getLog()(`[XY] [DEBUG] ${message}`, ...args);
+    getLog()(`[DEBUG] ${message}`, ...args);
   },
 };
