@@ -13,6 +13,9 @@ function logMessage(level: LogLevel, message: string, ...args: any[]): void {
     if (logFn) {
       const formattedMessage = `[XY] ${message}`;
       logFn(formattedMessage, ...args);
+    } else {
+      // Fallback to console if runtime doesn't have this log method
+      console[level](`[XY] ${message}`, ...args);
     }
   } catch (error) {
     // Fallback to console if runtime not available
