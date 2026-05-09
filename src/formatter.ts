@@ -165,6 +165,7 @@ export interface SendStatusUpdateParams {
   messageId: string;
   text: string;
   state: "submitted" | "working" | "input-required" | "completed" | "canceled" | "failed" | "unknown";
+  runtime?: any;
 }
 
 /**
@@ -172,7 +173,8 @@ export interface SendStatusUpdateParams {
  * Follows A2A protocol standard format with nested status object.
  */
 export async function sendStatusUpdate(params: SendStatusUpdateParams): Promise<void> {
-  const { config, sessionId, taskId, messageId, text, state } = params;
+  const { config, sessionId, taskId, messageId, text, state, runtime } = params;
+  const log = runtime?.log ?? console.log;
 
 
   // Build status update event following A2A protocol standard
@@ -212,9 +214,9 @@ export async function sendStatusUpdate(params: SendStatusUpdateParams): Promise<
   };
 
   // 📋 Log complete response body
-  logger.log(`[A2A_STATUS] 📤 Sending A2A status-update:`);
-  logger.log(`[A2A_STATUS]   - taskId: ${taskId}`);
-  logger.log(`[A2A_STATUS]   - text: "${text}"`);
+  log(`[A2A_STATUS] 📤 Sending A2A status-update:`);
+  log(`[A2A_STATUS]   - taskId: ${taskId}`);
+  log(`[A2A_STATUS]   - text: "${text}"`);
 
   await wsManager.sendMessage(sessionId, outboundMessage);
 }
