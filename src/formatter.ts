@@ -1,8 +1,7 @@
 // OpenClaw → A2A format conversion
 import { v4 as uuidv4 } from "uuid";
 import { getXYWebSocketManager } from "./client.js";
-import { getXYRuntime } from "./runtime.js";
-import type { RuntimeEnv } from "openclaw/plugin-sdk";
+import { logger } from "./utils/logger.js";
 import type {
   XYChannelConfig,
   A2AJsonRpcResponse,
@@ -34,9 +33,6 @@ export interface SendA2AResponseParams {
 export async function sendA2AResponse(params: SendA2AResponseParams): Promise<void> {
   const { config, sessionId, taskId, messageId, text, append, final, files, errorCode, errorMessage } = params;
 
-  const runtime = getXYRuntime() as any;
-  const log = runtime?.log ?? console.log;
-  const errorFn = runtime?.error ?? console.error;
 
   // Build artifact update event
   const artifact: A2ATaskArtifactUpdateEvent = {
@@ -80,7 +76,7 @@ export async function sendA2AResponse(params: SendA2AResponseParams): Promise<vo
       code: errorCode,
       message: errorMessage ?? "任务执行异常，请重试",
     };
-    log(`[A2A_RESPONSE] ⚠️ Including error code: ${errorCode}`);
+    logger.log(`[A2A_RESPONSE] ⚠️ Including error code: ${errorCode}`);
   }
 
   // Send via WebSocket
@@ -94,14 +90,14 @@ export async function sendA2AResponse(params: SendA2AResponseParams): Promise<vo
   };
 
   // 📋 Log complete response body
-  log(`[A2A_RESPONSE] 📤 Sending A2A artifact-update response: taskId: ${taskId}`);
-  log(`[A2A_RESPONSE]   - append: ${append}`);
-  log(`[A2A_RESPONSE]   - final: ${final}`);
-  log(`[A2A_RESPONSE]   - text: ${text.length <= 10 ? text : text.slice(0, 5) + '***' + text.slice(-5)}`);
-  log(`[A2A_RESPONSE]   - files count: ${files?.length ?? 0}`);
+  logger.log(`[A2A_RESPONSE] 📤 Sending A2A artifact-update response: taskId: ${taskId}`);
+  logger.log(`[A2A_RESPONSE]   - append: ${append}`);
+  logger.log(`[A2A_RESPONSE]   - final: ${final}`);
+  logger.log(`[A2A_RESPONSE]   - text: ${text.length <= 10 ? text : text.slice(0, 5) + '***' + text.slice(-5)}`);
+  logger.log(`[A2A_RESPONSE]   - files count: ${files?.length ?? 0}`);
 
   await wsManager.sendMessage(sessionId, outboundMessage);
-  log(`[A2A_RESPONSE] ✅ Message sent successfully`);
+  logger.log(`[A2A_RESPONSE] ✅ Message sent successfully`);
 }
 
 /**
@@ -124,9 +120,6 @@ export interface SendReasoningTextUpdateParams {
 export async function sendReasoningTextUpdate(params: SendReasoningTextUpdateParams): Promise<void> {
   const { config, sessionId, taskId, messageId, text, append = true } = params;
 
-  const runtime = getXYRuntime() as any;
-  const log = runtime?.log ?? console.log;
-  const error = runtime?.error ?? console.error;
 
   const artifact: A2ATaskArtifactUpdateEvent = {
     taskId,
@@ -181,9 +174,6 @@ export interface SendStatusUpdateParams {
 export async function sendStatusUpdate(params: SendStatusUpdateParams): Promise<void> {
   const { config, sessionId, taskId, messageId, text, state } = params;
 
-  const runtime = getXYRuntime() as any;
-  const log = runtime?.log ?? console.log;
-  const error = runtime?.error ?? console.error;
 
   // Build status update event following A2A protocol standard
   const statusUpdate: A2ATaskStatusUpdateEvent = {
@@ -222,9 +212,9 @@ export async function sendStatusUpdate(params: SendStatusUpdateParams): Promise<
   };
 
   // 📋 Log complete response body
-  log(`[A2A_STATUS] 📤 Sending A2A status-update:`);
-  log(`[A2A_STATUS]   - taskId: ${taskId}`);
-  log(`[A2A_STATUS]   - text: "${text}"`);
+  logger.log(`[A2A_STATUS] 📤 Sending A2A status-update:`);
+  logger.log(`[A2A_STATUS]   - taskId: ${taskId}`);
+  logger.log(`[A2A_STATUS]   - text: "${text}"`);
 
   await wsManager.sendMessage(sessionId, outboundMessage);
 }
@@ -246,9 +236,6 @@ export interface SendCommandParams {
 export async function sendCommand(params: SendCommandParams): Promise<void> {
   const { config, sessionId, taskId, messageId, command } = params;
 
-  const runtime = getXYRuntime() as any;
-  const log = runtime?.log ?? console.log;
-  const error = runtime?.error ?? console.error;
 
   // Build artifact update with command as data
   // Wrap command in commands array as per protocol requirement
@@ -289,9 +276,9 @@ export async function sendCommand(params: SendCommandParams): Promise<void> {
   };
 
   // 📋 Log complete response body
-  log(`[A2A_COMMAND] 📤 Sending A2A command: taskId: ${taskId}`);
+  logger.log(`[A2A_COMMAND] 📤 Sending A2A command: taskId: ${taskId}`);
   await wsManager.sendMessage(sessionId, outboundMessage);
-  log(`[A2A_COMMAND] ✅ Command sent successfully`);
+  logger.log(`[A2A_COMMAND] ✅ Command sent successfully`);
 }
 
 /**
@@ -309,9 +296,6 @@ export interface SendClearContextResponseParams {
 export async function sendClearContextResponse(params: SendClearContextResponseParams): Promise<void> {
   const { config, sessionId, messageId } = params;
 
-  const runtime = getXYRuntime() as any;
-  const log = runtime?.log ?? console.log;
-  const error = runtime?.error ?? console.error;
 
   // Build JSON-RPC response for clearContext
   const jsonRpcResponse = {
@@ -340,7 +324,7 @@ export async function sendClearContextResponse(params: SendClearContextResponseP
   };
 
   await wsManager.sendMessage(sessionId, outboundMessage);
-  log(`Sent clearContext response: sessionId=${sessionId}`);
+  logger.log(`Sent clearContext response: sessionId=${sessionId}`);
 }
 
 /**
@@ -359,9 +343,6 @@ export interface SendTasksCancelResponseParams {
 export async function sendTasksCancelResponse(params: SendTasksCancelResponseParams): Promise<void> {
   const { config, sessionId, taskId, messageId } = params;
 
-  const runtime = getXYRuntime() as any;
-  const log = runtime?.log ?? console.log;
-  const error = runtime?.error ?? console.error;
 
   // Build JSON-RPC response for tasks/cancel
   // Note: Using any to bypass type check as the response format differs from standard A2A types
@@ -391,7 +372,7 @@ export async function sendTasksCancelResponse(params: SendTasksCancelResponsePar
   };
 
   await wsManager.sendMessage(sessionId, outboundMessage);
-  log(`Sent tasks/cancel response: sessionId=${sessionId}, taskId=${taskId}`);
+  logger.log(`Sent tasks/cancel response: sessionId=${sessionId}, taskId=${taskId}`);
 }
 
 /**
@@ -411,9 +392,6 @@ export interface SendTriggerResponseParams {
 export async function sendTriggerResponse(params: SendTriggerResponseParams): Promise<void> {
   const { config, sessionId, taskId, messageId, content } = params;
 
-  const runtime = getXYRuntime() as any;
-  const log = runtime?.log ?? console.log;
-  const error = runtime?.error ?? console.error;
 
   // Build JSON-RPC response for Trigger
   const jsonRpcResponse = {
@@ -451,7 +429,7 @@ export async function sendTriggerResponse(params: SendTriggerResponseParams): Pr
     msgDetail: JSON.stringify(jsonRpcResponse),
   };
 
-  log(`[TRIGGER_RESPONSE] Sending Trigger response: sessionId=${sessionId}, taskId=${taskId}`);
+  logger.log(`[TRIGGER_RESPONSE] Sending Trigger response: sessionId=${sessionId}, taskId=${taskId}`);
   await wsManager.sendMessage(sessionId, outboundMessage);
-  log(`[TRIGGER_RESPONSE] Trigger response sent successfully`);
+  logger.log(`[TRIGGER_RESPONSE] Trigger response sent successfully`);
 }

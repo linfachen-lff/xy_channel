@@ -168,7 +168,6 @@ export class XYWebSocketManager extends EventEmitter {
     }
 
     const messageStr = JSON.stringify(message);
-    this.log(`[WS-SEND] sessionId=${sessionId} taskId=${message.taskId} msgType=${message.msgType} len=${messageStr.length}`);
     this.ws.send(messageStr);
   }
 
