@@ -3,7 +3,7 @@
 import { XYWebSocketManager } from "./websocket.js";
 import type { XYChannelConfig } from "./types.js";
 import type { RuntimeEnv } from "openclaw/plugin-sdk";
-import { getXYRuntime } from "./runtime.js";
+import { setXYRuntime } from "./runtime.js";
 
 // Runtime reference for logging
 let runtime: RuntimeEnv | undefined;
@@ -13,6 +13,7 @@ let runtime: RuntimeEnv | undefined;
  */
 export function setClientRuntime(rt: RuntimeEnv | undefined): void {
   runtime = rt;
+  setXYRuntime(rt as any);
 }
 
 /**
