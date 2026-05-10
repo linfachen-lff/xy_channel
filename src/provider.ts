@@ -525,9 +525,13 @@ export const xiaoyiProvider: ProviderPlugin = {
       if (context.systemPrompt) {
         console.log(`[xiaoyiprovider] system prompt length: ${context.systemPrompt.length}`);
       }
-      // Reuse deviceType from extraParams instead of calling getCurrentSessionContext()
-      // again (which may be ambiguous in multi-session or async scenarios).
-      const deviceType = (ctx.extraParams?.[DEVICE_TYPE_KEY] as string) || undefined;
+      // Prefer deviceType from extraParams (set by prepareExtraParams).
+      // Fall back to getCurrentSessionContext() because OpenClaw caches
+      // resolvePreparedExtraParams by provider/modelId – the cache key does
+      // not include session-specific data, so deviceType may be missing
+      // from the cached extraParams even when a session is active.
+      const extraParamsDeviceType = (ctx.extraParams?.[DEVICE_TYPE_KEY] as string) || undefined;
+      const deviceType = extraParamsDeviceType ?? getCurrentSessionContext()?.deviceType;
 
       // 在发送给模型前，优化 systemPrompt 结构
       if (context.systemPrompt) {
