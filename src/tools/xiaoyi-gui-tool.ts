@@ -2,6 +2,7 @@
 import { getXYWebSocketManager } from "../client.js";
 import { sendCommand } from "../formatter.js";
 import type { SessionContext } from "./session-manager.js";
+import { getCurrentTaskId } from "../task-manager.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -43,6 +44,8 @@ export function createXiaoyiGuiTool(ctx: SessionContext): any {
   },
 
   async execute(toolCallId: string, params: any) {
+    // Dynamic lookup: use latest taskId from task-manager (handles steer/interrupt)
+    const currentTaskId = getCurrentTaskId(sessionId) ?? taskId;
 
     // Validate parameters
     if (!params.query || typeof params.query !== "string") {
@@ -61,7 +64,7 @@ export function createXiaoyiGuiTool(ctx: SessionContext): any {
       payload: {
         query: params.query,
         sessionId: sessionId,
-        interactionId: taskId, // taskId corresponds to interactionId
+        interactionId: currentTaskId, // taskId corresponds to interactionId; use dynamic lookup for steer safety
       },
     };
 

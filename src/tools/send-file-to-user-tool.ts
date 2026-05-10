@@ -5,6 +5,7 @@ import { XYFileUploadService } from "../file-upload.js";
 import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { OutboundWebSocketMessage } from "../types.js";
+import { getCurrentTaskId, getCurrentMessageId } from "../task-manager.js";
 import fetch from "node-fetch";
 import fs from "fs/promises";
 import path from "path";
@@ -138,6 +139,10 @@ b. 操作超时时间为2分钟（120秒），请勿重复调用此工具，如�
   },
 
   async execute(toolCallId: string, params: any) {
+    // Dynamic lookup: use latest taskId/messageId from task-manager (handles steer/interrupt)
+    const currentTaskId = getCurrentTaskId(sessionId) ?? taskId;
+    const currentMessageId = getCurrentMessageId(sessionId) ?? messageId;
+
     // Set timeout for the entire operation (2 minutes)
     const TOOL_TIMEOUT = 120000; // 2 minutes in milliseconds
     let timeoutHandle: NodeJS.Timeout | null = null;
@@ -254,17 +259,17 @@ b. 操作超时时间为2分钟（120秒），请勿重复调用此工具，如�
         msgType: "agent_response",
         agentId: config.agentId,
         sessionId: sessionId,
-        taskId: taskId,
+        taskId: currentTaskId,
         msgDetail: JSON.stringify({
           jsonrpc: "2.0",
-          id: taskId,
+          id: currentMessageId,
           result: {
             kind: "artifact-update",
             append: true,
             lastChunk: false,
             final: false,
             artifact: {
-              artifactId: taskId,
+              artifactId: currentTaskId,
               parts: [
                 {
                   kind: "file",
@@ -281,7 +286,7 @@ b. 操作超时时间为2分钟（120秒），请勿重复调用此工具，如�
         }),
       };
 
-      logger.log(`[SEND-FILE-TO-USER] 🚀 EXEC sending: sessionId=${sessionId} taskId=${taskId} fileName=${fileName}`);
+      logger.log(`[SEND-FILE-TO-USER] 🚀 EXEC sending: sessionId=${sessionId} taskId=${currentTaskId} fileName=${fileName}`);
       // Send WebSocket message
       await wsManager.sendMessage(sessionId, agentResponse);
       logger.log(`send ${fileName} file to user success`)

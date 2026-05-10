@@ -2,6 +2,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getXYWebSocketManager } from "./client.js";
 import { logger } from "./utils/logger.js";
+import { getCurrentTaskId, getCurrentMessageId } from "./task-manager.js";
 import type {
   XYChannelConfig,
   A2AJsonRpcResponse,
@@ -178,10 +179,14 @@ export async function sendStatusUpdate(params: SendStatusUpdateParams): Promise<
   const { config, sessionId, taskId, messageId, text, state, runtime } = params;
   const log = runtime?.log ?? console.log;
 
+  // Dynamic lookup: use latest taskId/messageId from task-manager (handles steer/interrupt),
+  // fall back to closure-captured values
+  const currentTaskId = getCurrentTaskId(sessionId) ?? taskId;
+  const currentMessageId = getCurrentMessageId(sessionId) ?? messageId;
 
   // Build status update event following A2A protocol standard
   const statusUpdate: A2ATaskStatusUpdateEvent = {
-    taskId,
+    taskId: currentTaskId,
     kind: "status-update",
     final: false, // Status updates should not end the stream
     status: {
@@ -201,7 +206,7 @@ export async function sendStatusUpdate(params: SendStatusUpdateParams): Promise<
   // Build JSON-RPC response
   const jsonRpcResponse = {
     jsonrpc: "2.0",
-    id: messageId,
+    id: currentMessageId,
     result: statusUpdate,
   };
 
@@ -211,13 +216,13 @@ export async function sendStatusUpdate(params: SendStatusUpdateParams): Promise<
     msgType: "agent_response",
     agentId: config.agentId,
     sessionId,
-    taskId,
+    taskId: currentTaskId,
     msgDetail: JSON.stringify(jsonRpcResponse),
   };
 
   // 📋 Log complete response body
   log(`[A2A_STATUS] 📤 Sending A2A status-update:`);
-  log(`[A2A_STATUS]   - taskId: ${taskId}`);
+  log(`[A2A_STATUS]   - taskId: ${currentTaskId}`);
   log(`[A2A_STATUS]   - text: "${text}"`);
 
   await wsManager.sendMessage(sessionId, outboundMessage);
@@ -240,11 +245,15 @@ export interface SendCommandParams {
 export async function sendCommand(params: SendCommandParams): Promise<void> {
   const { config, sessionId, taskId, messageId, command } = params;
 
+  // Dynamic lookup: use latest taskId/messageId from task-manager (handles steer/interrupt),
+  // fall back to closure-captured values
+  const currentTaskId = getCurrentTaskId(sessionId) ?? taskId;
+  const currentMessageId = getCurrentMessageId(sessionId) ?? messageId;
 
   // Build artifact update with command as data
   // Wrap command in commands array as per protocol requirement
   const artifact: A2ATaskArtifactUpdateEvent = {
-    taskId,
+    taskId: currentTaskId,
     kind: "artifact-update",
     append: false,
     lastChunk: true,
@@ -265,7 +274,7 @@ export async function sendCommand(params: SendCommandParams): Promise<void> {
   // Build JSON-RPC response
   const jsonRpcResponse = {
     jsonrpc: "2.0",
-    id: messageId,
+    id: currentMessageId,
     result: artifact,
   };
 
@@ -275,12 +284,12 @@ export async function sendCommand(params: SendCommandParams): Promise<void> {
     msgType: "agent_response",
     agentId: config.agentId,
     sessionId,
-    taskId,
+    taskId: currentTaskId,
     msgDetail: JSON.stringify(jsonRpcResponse),
   };
 
   // 📋 Log complete response body
-  logger.log(`[A2A_COMMAND] 📤 Sending A2A command: taskId: ${taskId}`);
+  logger.log(`[A2A_COMMAND] 📤 Sending A2A command: taskId: ${currentTaskId}`);
   await wsManager.sendMessage(sessionId, outboundMessage);
   logger.log(`[A2A_COMMAND] ✅ Command sent successfully`);
 }
