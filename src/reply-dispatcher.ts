@@ -3,7 +3,6 @@ import type { ClawdbotConfig, RuntimeEnv, ReplyPayload } from "openclaw/plugin-s
 import { getXYRuntime } from "./runtime.js";
 import { sendA2AResponse, sendStatusUpdate, sendReasoningTextUpdate } from "./formatter.js";
 import { resolveXYConfig } from "./config.js";
-import { getCurrentTaskId, getCurrentMessageId } from "./task-manager.js";
 import type { XYChannelConfig } from "./types.js";
 import fs from "fs/promises";
 import path from "path";
@@ -70,21 +69,10 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
   log(`[DISPATCHER-CREATE]   - taskId: ${taskId}`);
   log(`[DISPATCHER-CREATE]   - isSteerFollower: ${isSteerFollower ?? false}`);
 
-  // 初始taskId和messageId（作为fallback）
-  const initialTaskId = taskId;
-  const initialMessageId = messageId;
-
-  /**
-   * 🔑 核心改造：动态获取当前活跃的taskId和messageId
-   * 每次需要taskId时，都从TaskManager获取最新值
-   */
-  const getActiveTaskId = (): string => {
-    return getCurrentTaskId(sessionId) ?? initialTaskId;
-  };
-
-  const getActiveMessageId = (): string => {
-    return getCurrentMessageId(sessionId) ?? initialMessageId;
-  };
+  // 绑定本 dispatcher 所属消息的 taskId 和 messageId
+  // 不再动态查询 task-manager，避免 steer 打断时 taskId 串台
+  const activeTaskId = taskId;
+  const activeMessageId = messageId;
 
   const core = getXYRuntime();
   const config: XYChannelConfig = resolveXYConfig(cfg);
@@ -108,8 +96,8 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
 
     statusUpdateInterval = setInterval(() => {
       // 🔑 使用动态taskId
-      const currentTaskId = getActiveTaskId();
-      const currentMessageId = getActiveMessageId();
+      const currentTaskId = activeTaskId;
+      const currentMessageId = activeMessageId;
 
       log(`[STATUS INTERVAL] Triggering status update`);
       log(`[STATUS INTERVAL]   - sessionId: ${sessionId}`);
@@ -144,14 +132,14 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
       humanDelay: core.channel.reply.resolveHumanDelayConfig(cfg, accountId),
 
       onReplyStart: () => {
-        const currentTaskId = getActiveTaskId();
+        const currentTaskId = activeTaskId;
         log(`[REPLY START] Reply started for session ${sessionId}, taskId=${currentTaskId}, isSteerFollower=${isSteerFollower}`);
       },
 
       deliver: async (payload: ReplyPayload, info) => {
         const text = payload.text ?? "";
-        const currentTaskId = getActiveTaskId();
-        const currentMessageId = getActiveMessageId();
+        const currentTaskId = activeTaskId;
+        const currentMessageId = activeMessageId;
 
         log(`[DELIVER] sessionId=${sessionId}, taskId=${currentTaskId}, info.kind=${info?.kind}, text.length=${text.length}`);
 
@@ -190,8 +178,8 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
         }
 
         if (!hasSentResponse) {
-          const currentTaskId = getActiveTaskId();
-          const currentMessageId = getActiveMessageId();
+          const currentTaskId = activeTaskId;
+          const currentMessageId = activeMessageId;
 
           try {
             await sendStatusUpdate({
@@ -210,8 +198,8 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
       },
 
       onIdle: async () => {
-        const currentTaskId = getActiveTaskId();
-        const currentMessageId = getActiveMessageId();
+        const currentTaskId = activeTaskId;
+        const currentMessageId = activeMessageId;
 
         log(`[ON_IDLE] Reply idle`);
         log(`[ON_IDLE]   - sessionId: ${sessionId}`);
@@ -298,7 +286,7 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
       },
 
       onCleanup: () => {
-        const currentTaskId = getActiveTaskId();
+        const currentTaskId = activeTaskId;
         log(`[ON_CLEANUP] Reply cleanup, taskId=${currentTaskId}, isSteerFollower=${isSteerFollower}`);
       },
     });
@@ -315,8 +303,8 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
           return;
         }
 
-        const currentTaskId = getActiveTaskId();
-        const currentMessageId = getActiveMessageId();
+        const currentTaskId = activeTaskId;
+        const currentMessageId = activeMessageId;
 
         log(`[TOOL START] Tool: ${name}, phase: ${phase}, taskId: ${currentTaskId}`);
 
@@ -353,8 +341,8 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
           return;
         }
 
-        const currentTaskId = getActiveTaskId();
-        const currentMessageId = getActiveMessageId();
+        const currentTaskId = activeTaskId;
+        const currentMessageId = activeMessageId;
         const text = payload.text ?? "";
         const hasMedia = Boolean(payload.mediaUrl || (payload.mediaUrls?.length ?? 0) > 0);
 
@@ -399,8 +387,8 @@ export function createXYReplyDispatcher(params: CreateXYReplyDispatcherParams): 
           return;
         }
 
-        const currentTaskId = getActiveTaskId();
-        const currentMessageId = getActiveMessageId();
+        const currentTaskId = activeTaskId;
+        const currentMessageId = activeMessageId;
         const text = payload.text ?? "";
 
         try {

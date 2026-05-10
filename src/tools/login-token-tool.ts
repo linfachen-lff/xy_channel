@@ -2,7 +2,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getXYWebSocketManager } from "../client.js";
 import type { SessionContext } from "./session-manager.js";
-import { getCurrentTaskId, getCurrentMessageId } from "../task-manager.js";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { logger } from "../utils/logger.js";
 import type { OutboundWebSocketMessage } from "../types.js";
@@ -47,8 +46,8 @@ export function createLoginTokenTool(ctx: SessionContext): any {
       throw new Error("Missing required parameter: skillName must be a non-empty string");
     }
 
-    const currentTaskId = getCurrentTaskId(sessionId) ?? taskId;
-    const currentMessageId = getCurrentMessageId(sessionId) ?? messageId;
+    const currentTaskId = taskId;
+    const currentMessageId = messageId;
 
     // (1) Build and send getLoginToken artifact
     const artifactId = uuidv4();

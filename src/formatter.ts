@@ -2,10 +2,8 @@
 import { v4 as uuidv4 } from "uuid";
 import { getXYWebSocketManager } from "./client.js";
 import { logger } from "./utils/logger.js";
-import { getCurrentTaskId, getCurrentMessageId } from "./task-manager.js";
 import type {
   XYChannelConfig,
-  A2AJsonRpcResponse,
   A2ATaskArtifactUpdateEvent,
   A2ATaskStatusUpdateEvent,
   OutboundWebSocketMessage,
@@ -179,10 +177,9 @@ export async function sendStatusUpdate(params: SendStatusUpdateParams): Promise<
   const { config, sessionId, taskId, messageId, text, state, runtime } = params;
   const log = runtime?.log ?? console.log;
 
-  // Dynamic lookup: use latest taskId/messageId from task-manager (handles steer/interrupt),
-  // fall back to closure-captured values
-  const currentTaskId = getCurrentTaskId(sessionId) ?? taskId;
-  const currentMessageId = getCurrentMessageId(sessionId) ?? messageId;
+  // 直接使用调用者传入的 taskId/messageId，不再动态查询
+  const currentTaskId = taskId;
+  const currentMessageId = messageId;
 
   // Build status update event following A2A protocol standard
   const statusUpdate: A2ATaskStatusUpdateEvent = {
@@ -245,10 +242,9 @@ export interface SendCommandParams {
 export async function sendCommand(params: SendCommandParams): Promise<void> {
   const { config, sessionId, taskId, messageId, command } = params;
 
-  // Dynamic lookup: use latest taskId/messageId from task-manager (handles steer/interrupt),
-  // fall back to closure-captured values
-  const currentTaskId = getCurrentTaskId(sessionId) ?? taskId;
-  const currentMessageId = getCurrentMessageId(sessionId) ?? messageId;
+  // 直接使用调用者传入的 taskId/messageId，不再动态查询
+  const currentTaskId = taskId;
+  const currentMessageId = messageId;
 
   // Build artifact update with command as data
   // Wrap command in commands array as per protocol requirement

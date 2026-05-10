@@ -5,7 +5,6 @@ import type { XYChannelConfig } from "../types.js";
 import { logger } from "../utils/logger.js";
 import { configManager } from "../utils/config-manager.js";
 import { toolCallNudgeManager } from "../utils/tool-call-nudge-manager.js";
-import { getCurrentTaskId, getCurrentMessageId } from "../task-manager.js";
 
 export interface SessionContext {
   config: XYChannelConfig;
@@ -158,9 +157,10 @@ export function runWithSessionContext<T>(
  */
 export function getCurrentSessionContext(sessionKey?: string): SessionContext | null {
   // 1. Try AsyncLocalStorage first (correct for concurrent sessions)
+  // 直接返回原始上下文，不再动态切换 taskId，避免 steer 打断时 taskId 串台
   const alsContext = asyncLocalStorage.getStore() ?? null;
   if (alsContext) {
-    return enrichWithLatestTaskInfo(alsContext);
+    return alsContext;
   }
 
   // ALS not available — logging to understand when/why
@@ -177,7 +177,7 @@ export function getCurrentSessionContext(sessionKey?: string): SessionContext | 
     const exact = activeSessions.get(sessionKey);
     if (exact) {
       const { refCount, createdAt, ...context } = exact;
-      return enrichWithLatestTaskInfo(context);
+      return context;
     }
     // sessionKey provided but not found — don't fall back to heuristics
     logger.log(`[SESSION-MGR] sessionKey "${sessionKey}" not found in activeSessions (size=${activeSessions.size})`);
@@ -195,7 +195,7 @@ export function getCurrentSessionContext(sessionKey?: string): SessionContext | 
         return null;
       }
       const { refCount, createdAt, ...context } = entry;
-      return enrichWithLatestTaskInfo(context);
+      return context;
     }
     return null;
   }
@@ -212,7 +212,7 @@ export function getCurrentSessionContext(sessionKey?: string): SessionContext | 
     if (lastEntry) {
       logger.log(`[SESSION-MGR] 🎯 using lastRegistered session: ${lastKey}`);
       const { refCount, createdAt, ...context } = lastEntry;
-      return enrichWithLatestTaskInfo(context);
+      return context;
     }
   }
 
@@ -226,7 +226,7 @@ export function getCurrentSessionContext(sessionKey?: string): SessionContext | 
       continue;
     }
     const { refCount, createdAt, ...context } = entry;
-    return enrichWithLatestTaskInfo(context);
+    return context;
   }
 
   return null;
@@ -270,23 +270,4 @@ export function cleanupStaleSessions(): number {
  */
 export function getActiveSessionCount(): number {
   return activeSessions.size;
-}
-
-/**
- * Enrich a base session context with the latest taskId/messageId
- * from task-manager (supports interruption scenarios).
- */
-function enrichWithLatestTaskInfo(context: SessionContext): SessionContext {
-  const latestTaskId = getCurrentTaskId(context.sessionId);
-  const latestMessageId = getCurrentMessageId(context.sessionId);
-
-  if (latestTaskId && latestTaskId !== context.taskId) {
-    return {
-      ...context,
-      taskId: latestTaskId,
-      messageId: latestMessageId ?? context.messageId,
-    };
-  }
-
-  return context;
 }

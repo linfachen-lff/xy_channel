@@ -5,7 +5,6 @@ import { XYFileUploadService } from "../file-upload.js";
 import type { SessionContext } from "./session-manager.js";
 import { logger } from "../utils/logger.js";
 import type { OutboundWebSocketMessage } from "../types.js";
-import { getCurrentTaskId, getCurrentMessageId } from "../task-manager.js";
 import fetch from "node-fetch";
 import fs from "fs/promises";
 import path from "path";
@@ -139,9 +138,10 @@ b. 操作超时时间为2分钟（120秒），请勿重复调用此工具，如�
   },
 
   async execute(toolCallId: string, params: any) {
-    // Dynamic lookup: use latest taskId/messageId from task-manager (handles steer/interrupt)
-    const currentTaskId = getCurrentTaskId(sessionId) ?? taskId;
-    const currentMessageId = getCurrentMessageId(sessionId) ?? messageId;
+    // 使用闭包捕获的原始 taskId/messageId，不再动态查询 task-manager
+    // 避免 steer 打断时 taskId 串台导致文件发送到错误的 task
+    const currentTaskId = taskId;
+    const currentMessageId = messageId;
 
     // Set timeout for the entire operation (2 minutes)
     const TOOL_TIMEOUT = 120000; // 2 minutes in milliseconds
@@ -266,7 +266,7 @@ b. 操作超时时间为2分钟（120秒），请勿重复调用此工具，如�
           result: {
             kind: "artifact-update",
             append: true,
-            lastChunk: false,
+            lastChunk: true,
             final: false,
             artifact: {
               artifactId: currentTaskId,
