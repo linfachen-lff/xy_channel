@@ -217,6 +217,7 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       taskId: parsed.taskId,
       messageId: parsed.messageId,
       agentId: route.accountId,
+      deviceType,
     });
 
     // 🔑 发送初始状态更新（第二条消息也要发，用新taskId）
