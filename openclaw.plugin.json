@@ -2,6 +2,7 @@
   "id": "xiaoyi-channel",
   "channels": ["xiaoyi-channel"],
   "providers": ["xiaoyiprovider"],
+  "providerDiscoveryEntry": "./dist/provider-discovery.js",
   "skills": [],
   "configSchema": {
     "type": "object",
