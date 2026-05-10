@@ -224,6 +224,22 @@ export async function handleXYMessage(params: HandleXYMessageParams): Promise<vo
       error(`Failed to send initial status update:`, err);
     });
 
+    // 🔑 steer 模式下第二条消息（task B）发送兜底完成响应
+    // 避免客户端一直显示 task B 处于 working 状态
+    if (isSecondMessage) {
+      void sendA2AResponse({
+        config,
+        sessionId: parsed.sessionId,
+        taskId: parsed.taskId,
+        messageId: parsed.messageId,
+        text: "新指令已接收，正在结合上下文处理~",
+        append: false,
+        final: true,
+      }).catch((err) => {
+        error(`Failed to send steer fallback response:`, err);
+      });
+    }
+
     // Extract text and files from parts
     const text = extractTextFromParts(parsed.parts);
     const fileParts = extractFileParts(parsed.parts);

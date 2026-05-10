@@ -4,7 +4,6 @@ import { AsyncLocalStorage } from "async_hooks";
 import type { XYChannelConfig } from "../types.js";
 import { logger } from "../utils/logger.js";
 import { configManager } from "../utils/config-manager.js";
-import { getCurrentTaskId, getCurrentMessageId } from "../task-manager.js";
 
 export interface SessionContext {
   config: XYChannelConfig;
@@ -121,33 +120,10 @@ export function runWithSessionContext<T>(
  * This is the recommended way to access session context in tools.
  * Returns null if not running within a session context.
  *
- * Enhanced version: Automatically fetches the latest taskId from task-manager
- * to support interruption scenarios where a new message updates the taskId.
+ * 每条消息通过 runWithSessionContext 绑定自己的 taskId，
+ * 工具直接使用当前 AsyncLocalStorage 中的原始上下文，
+ * 不再动态切换到最新 taskId，避免 steer 打断时 taskId 串台。
  */
 export function getCurrentSessionContext(): SessionContext | null {
-  // 1. Get base context from AsyncLocalStorage
-  const context = asyncLocalStorage.getStore() ?? null;
-
-  if (!context) {
-    return null;
-  }
-
-  // 2. Get latest taskId and messageId from task-manager
-  const latestTaskId = getCurrentTaskId(context.sessionId);
-  const latestMessageId = getCurrentMessageId(context.sessionId);
-
-  // 3. If task-manager has a newer taskId, use the latest value
-  if (latestTaskId && latestTaskId !== context.taskId) {
-
-    // Return updated context (create new object, don't modify original)
-    return {
-      ...context,
-      taskId: latestTaskId,
-      messageId: latestMessageId ?? context.messageId,
-    };
-  }
-
-  // 4. No update needed, return original context
-
-  return context;
+  return asyncLocalStorage.getStore() ?? null;
 }
